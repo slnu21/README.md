@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editors
+.idea/
+*.swp
+*~
+
+# Node (안전망 — src/.gitignore 가 하위에서 처리)
+node_modules/
+dist/
+
+# Rust / Tauri 빌드 산출물
+target/
+src/src-tauri/gen/
+
+# Logs / temp
+*.log
