@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<!--
+  md-reader — UI 디자인 시안 (Manuscript)
+  · 단일 자체완결 파일. 빌드/네트워크 불필요. CDN·원격 자산 없음(오프라인 원칙).
+  · 실제 코드 매핑: 컬러 = src/app/themes/index.ts 의 5토큰(--bg/--fg/--accent/--surface/--border) × light/dark/paper.
+                   라벨 = src/app/locales/{ko,en}.json 키. 레이아웃 = docs/design/architecture.md 3영역 셸.
+  · 파생색은 color-mix()로 5토큰에서 계산 → 3테마 자동 대응(하드코딩 최소화).
+  · 폰트 = Windows 11 기본 오프라인 폰트만(Segoe UI Variable / Cascadia Code / Palatino Linotype).
+-->
+<html lang="ko" data-theme="light" data-lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>md-reader — 시안</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='7' fill='%232563eb'/%3E%3C/svg%3E" />
+<style>
+/* ============================================================
+   1. 테마 토큰 (실제 themes/index.ts 값과 동일)
+   ============================================================ */
+:root[data-theme="light"]{
+  --bg:#ffffff; --fg:#1a1a1a; --accent:#2563eb; --surface:#f5f5f5; --border:#e2e2e2;
+  --shadow: 0 1px 2px rgba(20,20,20,.05), 0 14px 40px rgba(20,20,20,.11);
+  color-scheme: light;
+}
+:root[data-theme="dark"]{
+  --bg:#1e1e1e; --fg:#e6e6e6; --accent:#60a5fa; --surface:#252526; --border:#333333;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 44px rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+:root[data-theme="paper"]{
+  --bg:#f4ecd8; --fg:#3b2f2f; --accent:#8a5a2b; --surface:#efe6d0; --border:#dcceb0;
+  --shadow: 0 1px 2px rgba(59,47,47,.07), 0 16px 40px rgba(59,47,47,.17);
+  color-scheme: light;
+}
+
+/* 파생 토큰 — 5개 코어 토큰에서 계산. 3테마 모두 자동 대응 */
+:root{
+  --muted:  color-mix(in srgb, var(--fg) 50%, var(--bg));
+  --faint:  color-mix(in srgb, var(--fg) 28%, var(--bg));
+  --hover:  color-mix(in srgb, var(--fg) 7%,  var(--bg));
+  --sunken: color-mix(in srgb, var(--bg) 94%, #000);
+  --active-bg:  color-mix(in srgb, var(--accent) 13%, var(--bg));
+  --active-line:color-mix(in srgb, var(--accent) 40%, var(--border));
+  --ring:   color-mix(in srgb, var(--accent) 42%, transparent);
+  --tok-code: color-mix(in srgb, var(--accent) 52%, var(--fg));
+
+  /* 타이포 — Windows 11 기본 오프라인 폰트 */
+  --ui-font: "Segoe UI Variable Text","Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,sans-serif;
+  --mono-font: "Cascadia Code","Cascadia Mono",ui-monospace,"SF Mono",Consolas,monospace;
+  --read-font: "Palatino Linotype","Book Antiqua",Georgia,"Times New Roman",serif;
+
+  --r-sm:6px; --r-md:9px; --r-lg:12px;
+}
+
+/* ============================================================
+   2. 리셋 & 데스크 프레임
+   ============================================================ */
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body{
+  font-family:var(--ui-font);
+  background: color-mix(in srgb, var(--fg) 15%, var(--bg));
+  display:grid; place-items:center;
+  padding:26px;
+  transition: background-color .28s ease;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+
+/* 앱 창 — 1200×800(실제 window 크기)로 프레이밍한 시안 */
+.app{
+  width:min(1200px, 100%);
+  height:min(800px, calc(100vh - 52px));
+  background:var(--bg); color:var(--fg);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  display:grid;
+  grid-template-columns:248px 1fr;
+  grid-template-rows:44px 1fr 27px;
+  grid-template-areas:
+    "titlebar titlebar"
+    "sidebar  content"
+    "statusbar statusbar";
+  transition: background-color .26s ease, color .26s ease, border-color .26s ease, box-shadow .26s ease;
+}
+
+/* ============================================================
+   3. 상단바
+   ============================================================ */
+.titlebar{
+  grid-area:titlebar;
+  display:flex; align-items:center; gap:8px;
+  padding:0 8px 0 14px;
+  border-bottom:1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+  transition: background-color .26s ease, border-color .26s ease;
+  -webkit-app-region:drag; /* 실제 앱에서 드래그 영역 힌트 */
+}
+.brand{ display:flex; align-items:center; gap:8px; font-weight:600; font-size:13.5px; letter-spacing:.01em; }
+.brand .dot{ width:9px; height:9px; border-radius:50%; background:var(--accent);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+
+.sep{ width:1px; height:18px; background:var(--border); margin:0 4px; }
+
+.tgroup{ display:flex; align-items:center; gap:2px; -webkit-app-region:no-drag; }
+.tbtn{
+  display:inline-flex; align-items:center; gap:6px;
+  height:28px; padding:0 9px;
+  border:1px solid transparent; border-radius:var(--r-sm);
+  background:transparent; color:var(--fg); font:inherit; font-size:12.5px;
+  cursor:pointer; white-space:nowrap;
+  transition: background-color .14s ease, border-color .14s ease, color .14s ease;
+}
+.tbtn:hover{ background:var(--hover); }
+.tbtn .ic{ color:var(--muted); }
+.tbtn:hover .ic{ color:var(--accent); }
+.tbtn.icon{ padding:0; width:28px; justify-content:center; }
+
+.spacer{ flex:1; }
+
+.search{
+  -webkit-app-region:no-drag;
+  display:flex; align-items:center; gap:7px;
+  height:28px; width:210px; padding:0 10px;
+  background:var(--bg); border:1px solid var(--border); border-radius:999px;
+  color:var(--muted);
+  transition: border-color .16s ease, box-shadow .16s ease, width .2s ease;
+}
+.search:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); width:230px; }
+.search .ic{ flex:none; }
+.search input{
+  border:0; outline:0; background:transparent; color:var(--fg);
+  font:inherit; font-size:12.5px; width:100%;
+}
+.search input::placeholder{ color:var(--muted); }
+
+/* 세그먼트 컨트롤 (테마 / 언어) */
+.seg{
+  -webkit-app-region:no-drag;
+  display:inline-flex; align-items:center;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:999px; padding:2px; gap:2px;
+  transition: background-color .2s ease, border-color .2s ease;
+}
+.seg button{
+  display:inline-flex; align-items:center; justify-content:center; gap:5px;
+  height:24px; min-width:26px; padding:0 8px;
+  border:0; border-radius:999px; background:transparent; color:var(--muted);
+  font:inherit; font-size:11.5px; font-weight:600; cursor:pointer;
+  transition: background-color .16s ease, color .16s ease;
+}
+.seg button:hover{ color:var(--fg); }
+.seg button[aria-pressed="true"]{ background:var(--bg); color:var(--accent);
+  box-shadow:0 1px 2px color-mix(in srgb, var(--fg) 14%, transparent); }
+.seg.lang button{ font-family:var(--ui-font); letter-spacing:.02em; }
+
+/* 창 컨트롤(윈도우 느낌) */
+.wctl{ display:flex; align-items:center; gap:2px; margin-left:4px; -webkit-app-region:no-drag; }
+.wctl button{
+  width:30px; height:28px; border:0; background:transparent; color:var(--muted);
+  border-radius:var(--r-sm); cursor:pointer; display:grid; place-items:center;
+  transition: background-color .14s ease, color .14s ease;
+}
+.wctl button:hover{ background:var(--hover); color:var(--fg); }
+.wctl button.close:hover{ background:#e81123; color:#fff; }
+
+/* ============================================================
+   4. 사이드바
+   ============================================================ */
+.sidebar{
+  grid-area:sidebar;
+  border-right:1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 60%, var(--bg));
+  overflow:auto; padding:10px 8px;
+  transition: background-color .26s ease, border-color .26s ease;
+}
+.sec-label{
+  display:flex; align-items:center; gap:6px;
+  font-size:10.5px; font-weight:700; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--muted); padding:12px 8px 6px;
+}
+.sec-label:first-child{ padding-top:2px; }
+.sec-label .ic{ width:13px; height:13px; }
+
+.tree{ list-style:none; margin:0; padding:0; }
+.node{
+  display:flex; align-items:center; gap:7px;
+  height:28px; padding:0 8px; border-radius:var(--r-sm);
+  color:var(--fg); font-size:13px; cursor:pointer; user-select:none;
+  transition: background-color .12s ease, color .12s ease;
+}
+.node:hover{ background:var(--hover); }
+.node .ic{ flex:none; color:var(--muted); }
+.node.folder > .chev{ transition: transform .16s ease; color:var(--muted); }
+.node.folder.open > .chev{ transform:rotate(90deg); }
+.node .name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.node .badge{ margin-left:auto; font-size:10px; color:var(--muted); }
+.children{ list-style:none; margin:0; padding:0 0 0 16px; }
+.node.file .ic{ color:color-mix(in srgb, var(--accent) 34%, var(--muted)); }
+.node.active{ background:var(--active-bg); color:var(--fg); font-weight:600;
+  box-shadow: inset 2px 0 0 var(--accent); }
+.node.active .ic{ color:var(--accent); }
+.node.fav .ic{ color:#e0a83a; }
+
+/* ============================================================
+   5. 콘텐츠(탭 + 분할)
+   ============================================================ */
+.content{ grid-area:content; min-width:0; min-height:0; display:flex; flex-direction:column; }
+
+.tabbar{
+  display:flex; align-items:stretch; height:38px;
+  border-bottom:1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 40%, var(--bg));
+  padding:0 6px; gap:2px;
+  transition: background-color .26s ease, border-color .26s ease;
+}
+.tab{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:0 10px 0 12px; margin-top:5px;
+  border:1px solid transparent; border-bottom:0;
+  border-radius:var(--r-sm) var(--r-sm) 0 0;
+  background:transparent; color:var(--muted); font:inherit; font-size:12.5px;
+  cursor:pointer; max-width:180px;
+  transition: background-color .14s ease, color .14s ease, border-color .14s ease;
+}
+.tab:hover{ background:var(--hover); color:var(--fg); }
+.tab .tname{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tab .close{ display:grid; place-items:center; width:16px; height:16px; border-radius:4px; color:var(--muted); }
+.tab .close:hover{ background:color-mix(in srgb, var(--fg) 12%, transparent); color:var(--fg); }
+.tab .dirty{ width:7px; height:7px; border-radius:50%; background:var(--accent); flex:none; }
+.tab.active{
+  background:var(--bg); color:var(--fg); font-weight:600;
+  border-color:var(--border);
+  box-shadow: 0 -2px 0 var(--accent) inset;
+}
+.tab-add{ align-self:center; margin-left:2px; width:26px; height:26px; border:0; border-radius:var(--r-sm);
+  background:transparent; color:var(--muted); cursor:pointer; display:grid; place-items:center; }
+.tab-add:hover{ background:var(--hover); color:var(--fg); }
+
+/* 분할 뷰 */
+.split{ flex:1; min-height:0; display:grid; grid-template-columns:1fr 7px 1fr; }
+
+/* --- 에디터(원고 / mono) --- */
+.editor{
+  min-width:0; overflow:auto;
+  background:var(--bg);
+  font-family:var(--mono-font); font-size:13px; line-height:1.62;
+  padding:12px 0 60px;
+  transition: background-color .26s ease;
+}
+.row{ display:flex; align-items:baseline; min-height:1.62em; padding:0 4px; }
+.row .gutter{
+  flex:none; width:42px; padding-right:14px; text-align:right;
+  color:var(--faint); font-size:12px; user-select:none;
+  font-variant-numeric:tabular-nums;
+}
+.row .line{ white-space:pre-wrap; word-break:break-word; color:var(--fg); }
+.row.active{ background: color-mix(in srgb, var(--accent) 6%, var(--bg)); }
+.row.active .gutter{ color:var(--accent); }
+
+/* 문법 하이라이트 토큰 (전부 토큰에서 파생) */
+.t-h{ color:var(--accent); font-weight:600; }
+.t-b{ color:var(--fg); font-weight:700; }
+.t-m{ color:var(--muted); }
+.t-x{ color:var(--accent); font-weight:700; }
+.t-q{ color:var(--muted); font-style:italic; }
+.t-c{ color:var(--tok-code); }
+.t-f{ color:var(--muted); }
+.t-cf{ color:var(--faint); }
+
+.caret{ display:inline-block; width:1.5px; height:1.15em; margin-left:1px;
+  background:var(--accent); transform:translateY(2px); animation:blink 1.05s step-end infinite; }
+@keyframes blink{ 50%{ opacity:0; } }
+
+/* --- 이음새(seam) : 시그니처 --- */
+.seam{
+  position:relative; cursor:col-resize;
+  background: linear-gradient(to right,
+    transparent, color-mix(in srgb, var(--accent) 24%, var(--border)), transparent);
+  transition: background .2s ease;
+}
+.seam::before{
+  content:""; position:absolute; inset:0 0 0 3px; width:1px;
+  background: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+.seam::after{ /* 핸들 */
+  content:""; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:4px; height:34px; border-radius:999px;
+  background: color-mix(in srgb, var(--accent) 45%, var(--border));
+  transition: height .18s ease, background .18s ease;
+}
+.seam:hover::after{ height:52px; background:var(--accent); }
+
+/* --- 미리보기(조판 페이지 / serif) --- */
+.preview{
+  min-width:0; overflow:auto;
+  background:var(--sunken);
+  padding:26px 26px 60px;
+  transition: background-color .26s ease;
+}
+.page{
+  max-width:660px; margin:0 auto;
+  background:var(--bg);
+  border:1px solid color-mix(in srgb, var(--fg) 8%, var(--border));
+  border-radius:var(--r-md);
+  box-shadow:var(--shadow);
+  padding:44px 52px 52px;
+  font-family:var(--read-font); color:var(--fg);
+  transition: background-color .26s ease, border-color .26s ease, box-shadow .26s ease;
+}
+/* paper 테마 전용: 은은한 종이 결 */
+:root[data-theme="paper"] .page{
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 3px,
+      color-mix(in srgb, var(--fg) 2.2%, transparent) 3px 4px);
+}
+
+.page h1{ font-size:30px; line-height:1.18; margin:0 0 6px; font-weight:600; letter-spacing:-.01em; }
+.page .lead{ color:var(--muted); font-size:16.5px; margin:0 0 8px; }
+.page h1 + .lead{ padding-bottom:14px; border-bottom:1px solid var(--border); margin-bottom:22px; }
+.page h2{ font-size:21px; margin:30px 0 12px; font-weight:600;
+  padding-bottom:5px; border-bottom:1px solid var(--border); }
+.page p{ font-size:16px; line-height:1.75; margin:0 0 15px; }
+
+.page ol{ margin:0 0 16px; padding-left:24px; font-size:16px; line-height:1.75; }
+.page ol li{ margin:4px 0; padding-left:4px; }
+
+.tasklist{ list-style:none; margin:0 0 16px; padding:0; }
+.tasklist li{ display:flex; align-items:baseline; gap:11px; font-size:16px; line-height:1.7; margin:7px 0; }
+.tasklist .box{
+  flex:none; width:17px; height:17px; border-radius:5px;
+  border:1.6px solid var(--faint); position:relative; transform:translateY(3px);
+}
+.tasklist li.checked .box{ background:var(--accent); border-color:var(--accent); }
+.tasklist li.checked .box::after{
+  content:""; position:absolute; left:5px; top:2px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(42deg);
+}
+.tasklist li.checked{ color:var(--muted); }
+
+.page blockquote{
+  margin:0 0 18px; padding:6px 0 6px 18px;
+  border-left:3px solid var(--accent);
+  color:var(--muted); font-style:italic; font-size:16px;
+}
+
+.page table{ width:100%; border-collapse:collapse; margin:0 0 18px; font-size:14.5px;
+  font-family:var(--ui-font); }
+.page th,.page td{ text-align:left; padding:8px 12px; border:1px solid var(--border); }
+.page thead th{ background:var(--surface); font-weight:600; }
+.page tbody tr:nth-child(even) td{ background: color-mix(in srgb, var(--surface) 45%, var(--bg)); }
+
+.page code{
+  font-family:var(--mono-font); font-size:.86em;
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  color:var(--tok-code); padding:2px 6px; border-radius:5px;
+}
+.page kbd{
+  font-family:var(--mono-font); font-size:12px;
+  background:var(--surface); border:1px solid var(--border);
+  border-bottom-width:2px; border-radius:5px; padding:2px 7px; margin-right:4px;
+}
+.kbds{ list-style:none; margin:0; padding:0; font-family:var(--ui-font); }
+.kbds li{ display:flex; align-items:center; gap:4px; margin:9px 0; font-size:15px; }
+.kbds li span{ color:var(--muted); margin-left:6px; }
+
+.page .math{ font-family:var(--read-font); font-style:italic; font-size:17px;
+  padding:0 3px; letter-spacing:.01em; }
+.page .math sup{ font-style:normal; }
+
+.diagram{ margin:20px 0 4px; padding:18px; text-align:center;
+  background: color-mix(in srgb, var(--surface) 50%, var(--bg));
+  border:1px dashed var(--border); border-radius:var(--r-md); }
+.diagram svg{ max-width:100%; height:auto; }
+.diagram .cap{ display:block; margin-top:10px; font-family:var(--ui-font);
+  font-size:11.5px; color:var(--muted); letter-spacing:.03em; }
+
+/* ============================================================
+   6. 상태바
+   ============================================================ */
+.statusbar{
+  grid-area:statusbar;
+  display:flex; align-items:center; gap:0;
+  border-top:1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+  font-size:11.5px; color:var(--muted); padding:0 4px;
+  font-variant-numeric:tabular-nums;
+  transition: background-color .26s ease, border-color .26s ease;
+}
+.st{ display:inline-flex; align-items:center; gap:6px; padding:0 12px; height:100%; }
+.st + .st{ border-left:1px solid var(--border); }
+.st.right{ margin-left:auto; }
+.st .dot-ok{ width:7px; height:7px; border-radius:50%; background:#3fb950; }
+.st .dot-dirty{ width:7px; height:7px; border-radius:50%; background:var(--accent); }
+.st strong{ color:var(--fg); font-weight:600; }
+
+/* ============================================================
+   7. 아이콘
+   ============================================================ */
+.ic{ width:16px; height:16px; display:inline-block; vertical-align:middle; flex:none;
+  fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.sprite{ position:absolute; width:0; height:0; overflow:hidden; }
+
+/* ============================================================
+   8. 접근성 & 포커스
+   ============================================================ */
+:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+.tbtn:focus-visible, .seg button:focus-visible{ outline-offset:1px; }
+
+/* ============================================================
+   9. 모션(로드 연출) — reduced-motion 존중
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference){
+  .titlebar{ animation:fadeDown .45s ease both; }
+  .sidebar{ animation:slideRight .5s cubic-bezier(.2,.7,.2,1) both .05s; }
+  .tabbar{ animation:fadeDown .45s ease both .12s; }
+  .statusbar{ animation:fadeUp .45s ease both .18s; }
+  .row{ animation:riseIn .38s ease both; animation-delay: calc(var(--i) * 22ms + 240ms); }
+  .page{ animation:pageIn .6s cubic-bezier(.2,.7,.2,1) both .34s; }
+  .seam::after{ animation:fadeIn .5s ease both .5s; }
+}
+@keyframes fadeDown{ from{ opacity:0; transform:translateY(-6px); } }
+@keyframes fadeUp{ from{ opacity:0; transform:translateY(6px); } }
+@keyframes fadeIn{ from{ opacity:0; } }
+@keyframes slideRight{ from{ opacity:0; transform:translateX(-14px); } }
+@keyframes riseIn{ from{ opacity:0; transform:translateY(5px); } }
+@keyframes pageIn{ from{ opacity:0; transform:translateY(18px) scale(.985); } }
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ animation-duration:.001ms !important; animation-delay:0ms !important;
+    transition-duration:.001ms !important; }
+  .caret{ animation:none !important; }
+}
+
+/* ============================================================
+   10. 반응형 (≤ 900px : 사이드바 접힘, 패널 세로 스택)
+   ============================================================ */
+@media (max-width:900px){
+  body{ padding:0; }
+  .app{ width:100%; height:100vh; border-radius:0; border:0; grid-template-columns:1fr; }
+  .sidebar{ display:none; }
+  .app{ grid-template-areas:"titlebar" "content" "statusbar"; grid-template-rows:44px 1fr 27px; }
+  .split{ grid-template-columns:1fr; grid-template-rows:1fr 7px 1fr; }
+  .seam{ cursor:row-resize; background:linear-gradient(to bottom, transparent,
+    color-mix(in srgb, var(--accent) 24%, var(--border)), transparent); }
+  .seam::before{ inset:3px 0 0 0; width:auto; height:1px; }
+  .seam::after{ width:34px; height:4px; }
+  .search{ width:150px; }
+  .search:focus-within{ width:160px; }
+}
+@media (max-width:620px){
+  .tgroup.actions .tbtn .lbl{ display:none; }
+  .tbtn{ padding:0 8px; }
+  .search{ display:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- 아이콘 스프라이트 -->
+<svg class="sprite" aria-hidden="true"><defs>
+<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+<symbol id="i-paper" viewBox="0 0 24 24"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M9 10h6M9 13.5h6M9 17h4"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M8 3v5h7V3M8 21v-6h8v6"/></symbol>
+<symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V4M8.5 7.5L12 4l3.5 3.5"/><path d="M5 14v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="i-min" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="i-max" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5"/></symbol>
+</g></defs></svg>
+
+<main class="app" role="application" aria-label="md-reader">
+
+  <!-- 상단바 -->
+  <header class="titlebar">
+    <div class="brand"><span class="dot"></span><span data-i18n="app.name">md-reader</span></div>
+    <span class="sep"></span>
+    <div class="tgroup actions">
+      <button class="tbtn" id="btnOpenFile"><svg class="ic"><use href="#i-file"/></svg><span class="lbl" data-i18n="menu.openFile">파일 열기</span></button>
+      <button class="tbtn" id="btnOpenFolder"><svg class="ic"><use href="#i-folder"/></svg><span class="lbl" data-i18n="menu.openFolder">폴더 열기</span></button>
+    </div>
+    <span class="sep"></span>
+    <div class="tgroup actions">
+      <button class="tbtn" id="btnSave"><svg class="ic"><use href="#i-save"/></svg><span class="lbl" data-i18n="menu.save">저장</span></button>
+      <button class="tbtn" id="btnExport"><svg class="ic"><use href="#i-export"/></svg><span class="lbl" data-i18n="menu.export">내보내기</span></button>
+    </div>
+
+    <span class="spacer"></span>
+
+    <label class="search">
+      <svg class="ic"><use href="#i-search"/></svg>
+      <input type="text" id="searchInput" data-i18n-ph="search.placeholder" placeholder="검색..." aria-label="검색" />
+    </label>
+
+    <div class="seg theme" role="group" data-i18n-aria-group="tt.theme">
+      <button data-theme-set="light" aria-pressed="true"  title="라이트 테마" data-i18n-title="tt.theme.light"><svg class="ic"><use href="#i-sun"/></svg></button>
+      <button data-theme-set="dark"  aria-pressed="false" title="다크 테마"  data-i18n-title="tt.theme.dark"><svg class="ic"><use href="#i-moon"/></svg></button>
+      <button data-theme-set="paper" aria-pressed="false" title="페이퍼 테마" data-i18n-title="tt.theme.paper"><svg class="ic"><use href="#i-paper"/></svg></button>
+    </div>
+
+    <div class="seg lang" role="group">
+      <button data-lang-set="ko" aria-pressed="true">한</button>
+      <button data-lang-set="en" aria-pressed="false">EN</button>
+    </div>
+
+    <div class="wctl">
+      <button title="최소화" data-i18n-title="a.min" aria-label="최소화"><svg class="ic"><use href="#i-min"/></svg></button>
+      <button title="최대화" data-i18n-title="a.max" aria-label="최대화"><svg class="ic"><use href="#i-max"/></svg></button>
+      <button class="close" title="닫기" data-i18n-title="a.close" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+  </header>
+
+  <!-- 사이드바 -->
+  <aside class="sidebar" aria-label="workspace">
+    <div class="sec-label"><svg class="ic"><use href="#i-folder"/></svg><span data-i18n="sidebar.workspace">워크스페이스</span></div>
+    <ul class="tree">
+      <li>
+        <div class="node folder open" tabindex="0"><svg class="ic chev"><use href="#i-chev"/></svg><svg class="ic"><use href="#i-folder"/></svg><span class="name">notes</span></div>
+        <ul class="children">
+          <li><div class="node file active" tabindex="0"><svg class="ic"><use href="#i-file"/></svg><span class="name">README.md</span></div></li>
+          <li><div class="node file" tabindex="0"><svg class="ic"><use href="#i-file"/></svg><span class="name">guide.md</span></div></li>
+          <li><div class="node file" tabindex="0"><svg class="ic"><use href="#i-file"/></svg><span class="name">ideas.md</span></div></li>
+        </ul>
+      </li>
+      <li>
+        <div class="node folder" tabindex="0"><svg class="ic chev"><use href="#i-chev"/></svg><svg class="ic"><use href="#i-folder"/></svg><span class="name">docs</span><span class="badge">12</span></div>
+      </li>
+    </ul>
+
+    <div class="sec-label"><svg class="ic"><use href="#i-star"/></svg><span data-i18n="sidebar.favorites">즐겨찾기</span></div>
+    <ul class="tree">
+      <li><div class="node file fav" tabindex="0"><svg class="ic"><use href="#i-star"/></svg><span class="name">spec.md</span></div></li>
+    </ul>
+
+    <div class="sec-label"><svg class="ic"><use href="#i-clock"/></svg><span data-i18n="sidebar.recent">최근</span></div>
+    <ul class="tree">
+      <li><div class="node file" tabindex="0"><svg class="ic"><use href="#i-clock"/></svg><span class="name">changelog.md</span></div></li>
+      <li><div class="node file" tabindex="0"><svg class="ic"><use href="#i-clock"/></svg><span class="name">todo.md</span></div></li>
+    </ul>
+  </aside>
+
+  <!-- 콘텐츠 -->
+  <div class="content">
+    <div class="tabbar" role="tablist">
+      <button class="tab active" role="tab" data-doc="readme" aria-selected="true">
+        <span class="tname">README.md</span>
+        <span class="close" aria-label="close"><svg class="ic" style="width:14px;height:14px"><use href="#i-x"/></svg></span>
+      </button>
+      <button class="tab" role="tab" data-doc="guide" aria-selected="false">
+        <span class="dirty" aria-hidden="true"></span>
+        <span class="tname">guide.md</span>
+        <span class="close" aria-label="close"><svg class="ic" style="width:14px;height:14px"><use href="#i-x"/></svg></span>
+      </button>
+      <button class="tab-add" aria-label="새 탭" title="새 탭"><svg class="ic"><use href="#i-plus"/></svg></button>
+    </div>
+
+    <div class="split">
+      <section class="editor" id="editor" aria-label="editor"></section>
+      <div class="seam" role="separator" aria-orientation="vertical" aria-label="resize"></div>
+      <section class="preview" aria-label="preview"><article class="page" id="page"></article></section>
+    </div>
+  </div>
+
+  <!-- 상태바 -->
+  <footer class="statusbar">
+    <span class="st"><span class="dot-ok" id="stStateDot"></span><span id="stState">저장됨</span></span>
+    <span class="st"><span data-i18n="status.ln">줄</span> <strong id="stLn">3</strong>, <span data-i18n="status.col">열</span> <strong id="stCol">55</strong></span>
+    <span class="st"><strong id="stWords">41</strong> <span data-i18n="status.words">단어</span></span>
+    <span class="st right">Markdown</span>
+    <span class="st"><span id="stTheme">Light</span></span>
+    <span class="st">UTF-8</span>
+  </footer>
+
+</main>
+
+<script>
+/* ============================================================
+   i18n — 실제 locales/{ko,en}.json 키 + 시안 전용 소량
+   ============================================================ */
+const I18N = {
+  ko:{
+    "app.name":"md-reader","menu.openFile":"파일 열기","menu.openFolder":"폴더 열기",
+    "menu.save":"저장","menu.export":"내보내기",
+    "sidebar.workspace":"워크스페이스","sidebar.favorites":"즐겨찾기","sidebar.recent":"최근",
+    "search.placeholder":"검색...",
+    "status.ln":"줄","status.col":"열","status.words":"단어",
+    "status.saved":"저장됨","status.unsaved":"수정됨",
+    "tt.theme.light":"라이트 테마","tt.theme.dark":"다크 테마","tt.theme.paper":"페이퍼 테마",
+    "a.min":"최소화","a.max":"최대화","a.close":"닫기",
+    "theme.light":"라이트","theme.dark":"다크","theme.paper":"페이퍼"
+  },
+  en:{
+    "app.name":"md-reader","menu.openFile":"Open File","menu.openFolder":"Open Folder",
+    "menu.save":"Save","menu.export":"Export",
+    "sidebar.workspace":"Workspace","sidebar.favorites":"Favorites","sidebar.recent":"Recent",
+    "search.placeholder":"Search...",
+    "status.ln":"Ln","status.col":"Col","status.words":"words",
+    "status.saved":"Saved","status.unsaved":"Unsaved",
+    "tt.theme.light":"Light theme","tt.theme.dark":"Dark theme","tt.theme.paper":"Paper theme",
+    "a.min":"Minimize","a.max":"Maximize","a.close":"Close",
+    "theme.light":"Light","theme.dark":"Dark","theme.paper":"Paper"
+  }
+};
+
+/* ============================================================
+   샘플 문서 — 소스(줄 배열, 하이라이트 HTML) + 조판 프리뷰 HTML
+   ============================================================ */
+const DIAGRAM = (a,b)=>`<figure class="diagram"><svg viewBox="0 0 300 66" width="300" role="img" aria-label="${a} to ${b}">
+<g fill="none" stroke="currentColor" stroke-width="1.6">
+<rect x="18" y="18" width="96" height="34" rx="8" style="stroke:var(--accent)"/>
+<rect x="186" y="18" width="96" height="34" rx="8" style="stroke:var(--accent)"/>
+<path d="M120 35h58" style="stroke:var(--muted)"/><path d="M172 30l8 5-8 5" style="stroke:var(--muted)"/>
+</g>
+<text x="66" y="40" text-anchor="middle" font-family="var(--ui-font)" font-size="14" fill="var(--fg)">${a}</text>
+<text x="234" y="40" text-anchor="middle" font-family="var(--ui-font)" font-size="14" fill="var(--fg)">${b}</text>
+</svg><span class="cap">mermaid</span></figure>`;
+
+const DOCS = {
+  readme:{
+    dirty:false, ln:3, col:55, words:{ko:39,en:41}, active:2,
+    ko:{
+      src:[
+        '<span class="t-h">#</span> <span class="t-h">md-reader</span>','',
+        '가볍고 100% 오프라인인 마크다운 <span class="t-b">**리더 &amp; 에디터**</span>.','',
+        '<span class="t-h">##</span> <span class="t-h">기능</span>','',
+        '<span class="t-m">- [</span><span class="t-x">x</span><span class="t-m">]</span> 파일 / 폴더 열기',
+        '<span class="t-m">- [</span><span class="t-x">x</span><span class="t-m">]</span> 실시간 분할 미리보기',
+        '<span class="t-m">- [ ]</span> HTML / PDF 내보내기','',
+        '<span class="t-q">&gt; 빠른 실행. 적은 메모리. 오프라인으로 온전히 내 것.</span>','',
+        '<span class="t-m">| 테마  | 느낌   |</span>',
+        '<span class="t-m">| ----- | ------ |</span>',
+        '<span class="t-m">| light | 산뜻함 |</span>',
+        '<span class="t-m">| dark  | 집중   |</span>',
+        '<span class="t-m">| paper | 따뜻함 |</span>','',
+        '인라인 <span class="t-c">`코드`</span> 와 수식: <span class="t-c">$E = mc^2$</span>.','',
+        '<span class="t-f">```mermaid</span>',
+        '<span class="t-cf">graph LR; A[작성] --&gt; B[읽기];</span>',
+        '<span class="t-f">```</span>'
+      ],
+      html:`<h1>md-reader</h1>
+<p class="lead">가볍고 100% 오프라인인 마크다운 <strong>리더 &amp; 에디터</strong>.</p>
+<h2>기능</h2>
+<ul class="tasklist">
+  <li class="checked"><span class="box"></span>파일 / 폴더 열기</li>
+  <li class="checked"><span class="box"></span>실시간 분할 미리보기</li>
+  <li><span class="box"></span>HTML / PDF 내보내기</li>
+</ul>
+<blockquote>빠른 실행. 적은 메모리. 오프라인으로 온전히 내 것.</blockquote>
+<table><thead><tr><th>테마</th><th>느낌</th></tr></thead>
+<tbody><tr><td>light</td><td>산뜻함</td></tr><tr><td>dark</td><td>집중</td></tr><tr><td>paper</td><td>따뜻함</td></tr></tbody></table>
+<p>인라인 <code>코드</code> 와 수식: <span class="math"><i>E</i> = <i>m</i><i>c</i><sup>2</sup></span>.</p>
+${DIAGRAM('작성','읽기')}`
+    },
+    en:{
+      src:[
+        '<span class="t-h">#</span> <span class="t-h">md-reader</span>','',
+        'A lightweight markdown <span class="t-b">**reader &amp; editor**</span> — 100% offline.','',
+        '<span class="t-h">##</span> <span class="t-h">Features</span>','',
+        '<span class="t-m">- [</span><span class="t-x">x</span><span class="t-m">]</span> Open file / folder',
+        '<span class="t-m">- [</span><span class="t-x">x</span><span class="t-m">]</span> Live split preview',
+        '<span class="t-m">- [ ]</span> Export to HTML / PDF','',
+        '<span class="t-q">&gt; Fast to start. Light on memory. Yours, offline.</span>','',
+        '<span class="t-m">| Theme | Mood    |</span>',
+        '<span class="t-m">| ----- | ------- |</span>',
+        '<span class="t-m">| light | crisp   |</span>',
+        '<span class="t-m">| dark  | focused |</span>',
+        '<span class="t-m">| paper | warm    |</span>','',
+        'Inline <span class="t-c">`code`</span> and math: <span class="t-c">$E = mc^2$</span>.','',
+        '<span class="t-f">```mermaid</span>',
+        '<span class="t-cf">graph LR; A[write] --&gt; B[read];</span>',
+        '<span class="t-f">```</span>'
+      ],
+      html:`<h1>md-reader</h1>
+<p class="lead">A lightweight markdown <strong>reader &amp; editor</strong> — 100% offline.</p>
+<h2>Features</h2>
+<ul class="tasklist">
+  <li class="checked"><span class="box"></span>Open file / folder</li>
+  <li class="checked"><span class="box"></span>Live split preview</li>
+  <li><span class="box"></span>Export to HTML / PDF</li>
+</ul>
+<blockquote>Fast to start. Light on memory. Yours, offline.</blockquote>
+<table><thead><tr><th>Theme</th><th>Mood</th></tr></thead>
+<tbody><tr><td>light</td><td>crisp</td></tr><tr><td>dark</td><td>focused</td></tr><tr><td>paper</td><td>warm</td></tr></tbody></table>
+<p>Inline <code>code</code> and math: <span class="math"><i>E</i> = <i>m</i><i>c</i><sup>2</sup></span>.</p>
+${DIAGRAM('write','read')}`
+    }
+  },
+
+  guide:{
+    dirty:true, ln:5, col:38, words:{ko:24,en:27}, active:4,
+    ko:{
+      src:[
+        '<span class="t-h">#</span> <span class="t-h">시작하기</span>','',
+        '<span class="t-m">1.</span> 상단바에서 폴더를 엽니다.',
+        '<span class="t-m">2.</span> 사이드바 트리에서 파일을 고릅니다.',
+        '<span class="t-m">3.</span> 왼쪽에 입력하면 오른쪽이 바로 조판됩니다.','',
+        '<span class="t-q">&gt; 팁: 이음새를 끌어 분할 비율을 조절하세요.</span>','',
+        '<span class="t-h">##</span> <span class="t-h">단축키</span>','',
+        '<span class="t-m">-</span> <span class="t-c">`Ctrl`</span> <span class="t-c">`S`</span> — 저장',
+        '<span class="t-m">-</span> <span class="t-c">`Ctrl`</span> <span class="t-c">`P`</span> — 내보내기'
+      ],
+      html:`<h1>시작하기</h1>
+<ol><li>상단바에서 폴더를 엽니다.</li><li>사이드바 트리에서 파일을 고릅니다.</li><li>왼쪽에 입력하면 오른쪽이 바로 조판됩니다.</li></ol>
+<blockquote>팁: 이음새를 끌어 분할 비율을 조절하세요.</blockquote>
+<h2>단축키</h2>
+<ul class="kbds"><li><kbd>Ctrl</kbd><kbd>S</kbd><span>저장</span></li><li><kbd>Ctrl</kbd><kbd>P</kbd><span>내보내기</span></li></ul>`
+    },
+    en:{
+      src:[
+        '<span class="t-h">#</span> <span class="t-h">Getting started</span>','',
+        '<span class="t-m">1.</span> Open a folder from the toolbar.',
+        '<span class="t-m">2.</span> Pick a file in the sidebar tree.',
+        '<span class="t-m">3.</span> Type on the left — it renders live.','',
+        '<span class="t-q">&gt; Tip: drag the seam to resize the split.</span>','',
+        '<span class="t-h">##</span> <span class="t-h">Shortcuts</span>','',
+        '<span class="t-m">-</span> <span class="t-c">`Ctrl`</span> <span class="t-c">`S`</span> — save',
+        '<span class="t-m">-</span> <span class="t-c">`Ctrl`</span> <span class="t-c">`P`</span> — export'
+      ],
+      html:`<h1>Getting started</h1>
+<ol><li>Open a folder from the toolbar.</li><li>Pick a file in the sidebar tree.</li><li>Type on the left — it renders live.</li></ol>
+<blockquote>Tip: drag the seam to resize the split.</blockquote>
+<h2>Shortcuts</h2>
+<ul class="kbds"><li><kbd>Ctrl</kbd><kbd>S</kbd><span>save</span></li><li><kbd>Ctrl</kbd><kbd>P</kbd><span>export</span></li></ul>`
+    }
+  }
+};
+
+/* ============================================================
+   상태 & 렌더
+   ============================================================ */
+const root = document.documentElement;
+let lang = "ko", theme = "light", activeDoc = "readme";
+
+function t(key){ return (I18N[lang] && I18N[lang][key]) || key; }
+
+function applyI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=> el.textContent = t(el.dataset.i18n));
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=> el.placeholder = t(el.dataset.i18nPh));
+  document.querySelectorAll("[data-i18n-title]").forEach(el=> el.title = t(el.dataset.i18nTitle));
+  document.documentElement.lang = lang;
+}
+
+function renderDoc(){
+  const d = DOCS[activeDoc], v = d[lang];
+  // 에디터 소스 (줄번호 + 하이라이트)
+  const editor = document.getElementById("editor");
+  editor.innerHTML = v.src.map((line,i)=>{
+    const isActive = i === d.active;
+    const caret = isActive ? '<span class="caret"></span>' : '';
+    return `<div class="row${isActive?' active':''}" style="--i:${i}">`+
+           `<span class="gutter">${i+1}</span>`+
+           `<span class="line">${line || '&nbsp;'}${caret}</span></div>`;
+  }).join("");
+  // 미리보기 조판 페이지
+  document.getElementById("page").innerHTML = v.html;
+  // 상태바
+  document.getElementById("stLn").textContent = d.ln;
+  document.getElementById("stCol").textContent = d.col;
+  document.getElementById("stWords").textContent = d.words[lang];
+  const dot = document.getElementById("stStateDot"), st = document.getElementById("stState");
+  dot.className = d.dirty ? "dot-dirty" : "dot-ok";
+  st.textContent = d.dirty ? t("status.unsaved") : t("status.saved");
+}
+
+function setTheme(next){
+  theme = next; root.dataset.theme = next;
+  document.querySelectorAll(".seg.theme button").forEach(b=>
+    b.setAttribute("aria-pressed", String(b.dataset.themeSet === next)));
+  document.getElementById("stTheme").textContent = t("theme."+next);
+}
+
+function setLang(next){
+  lang = next; localeButtons(next);
+  applyI18n(); renderDoc();
+  document.getElementById("stTheme").textContent = t("theme."+theme);
+}
+function localeButtons(next){
+  document.querySelectorAll(".seg.lang button").forEach(b=>
+    b.setAttribute("aria-pressed", String(b.dataset.langSet === next)));
+}
+
+function setActiveDoc(doc){
+  activeDoc = doc;
+  document.querySelectorAll(".tab").forEach(tab=>{
+    const on = tab.dataset.doc === doc;
+    tab.classList.toggle("active", on);
+    tab.setAttribute("aria-selected", String(on));
+  });
+  // 사이드바 활성 파일 동기화
+  const name = doc === "readme" ? "README.md" : "guide.md";
+  document.querySelectorAll(".sidebar .node.file").forEach(n=>{
+    n.classList.toggle("active", n.querySelector(".name").textContent === name);
+  });
+  renderDoc();
+}
+
+/* ============================================================
+   이벤트 바인딩
+   ============================================================ */
+document.querySelectorAll(".seg.theme button").forEach(b=>
+  b.addEventListener("click", ()=> setTheme(b.dataset.themeSet)));
+document.querySelectorAll(".seg.lang button").forEach(b=>
+  b.addEventListener("click", ()=> setLang(b.dataset.langSet)));
+document.querySelectorAll(".tab").forEach(tab=>
+  tab.addEventListener("click", (e)=>{ if(!e.target.closest(".close")) setActiveDoc(tab.dataset.doc); }));
+
+// 사이드바 폴더 접기/펴기
+document.querySelectorAll(".node.folder").forEach(f=>{
+  const toggle = ()=>{ f.classList.toggle("open");
+    const ul = f.parentElement.querySelector(".children"); if(ul) ul.style.display = f.classList.contains("open") ? "" : "none"; };
+  f.addEventListener("click", toggle);
+  f.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); } });
+});
+// 사이드바 파일 클릭 → 해당 탭으로
+document.querySelectorAll(".sidebar .node.file").forEach(n=>{
+  n.addEventListener("click", ()=>{
+    const nm = n.querySelector(".name").textContent;
+    if(nm==="README.md") setActiveDoc("readme");
+    else if(nm==="guide.md") setActiveDoc("guide");
+  });
+});
+
+/* 초기 렌더 */
+setTheme("light");
+localeButtons("ko");
+applyI18n();
+renderDoc();
+</script>
+</body>
+</html>
