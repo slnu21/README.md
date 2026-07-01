@@ -16,7 +16,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             commands::fs_ops::read_file,
-            commands::fs_ops::write_file
+            commands::fs_ops::write_file,
+            commands::fs_ops::read_dir_tree
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
