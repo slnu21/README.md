@@ -1,14 +1,17 @@
 // 앱 셸 — 시안(docs/mockups/md-reader-shell.html) 이식 + 파일/폴더 열기·워크스페이스 트리(WBS 510).
 // 에디터는 현재 원문 표시(읽기 전용). 실제 편집=WBS 522, 미리보기 렌더=WBS 511.
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
 import { themes } from "../themes";
-import { pickFile, pickFolder, readFile, readDirTree, writeFile, watchFiles, onFileChanged, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
+import { pickFile, pickFolder, readFile, writeFile, watchFiles, onFileChanged, searchQuery, onIndexUpdated, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
-import { Preview } from "./Preview";
+import { Preview, type PreviewHandle } from "./Preview";
+import { Outline } from "./Outline";
+import { SearchResults } from "./SearchResults";
 import { Editor } from "./Editor";
+import type { TocItem } from "../lib/markdown";
 
 const THEME_ORDER = ["light", "dark", "paper"] as const;
 const THEME_ICON = { light: "sun", dark: "moon", paper: "paper" } as const;
@@ -29,11 +32,22 @@ export function AppShell() {
   const tabs = useAppStore((s) => s.tabs);
   const activePath = useAppStore((s) => s.activePath);
   const recent = useAppStore((s) => s.recent);
-  const addFolder = useAppStore((s) => s.addFolder);
+  const favorites = useAppStore((s) => s.favorites);
   const openFile = useAppStore((s) => s.openFile);
   const setActive = useAppStore((s) => s.setActive);
   const closeTab = useAppStore((s) => s.closeTab);
   const updateContent = useAppStore((s) => s.updateContent);
+  const importFolder = useAppStore((s) => s.importFolder);
+  const hydrate = useAppStore((s) => s.hydrate);
+
+  const previewRef = useRef<PreviewHandle>(null);
+  const [outline, setOutline] = useState<TocItem[]>([]);
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [indexNonce, setIndexNonce] = useState(0);
+  const isDemo = new URLSearchParams(window.location.search).has("demo");
 
   const ko = language === "ko";
   const themeName = themes[themeId]?.name ?? "Light";
@@ -54,11 +68,7 @@ export function AppShell() {
   async function onOpenFolder() {
     const path = await pickFolder();
     if (!path) return;
-    try {
-      addFolder(await readDirTree(path));
-    } catch (e) {
-      console.error("폴더 열기 실패:", e);
-    }
+    await importFolder(path);
   }
 
   async function onOpenRecent(path: string) {
@@ -93,11 +103,15 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // 열린 파일 감시(경로 집합 변경 시에만 재등록 — 편집 시엔 안 함)
+  // 열린 파일 상위 dir + 가져온 폴더(재귀·재인덱싱) 감시(경로 집합 변경 시에만 재등록)
   const pathsKey = tabs.map((tb) => tb.path).join("\n");
+  const rootsKey = roots.map((r) => r.path).join("\n");
   useEffect(() => {
-    void watchFiles(pathsKey ? pathsKey.split("\n") : []);
-  }, [pathsKey]);
+    void watchFiles(
+      pathsKey ? pathsKey.split("\n") : [],
+      rootsKey ? rootsKey.split("\n") : [],
+    );
+  }, [pathsKey, rootsKey]);
 
   // 외부 변경 → 미수정 탭만 조용히 리로드
   useEffect(() => {
@@ -127,6 +141,54 @@ export function AppShell() {
       if (unlisten) unlisten();
     };
   }, []);
+
+  // 부팅 시 SQLite에서 워크스페이스 하이드레이트(데모/브라우저 제외).
+  useEffect(() => {
+    if (!isDemo) void hydrate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 검색: 250ms 디바운스 후 질의(인덱스 갱신 시에도 재질의).
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setHits([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const timer = window.setTimeout(() => {
+      searchQuery(q, 30)
+        .then((res) => setHits(res))
+        .catch(() => setHits([]))
+        .finally(() => setSearching(false));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query, indexNonce]);
+
+  // 인덱스 증분 갱신 이벤트 → 현재 질의 재실행 트리거.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let alive = true;
+    void onIndexUpdated(() => setIndexNonce((n) => n + 1)).then((un) => {
+      if (alive) unlisten = un;
+      else un();
+    });
+    return () => {
+      alive = false;
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  async function onPickHit(hit: SearchHit) {
+    setSearchOpen(false);
+    setQuery("");
+    try {
+      openFile(hit.realPath, await readFile(hit.realPath));
+    } catch (e) {
+      console.error("파일 열기 실패:", e);
+    }
+  }
 
   return (
     <>
@@ -166,10 +228,29 @@ export function AppShell() {
 
           <span className="spacer" data-tauri-drag-region="" />
 
-          <label className="search">
-            <Icon name="search" />
-            <input type="text" placeholder={t("search.placeholder")} aria-label={t("search.placeholder")} />
-          </label>
+          <div className="search-wrap">
+            <label className="search">
+              <Icon name="search" />
+              <input
+                type="text"
+                value={query}
+                placeholder={t("search.placeholder")}
+                aria-label={t("search.placeholder")}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setSearchOpen(true)}
+                onBlur={() => window.setTimeout(() => setSearchOpen(false), 150)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setSearchOpen(false);
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+              />
+            </label>
+            {searchOpen && query.trim() && (
+              <SearchResults hits={hits} loading={searching} onPick={onPickHit} />
+            )}
+          </div>
 
           <div className="seg theme" role="group" aria-label="theme">
             {THEME_ORDER.map((id) => (
@@ -221,10 +302,43 @@ export function AppShell() {
           )}
 
           <div className="sec-label">
+            <Icon name="list" />
+            <span>{ko ? "아웃라인" : "Outline"}</span>
+          </div>
+          {active && outline.length > 0 ? (
+            <Outline items={outline} onSelect={(id) => previewRef.current?.scrollToHeading(id)} />
+          ) : (
+            <p className="tree-hint">—</p>
+          )}
+
+          <div className="sec-label">
             <Icon name="star" />
             <span>{t("sidebar.favorites")}</span>
           </div>
-          <p className="tree-hint">—</p>
+          {favorites.length > 0 ? (
+            <ul className="tree">
+              {favorites.map((p) => (
+                <li key={p}>
+                  <div
+                    className={"node file" + (activePath === p ? " active" : "")}
+                    tabIndex={0}
+                    onClick={() => onOpenRecent(p)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onOpenRecent(p);
+                      }
+                    }}
+                  >
+                    <Icon name="star" />
+                    <span className="name">{baseName(p)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="tree-hint">—</p>
+          )}
 
           <div className="sec-label">
             <Icon name="clock" />
@@ -302,7 +416,7 @@ export function AppShell() {
               <div className="seam" role="separator" aria-orientation="vertical" aria-label="resize" />
 
               <section className="preview" aria-label="preview">
-                <Preview content={active.content} path={active.path} themeId={themeId} />
+                <Preview ref={previewRef} content={active.content} path={active.path} themeId={themeId} onToc={setOutline} />
               </section>
             </div>
           ) : (

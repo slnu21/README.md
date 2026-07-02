@@ -2,6 +2,6 @@
   "app": { "name": "README.md" },
   "menu": { "openFile": "파일 열기", "openFolder": "폴더 열기", "save": "저장", "export": "내보내기" },
   "sidebar": { "workspace": "워크스페이스", "favorites": "즐겨찾기", "recent": "최근" },
-  "search": { "placeholder": "검색..." },
+  "search": { "placeholder": "검색...", "searching": "검색 중…", "noResults": "결과 없음" },
   "status": { "saved": "저장됨", "unsaved": "수정됨", "words": "단어", "ln": "줄", "col": "열" }
 }

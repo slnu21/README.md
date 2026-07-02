@@ -1,6 +1,6 @@
 [package]
 name = "md-reader"
-version = "0.1.0"
+version = "0.2.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -24,6 +24,5 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 notify = "6"                                               # 파일 감시(외부 변경 감지)
-# 구현 단계에서 추가 예정:
-# rusqlite = { version = "0.32", features = ["bundled"] }  # SQLite + FTS5 (워크스페이스/검색)
+rusqlite = { version = "0.32", features = ["bundled"] }    # SQLite + FTS5 (워크스페이스/검색). bundled=FTS5 포함
 

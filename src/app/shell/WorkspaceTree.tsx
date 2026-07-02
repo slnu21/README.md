@@ -9,6 +9,8 @@ export function WorkspaceTree({ nodes, depth = 0 }: { nodes: WsNode[]; depth?: n
   const toggleDir = useAppStore((s) => s.toggleDir);
   const openFile = useAppStore((s) => s.openFile);
   const activePath = useAppStore((s) => s.activePath);
+  const favorites = useAppStore((s) => s.favorites);
+  const toggleFavorite = useAppStore((s) => s.toggleFavorite);
 
   async function onOpen(path: string) {
     try {
@@ -58,6 +60,18 @@ export function WorkspaceTree({ nodes, depth = 0 }: { nodes: WsNode[]; depth?: n
             >
               <Icon name="file" />
               <span className="name">{n.name}</span>
+              <button
+                type="button"
+                className={"fav-toggle" + (favorites.includes(n.path) ? " on" : "")}
+                aria-label="favorite"
+                title="favorite"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void toggleFavorite(n.path);
+                }}
+              >
+                <Icon name="star" />
+              </button>
             </div>
           </li>
         ),

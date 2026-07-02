@@ -1,6 +1,6 @@
 // Markdown 렌더 Web Worker: 메인 스레드 차단 없이 markdown-it 파싱(대용량 md 대비).
-// 입력 소스 → HTML 반환. 정화(DOMPurify)·iframe 주입은 메인 스레드(shell/Preview.tsx).
-import { createMarkdown } from "../lib/markdown";
+// 입력 소스 → { html, toc } 반환. 정화(DOMPurify)·iframe 주입은 메인 스레드(shell/Preview.tsx).
+import { createMarkdown, extractToc } from "../lib/markdown";
 
 const md = createMarkdown();
 
@@ -12,7 +12,8 @@ const ctx = self as unknown as {
 
 ctx.addEventListener("message", (e: MessageEvent) => {
   const { id, source } = e.data as { id: number; source: string };
-  ctx.postMessage({ id, html: md.render(source ?? "") });
+  const src = source ?? "";
+  ctx.postMessage({ id, html: md.render(src), toc: extractToc(md, src) });
 });
 
 export {};

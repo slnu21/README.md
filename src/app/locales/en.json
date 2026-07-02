@@ -2,6 +2,6 @@
   "app": { "name": "README.md" },
   "menu": { "openFile": "Open File", "openFolder": "Open Folder", "save": "Save", "export": "Export" },
   "sidebar": { "workspace": "Workspace", "favorites": "Favorites", "recent": "Recent" },
-  "search": { "placeholder": "Search..." },
+  "search": { "placeholder": "Search...", "searching": "Searching…", "noResults": "No results" },
   "status": { "saved": "Saved", "unsaved": "Unsaved", "words": "words", "ln": "Ln", "col": "Col" }
 }

@@ -17,7 +17,8 @@ export type IconName =
   | "plus"
   | "x"
   | "min"
-  | "max";
+  | "max"
+  | "list";
 
 export function Icon({ name, className }: { name: IconName; className?: string }) {
   return (
@@ -82,6 +83,9 @@ export function IconSprite() {
         </symbol>
         <symbol id="i-max" viewBox="0 0 24 24">
           <rect x="5" y="5" width="14" height="14" rx="1.5" />
+        </symbol>
+        <symbol id="i-list" viewBox="0 0 24 24">
+          <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />
         </symbol>
       </defs>
     </svg>

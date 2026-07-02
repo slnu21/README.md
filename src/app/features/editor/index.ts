@@ -3,6 +3,7 @@
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { search, searchKeymap } from "@codemirror/search";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
@@ -39,6 +40,26 @@ const cmTheme = EditorView.theme({
   ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
     backgroundColor: "color-mix(in srgb, var(--accent) 20%, var(--bg))",
   },
+  // 찾기/바꾸기 패널(@codemirror/search) — 테마 토큰 연동
+  ".cm-panels": { backgroundColor: "var(--surface)", color: "var(--fg)" },
+  ".cm-panels.cm-panels-top": { borderBottom: "1px solid var(--border)" },
+  ".cm-panel.cm-search": { fontFamily: "var(--ui-font)", fontSize: "12px", padding: "6px 8px" },
+  ".cm-panel.cm-search label": { fontSize: "12px" },
+  ".cm-textfield": {
+    backgroundColor: "var(--bg)",
+    color: "var(--fg)",
+    border: "1px solid var(--border)",
+    borderRadius: "5px",
+  },
+  ".cm-button": {
+    backgroundColor: "var(--surface)",
+    color: "var(--fg)",
+    border: "1px solid var(--border)",
+    borderRadius: "5px",
+    backgroundImage: "none",
+  },
+  ".cm-searchMatch": { backgroundColor: "color-mix(in srgb, var(--accent) 26%, transparent)" },
+  ".cm-searchMatch-selected": { backgroundColor: "color-mix(in srgb, var(--accent) 48%, transparent)" },
 });
 
 /** 마크다운 에디터 확장 세트. 문서 변경 시 onChange(doc) 호출. */
@@ -48,7 +69,8 @@ export function editorExtensions(onChange: (doc: string) => void): Extension[] {
     highlightActiveLine(),
     drawSelection(),
     history(),
-    keymap.of([...defaultKeymap, ...historyKeymap]),
+    search({ top: true }),
+    keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     markdown(),
     syntaxHighlighting(mdHighlight),
     cmTheme,
