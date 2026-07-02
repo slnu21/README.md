@@ -14,9 +14,9 @@
 #>
 [CmdletBinding()]
 param(
-  [string]$Publisher = "CN=Gyeol",
-  [string]$IdentityName = "Gyeol.Gyeol",
-  [string]$PublisherDisplay = "Gyeol",
+  [string]$Publisher = "CN=Readme",
+  [string]$IdentityName = "Readme.Readme",
+  [string]$PublisherDisplay = "Readme",
   [switch]$Sign
 )
 $ErrorActionPreference = "Stop"
@@ -28,7 +28,7 @@ $out   = Join-Path $PSScriptRoot "build"
 $stage = Join-Path $out "stage"
 
 # 1) locate app exe (Tauri builds as the Cargo bin name)
-$exe = @("Gyeol.exe", "md-reader.exe") |
+$exe = @("README.exe", "md-reader.exe") |
   ForEach-Object { Join-Path $rel $_ } |
   Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $exe) { throw "Release exe not found. Run 'npx tauri build' first. ($rel)" }
@@ -59,7 +59,7 @@ $manifest = $tpl.Replace("@EXE@", $exeName).Replace("@VERSION@", $ver4).Replace(
 [System.IO.File]::WriteAllText((Join-Path $stage "AppxManifest.xml"), $manifest, (New-Object System.Text.UTF8Encoding($false)))
 
 # 6) pack
-$msix = Join-Path $out ("Gyeol_" + $ver3 + "_x64.msix")
+$msix = Join-Path $out ("README_" + $ver3 + "_x64.msix")
 & $makeappx pack /o /d $stage /p $msix
 if ($LASTEXITCODE -ne 0) { throw "makeappx failed ($LASTEXITCODE)" }
 Write-Host "MSIX created: $msix" -ForegroundColor Green
@@ -68,7 +68,7 @@ Write-Host "  exe=$exeName version=$ver4 identity=$IdentityName publisher=$Publi
 # 7) optional: self-sign for local testing
 if ($Sign) {
   $cert = New-SelfSignedCertificate -Type Custom -Subject $Publisher `
-    -KeyUsage DigitalSignature -FriendlyName "Gyeol Dev Signing" `
+    -KeyUsage DigitalSignature -FriendlyName "README.md Dev Signing" `
     -CertStoreLocation "Cert:\CurrentUser\My" `
     -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
   $pfx = Join-Path $out "gyeol-dev.pfx"

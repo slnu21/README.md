@@ -1,5 +1,5 @@
 {
-  "app": { "name": "Gyeol" },
+  "app": { "name": "README.md" },
   "menu": { "openFile": "Open File", "openFolder": "Open Folder", "save": "Save", "export": "Export" },
   "sidebar": { "workspace": "Workspace", "favorites": "Favorites", "recent": "Recent" },
   "search": { "placeholder": "Search..." },

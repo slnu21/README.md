@@ -1,7 +1,7 @@
-# 결 (Gyeol)
+# README.md
 
-**결(Gyeol)** — 경량 마크다운 **리더 & 에디터**. Windows 데스크톱, Microsoft Store 배포, 100% 오프라인.
-> 제품명은 **결/Gyeol**, 저장소 디렉터리는 `md-reader` 유지. "결" = 종이 결·나뭇결의 그 결.
+**README.md** — 경량 마크다운 **리더 & 에디터**. Windows 데스크톱, Microsoft Store 배포, 100% 오프라인.
+> 제품명 = **README.md** (마크다운의 원형 파일 이름을 그대로 · "read me"). 저장소 디렉터리는 `md-reader` 유지.
 
 ## 폴더 구조
 ```
