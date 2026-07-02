@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { themes, defaultThemeId } from "../themes";
+import { createMarkdown } from "../lib/markdown";
 
 // iframe 내부(리더) 스타일. 폰트는 오프라인 시스템 폰트, 색은 주입된 5토큰 사용.
 const PREVIEW_CSS = `
@@ -87,9 +88,12 @@ export function Preview({ content, path, themeId }: { content: string; path: str
   const pathRef = useRef(path);
   pathRef.current = path;
   const [bodyHtml, setBodyHtml] = useState("");
+  // 데모/스크린샷(?demo)에서는 헤드리스 캡처 타이밍 때문에 워커 대신 메인 스레드로 즉시 렌더.
+  const isDemo = new URLSearchParams(window.location.search).has("demo");
 
   // 워커 1회 생성. 응답을 정화(DOMPurify) 후 이미지 재작성.
   useEffect(() => {
+    if (isDemo) return;
     const worker = new Worker(new URL("../workers/markdown.worker.ts", import.meta.url), {
       type: "module",
     });
@@ -108,6 +112,13 @@ export function Preview({ content, path, themeId }: { content: string; path: str
 
   // content/path 변경 시 디바운스(200ms) 후 워커에 렌더 요청.
   useEffect(() => {
+    if (isDemo) {
+      const clean = DOMPurify.sanitize(createMarkdown().render(content));
+      const body = rewriteImages(clean, dirOf(pathRef.current));
+      const iframe = iframeRef.current;
+      if (iframe) iframe.srcdoc = buildDoc(body, themeId);
+      return;
+    }
     const worker = workerRef.current;
     if (!worker) return;
     const id = ++reqId.current;
@@ -117,6 +128,7 @@ export function Preview({ content, path, themeId }: { content: string; path: str
 
   // 정화된 HTML 또는 테마 변경 시 iframe 재구성.
   useEffect(() => {
+    if (isDemo) return;
     const iframe = iframeRef.current;
     if (iframe) iframe.srcdoc = buildDoc(bodyHtml, themeId);
   }, [bodyHtml, themeId]);
