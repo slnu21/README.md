@@ -11,7 +11,7 @@ md-reader/
 │  ├─ app/        # 웹 프론트엔드 (UI)
 │  └─ src-tauri/  # Rust 네이티브 셸
 ├─ release/   # 버전별 배포 산출물 (→ release/README.md)
-├─ THIRD-PARTY-NOTICES.md  # 의존성 라이선스 고지 (자동 생성 예정)
+├─ THIRD-PARTY-NOTICES.md  # 의존성 라이선스 고지 (생성됨: npm 46 + cargo 265)
 └─ README.md
 ```
 
@@ -34,3 +34,4 @@ npm run tauri dev
 ## 라이선스
 - 앱 사용 조건: [docs/legal/EULA.md](docs/legal/EULA.md) (상업적 사용 허용).
 - 의존성: 전부 permissive(MIT/Apache/BSD 등) — [ADR 0001](docs/design/decisions/0001-tech-stack-and-packaging.md).
+- 서드파티 고지: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) (자동 생성, 단독 GPL/AGPL/LGPL/SSPL 없음).
