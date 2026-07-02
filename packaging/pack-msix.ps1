@@ -71,8 +71,8 @@ if ($Sign) {
     -KeyUsage DigitalSignature -FriendlyName "README.md Dev Signing" `
     -CertStoreLocation "Cert:\CurrentUser\My" `
     -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
-  $pfx = Join-Path $out "gyeol-dev.pfx"
-  $cer = Join-Path $out "gyeol-dev.cer"
+  $pfx = Join-Path $out "readme-dev.pfx"
+  $cer = Join-Path $out "readme-dev.cer"
   $pw  = ConvertTo-SecureString -String "gyeol" -Force -AsPlainText
   Export-PfxCertificate -Cert $cert -FilePath $pfx -Password $pw | Out-Null
   Export-Certificate   -Cert $cert -FilePath $cer | Out-Null
