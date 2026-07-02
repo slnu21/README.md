@@ -3,13 +3,16 @@
 **README.md**(제품, Windows x64)는 아래 오픈소스 구성요소를 포함하며 전부 permissive 라이선스입니다.
 자동 생성 — npm production deps(license-checker) + cargo 의존 크레이트(`cargo metadata --filter-platform x86_64-pc-windows-msvc`). 의존성 변경 시 재생성.
 
-**사용 라이선스:** (MIT OR Apache-2.0) AND Unicode-3.0, (MPL-2.0 OR Apache-2.0), 0BSD OR MIT OR Apache-2.0, Apache-2.0, Apache-2.0 / MIT, Apache-2.0 AND MIT, Apache-2.0 OR MIT, BSD-2-Clause, BSD-3-Clause, BSD-3-Clause AND MIT, BSD-3-Clause/MIT, CC0-1.0, CC0-1.0 OR MIT-0 OR Apache-2.0, MIT, MIT OR Apache-2.0, MIT OR Apache-2.0 OR Zlib, MIT OR Zlib OR Apache-2.0, MIT/Apache-2.0, MPL-2.0, Python-2.0, Unicode-3.0, Unlicense OR MIT, Unlicense/MIT, Zlib, Zlib OR Apache-2.0 OR MIT
+**사용 라이선스:** (MIT OR Apache-2.0) AND Unicode-3.0, (MPL-2.0 OR Apache-2.0), 0BSD OR MIT OR Apache-2.0, Apache-2.0, Apache-2.0 / MIT, Apache-2.0 AND MIT, Apache-2.0 OR MIT, BSD-2-Clause, BSD-2-Clause OR Apache-2.0 OR MIT, BSD-3-Clause, BSD-3-Clause AND MIT, BSD-3-Clause/MIT, CC0-1.0, CC0-1.0 OR MIT-0 OR Apache-2.0, ISC, MIT, MIT OR Apache-2.0, MIT OR Apache-2.0 OR Zlib, MIT OR Zlib OR Apache-2.0, MIT*, MIT/Apache-2.0, MPL-2.0, Python-2.0, Unicode-3.0, Unlicense, Unlicense OR MIT, Unlicense/MIT, Zlib, Zlib OR Apache-2.0 OR MIT
 
-> 참고: 일부 크레이트는 다중 라이선스(예: `MIT OR Apache-2.0`)이며 permissive 옵션을 선택. `MPL-2.0`는 파일 단위 약카피레프트로 번들 배포 허용.
+> 참고: 일부 구성요소는 다중 라이선스(예: `MIT OR Apache-2.0`)이며 permissive 옵션을 선택. `MPL-2.0`는 파일 단위 약카피레프트로 번들 배포 허용. SQLite는 퍼블릭 도메인.
 
-## Frontend (npm, production — 46)
+## Frontend (npm, production — 174)
 
+- `@antfu/install-pkg@1.1.0` — MIT
 - `@babel/runtime@7.29.7` — MIT
+- `@braintree/sanitize-url@7.1.2` — MIT
+- `@chevrotain/types@11.1.2` — Apache-2.0
 - `@codemirror/autocomplete@6.20.3` — MIT
 - `@codemirror/commands@6.10.4` — MIT
 - `@codemirror/lang-css@6.3.1` — MIT
@@ -18,8 +21,11 @@
 - `@codemirror/lang-markdown@6.5.0` — MIT
 - `@codemirror/language@6.12.4` — MIT
 - `@codemirror/lint@6.9.7` — MIT
+- `@codemirror/search@6.7.1` — MIT
 - `@codemirror/state@6.7.0` — MIT
 - `@codemirror/view@6.43.4` — MIT
+- `@iconify/types@2.0.0` — MIT
+- `@iconify/utils@3.1.3` — MIT
 - `@lezer/common@1.5.2` — MIT
 - `@lezer/css@1.3.4` — MIT
 - `@lezer/highlight@1.2.3` — MIT
@@ -28,37 +34,160 @@
 - `@lezer/lr@1.4.10` — MIT
 - `@lezer/markdown@1.6.4` — MIT
 - `@marijn/find-cluster-break@1.0.3` — MIT
+- `@mermaid-js/parser@1.2.0` — MIT
 - `@tauri-apps/api@2.11.1` — Apache-2.0 OR MIT
 - `@tauri-apps/plugin-dialog@2.7.1` — MIT OR Apache-2.0
 - `@tauri-apps/plugin-opener@2.5.4` — MIT OR Apache-2.0
+- `@types/d3@7.4.3` — MIT
+- `@types/d3-array@3.2.2` — MIT
+- `@types/d3-axis@3.0.6` — MIT
+- `@types/d3-brush@3.0.6` — MIT
+- `@types/d3-chord@3.0.6` — MIT
+- `@types/d3-color@3.1.3` — MIT
+- `@types/d3-contour@3.0.6` — MIT
+- `@types/d3-delaunay@6.0.4` — MIT
+- `@types/d3-dispatch@3.0.7` — MIT
+- `@types/d3-drag@3.0.7` — MIT
+- `@types/d3-dsv@3.0.7` — MIT
+- `@types/d3-ease@3.0.2` — MIT
+- `@types/d3-fetch@3.0.7` — MIT
+- `@types/d3-force@3.0.10` — MIT
+- `@types/d3-format@3.0.4` — MIT
+- `@types/d3-geo@3.1.0` — MIT
+- `@types/d3-hierarchy@3.1.7` — MIT
+- `@types/d3-interpolate@3.0.4` — MIT
+- `@types/d3-path@3.1.1` — MIT
+- `@types/d3-polygon@3.0.2` — MIT
+- `@types/d3-quadtree@3.0.6` — MIT
+- `@types/d3-random@3.0.3` — MIT
+- `@types/d3-scale@4.0.9` — MIT
+- `@types/d3-scale-chromatic@3.1.0` — MIT
+- `@types/d3-selection@3.0.11` — MIT
+- `@types/d3-shape@3.1.8` — MIT
+- `@types/d3-time@3.0.4` — MIT
+- `@types/d3-time-format@4.0.3` — MIT
+- `@types/d3-timer@3.0.2` — MIT
+- `@types/d3-transition@3.0.9` — MIT
+- `@types/d3-zoom@3.0.8` — MIT
+- `@types/geojson@7946.0.16` — MIT
+- `@types/linkify-it@5.0.0` — MIT
+- `@types/markdown-it@14.1.2` — MIT
+- `@types/mdurl@2.0.0` — MIT
 - `@types/react@19.2.17` — MIT
 - `@types/trusted-types@2.0.7` — MIT
+- `@upsetjs/venn.js@2.0.0` — MIT
 - `argparse@2.0.1` — Python-2.0
+- `commander@7.2.0` — MIT
+- `commander@8.3.0` — MIT
+- `cose-base@1.0.3` — MIT
+- `cose-base@2.2.0` — MIT
 - `crelt@1.0.7` — MIT
 - `csstype@3.2.3` — MIT
+- `cytoscape@3.34.0` — MIT
+- `cytoscape-cose-bilkent@4.1.0` — MIT
+- `cytoscape-fcose@2.2.0` — MIT
+- `d3@7.9.0` — ISC
+- `d3-array@2.12.1` — BSD-3-Clause
+- `d3-array@3.2.4` — ISC
+- `d3-axis@3.0.0` — ISC
+- `d3-brush@3.0.0` — ISC
+- `d3-chord@3.0.1` — ISC
+- `d3-color@3.1.0` — ISC
+- `d3-contour@4.0.2` — ISC
+- `d3-delaunay@6.0.4` — ISC
+- `d3-dispatch@3.0.1` — ISC
+- `d3-drag@3.0.0` — ISC
+- `d3-dsv@3.0.1` — ISC
+- `d3-ease@3.0.1` — BSD-3-Clause
+- `d3-fetch@3.0.1` — ISC
+- `d3-force@3.0.0` — ISC
+- `d3-format@3.1.2` — ISC
+- `d3-geo@3.1.1` — ISC
+- `d3-hierarchy@3.1.2` — ISC
+- `d3-interpolate@3.0.1` — ISC
+- `d3-path@1.0.9` — BSD-3-Clause
+- `d3-path@3.1.0` — ISC
+- `d3-polygon@3.0.1` — ISC
+- `d3-quadtree@3.0.1` — ISC
+- `d3-random@3.0.1` — ISC
+- `d3-sankey@0.12.3` — BSD-3-Clause
+- `d3-scale@4.0.2` — ISC
+- `d3-scale-chromatic@3.1.0` — ISC
+- `d3-selection@3.0.0` — ISC
+- `d3-shape@1.3.7` — BSD-3-Clause
+- `d3-shape@3.2.0` — ISC
+- `d3-time@3.1.0` — ISC
+- `d3-time-format@4.1.0` — ISC
+- `d3-timer@3.0.1` — ISC
+- `d3-transition@3.0.1` — ISC
+- `d3-zoom@3.0.0` — ISC
+- `dagre-d3-es@7.0.14` — MIT
+- `dayjs@1.11.21` — MIT
+- `delaunator@5.1.0` — ISC
 - `dompurify@3.4.11` — (MPL-2.0 OR Apache-2.0)
 - `entities@4.5.0` — BSD-2-Clause
+- `es-toolkit@1.49.0` — MIT
+- `hachure-fill@0.5.2` — MIT
+- `highlight.js@11.11.1` — BSD-3-Clause
 - `html-parse-stringify@3.0.1` — MIT
 - `i18next@26.3.4` — MIT
+- `iconv-lite@0.6.3` — MIT
+- `import-meta-resolve@4.2.0` — MIT
+- `internmap@1.0.1` — ISC
+- `internmap@2.0.3` — ISC
+- `katex@0.16.47` — MIT
+- `katex@0.17.0` — MIT
+- `khroma@2.1.0` — MIT*
+- `layout-base@1.0.2` — MIT
+- `layout-base@2.0.1` — MIT
 - `linkify-it@5.0.1` — MIT
+- `lodash-es@4.18.1` — MIT
 - `markdown-it@14.2.0` — MIT
+- `markdown-it-abbr@2.0.0` — MIT
+- `markdown-it-anchor@9.2.0` — Unlicense
+- `markdown-it-container@4.0.0` — MIT
+- `markdown-it-deflist@3.0.1` — MIT
+- `markdown-it-footnote@4.0.0` — MIT
+- `markdown-it-front-matter@0.2.4` — MIT
+- `markdown-it-ins@4.0.0` — MIT
+- `markdown-it-mark@4.0.0` — MIT
+- `markdown-it-multimd-table@4.2.3` — MIT
+- `markdown-it-sub@2.0.0` — MIT
+- `markdown-it-sup@2.0.0` — MIT
+- `markdown-it-task-lists@2.1.1` — ISC
+- `markdown-it-texmath@1.0.0` — MIT
+- `marked@16.4.2` — MIT
 - `mdurl@2.0.0` — MIT
+- `mermaid@11.16.0` — MIT
+- `package-manager-detector@1.7.0` — MIT
+- `path-data-parser@0.1.0` — MIT
+- `points-on-curve@0.2.0` — MIT
+- `points-on-path@0.2.1` — MIT
 - `punycode.js@2.3.1` — MIT
 - `react@19.2.7` — MIT
 - `react-dom@19.2.7` — MIT
 - `react-i18next@17.0.8` — MIT
+- `robust-predicates@3.0.3` — Unlicense
+- `roughjs@4.6.6` — MIT
+- `rw@1.3.3` — BSD-3-Clause
+- `safer-buffer@2.1.2` — MIT
 - `scheduler@0.27.0` — MIT
 - `style-mod@4.1.3` — MIT
+- `stylis@4.4.0` — MIT
+- `tinyexec@1.2.4` — MIT
+- `ts-dedent@2.3.0` — MIT
 - `typescript@5.8.3` — Apache-2.0
 - `uc.micro@2.1.0` — MIT
 - `use-sync-external-store@1.6.0` — MIT
+- `uuid@14.0.1` — MIT
 - `void-elements@3.1.0` — MIT
 - `w3c-keyname@2.2.8` — MIT
 - `zustand@5.0.14` — MIT
 
-## Rust (crates, x86_64-pc-windows-msvc — 265)
+## Rust shell (cargo, x86_64-pc-windows-msvc — 275)
 
 - `adler2@2.0.1` — 0BSD OR MIT OR Apache-2.0
+- `ahash@0.8.12` — MIT OR Apache-2.0
 - `aho-corasick@1.1.4` — Unlicense OR MIT
 - `alloc-no-stdlib@2.0.4` — BSD-3-Clause
 - `alloc-stdlib@0.2.4` — BSD-3-Clause
@@ -114,6 +243,8 @@
 - `embed-resource@3.0.9` — MIT
 - `equivalent@1.0.2` — Apache-2.0 OR MIT
 - `erased-serde@0.4.10` — MIT OR Apache-2.0
+- `fallible-iterator@0.3.0` — MIT/Apache-2.0
+- `fallible-streaming-iterator@0.1.9` — MIT/Apache-2.0
 - `fastrand@2.4.1` — Apache-2.0 OR MIT
 - `fdeflate@0.3.7` — MIT OR Apache-2.0
 - `filetime@0.2.29` — MIT/Apache-2.0
@@ -127,7 +258,9 @@
 - `getrandom@0.4.3` — MIT OR Apache-2.0
 - `glob@0.3.3` — MIT OR Apache-2.0
 - `hashbrown@0.12.3` — MIT OR Apache-2.0
+- `hashbrown@0.14.5` — MIT OR Apache-2.0
 - `hashbrown@0.17.1` — MIT OR Apache-2.0
+- `hashlink@0.9.1` — MIT OR Apache-2.0
 - `heck@0.5.0` — MIT OR Apache-2.0
 - `hex@0.4.3` — MIT OR Apache-2.0
 - `html5ever@0.38.0` — MIT OR Apache-2.0
@@ -152,6 +285,7 @@
 - `jsonptr@0.6.3` — MIT OR Apache-2.0
 - `keyboard-types@0.7.0` — MIT OR Apache-2.0
 - `libc@0.2.186` — MIT OR Apache-2.0
+- `libsqlite3-sys@0.30.1` — MIT
 - `litemap@0.8.2` — Unicode-3.0
 - `lock_api@0.4.14` — MIT OR Apache-2.0
 - `log@0.4.33` — MIT OR Apache-2.0
@@ -177,6 +311,7 @@
 - `phf_macros@0.13.1` — MIT
 - `phf_shared@0.13.1` — MIT
 - `pin-project-lite@0.2.17` — Apache-2.0 OR MIT
+- `pkg-config@0.3.33` — MIT OR Apache-2.0
 - `plist@1.9.0` — MIT
 - `png@0.17.16` — MIT OR Apache-2.0
 - `potential_utf@0.1.5` — Unicode-3.0
@@ -192,6 +327,7 @@
 - `regex-automata@0.4.14` — MIT OR Apache-2.0
 - `regex-syntax@0.8.11` — MIT OR Apache-2.0
 - `rfd@0.16.0` — MIT
+- `rusqlite@0.32.1` — MIT
 - `rustc_version@0.4.1` — MIT OR Apache-2.0
 - `rustc-hash@2.1.2` — Apache-2.0 OR MIT
 - `same-file@1.0.6` — Unlicense/MIT
@@ -277,6 +413,7 @@
 - `utf-8@0.7.6` — MIT OR Apache-2.0
 - `utf8_iter@1.0.4` — Apache-2.0 OR MIT
 - `uuid@1.23.4` — Apache-2.0 OR MIT
+- `vcpkg@0.2.15` — MIT/Apache-2.0
 - `version_check@0.9.5` — MIT/Apache-2.0
 - `vswhom@0.1.0` — MIT
 - `vswhom-sys@0.1.3` — MIT
@@ -317,6 +454,7 @@
 - `wry@0.55.1` — Apache-2.0 OR MIT
 - `yoke@0.8.3` — Unicode-3.0
 - `yoke-derive@0.8.2` — Unicode-3.0
+- `zerocopy@0.8.52` — BSD-2-Clause OR Apache-2.0 OR MIT
 - `zerofrom@0.1.8` — Unicode-3.0
 - `zerofrom-derive@0.1.7` — Unicode-3.0
 - `zerotrie@0.2.4` — Unicode-3.0

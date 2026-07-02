@@ -33,16 +33,16 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **라이선스**: permissive(MIT/Apache/BSD/ISC 등)만 허용. GPL/AGPL/LGPL/SSPL 금지.
 - **Store 패키징**: **MSIX → Store**(Microsoft 재서명 → 코드서명 인증서 불필요)가 기본. Tauri는 MSI/NSIS만 내므로 **MSIX 래핑 1단계** 필요. 매니페스트에 `runFullTrust`. 자세히: [docs/deployment/microsoft-store.md](docs/deployment/microsoft-store.md).
 
-## 현재 상태 (2026-06-30 기준)
-- **스캐폴딩 + 모듈 스켈레톤 완료**(대부분 스텁). 기능 구현은 아직 시작 전.
-- 구현된 것: `read_file`/`write_file` Rust 커맨드, dialog 플러그인 연동, 테마/i18n/store 기본 골격.
-- 프론트 타입체크 통과. **이 환경엔 Rust 미설치** → `tauri dev/build`는 `rustup` 설치 후 가능.
-- 설치된 프론트 의존성(코어): zustand, i18next/react-i18next, markdown-it(+types), dompurify, @tauri-apps/plugin-dialog. **미설치(구현 시 추가)**: CodeMirror `@codemirror/*`, highlight.js, katex, mermaid, pdfjs-dist, markdown-it 플러그인들. Rust의 rusqlite·notify는 `Cargo.toml`에 주석으로 표시.
+## 현재 상태 (2026-07-03 기준)
+- **v0.1 릴리스 완료** — MVP(열기·편집·미리보기·저장·감시·최근·3테마·i18n·프레임리스·공식 마크다운 로고) + MSIX/NSIS/zip + GitHub(github.com/slnu21/README.md).
+- **v0.2 기능 구현 완료**(로컬 검증: `tsc`·`vite build`·`cargo check` 모두 통과):
+  - 리치 미리보기 — highlight.js 코드 하이라이트, KaTeX 수식(MathML 출력), markdown-it 플러그인 세트(각주·체크박스·콜아웃·sub/sup/mark/deflist 등), 아웃라인/TOC, mermaid(메인스레드 SVG 주입), 문서 내 찾기/바꾸기(@codemirror/search), 타이틀바 반응형(#118).
+  - 워크스페이스 & 검색 — SQLite(rusqlite bundled) 도입, 전역 FTS5 검색, 즐겨찾기·최근·설정 영속화, imported 폴더 영속(자식은 디스크 파생=D1). 스키마: [docs/design/data-model.md](docs/design/data-model.md).
+- **Rust 설치됨** → `cargo check`/`tauri dev/build` 가능. 미리보기 iframe은 `sandbox="allow-same-origin"`(allow-scripts는 절대 미포함, TOC 스크롤용).
+- 남은 런타임 검증(사용자 `tauri dev`): DB 스모크(`%APPDATA%\com.readme.app\md-reader.db`·FTS5 생성), 검색 인덱싱·질의, mermaid 실제 렌더.
 
-## 다음 단계 (MVP v0.1 로드맵)
-1. 파일/폴더 열기(dialog → Rust read) + 워크스페이스 트리 사이드바
-2. 탭 + CodeMirror 6 에디터 연결
-3. 실시간 미리보기(markdown-it 워커 → DOMPurify → iframe) + 이미지(asset 프로토콜)
-4. 저장, 파일 감시, 최근, 다크/라이트
+## 다음 단계
+- v0.2 런타임 검증 → 릴리스(산출물 재빌드; THIRD-PARTY-NOTICES는 신규 deps 반영 완료).
+- 후속: 내보내기 HTML/PDF(v0.3), 가상 폴더 생성 UI·드래그 재배치(Rust 커맨드는 준비됨, UI 후속), 설정 localStorage↔SQLite 이중화.
 
-전체 로드맵·기능 상세는 [docs/README.md](docs/README.md) 참고.
+전체 로드맵은 [docs/README.md](docs/README.md) 참고.
