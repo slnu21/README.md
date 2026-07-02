@@ -2,6 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 /** 워크스페이스 트리 노드(Rust `read_dir_tree` 반환, camelCase). */
 export interface DirEntryNode {
@@ -49,5 +50,10 @@ export function watchFiles(paths: string[]): Promise<void> {
 export function onFileChanged(cb: (paths: string[]) => void): Promise<UnlistenFn> {
   return listen<string[]>("file-changed", (e) => cb(e.payload));
 }
+
+/** 커스텀 타이틀바(decorations:false) 창 컨트롤. */
+export const winMinimize = (): Promise<void> => getCurrentWindow().minimize();
+export const winToggleMaximize = (): Promise<void> => getCurrentWindow().toggleMaximize();
+export const winClose = (): Promise<void> => getCurrentWindow().close();
 
 // TODO: search(FTS5), export 래퍼 추가

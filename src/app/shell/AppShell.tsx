@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
 import { themes } from "../themes";
-import { pickFile, pickFolder, readFile, readDirTree, writeFile, watchFiles, onFileChanged } from "../lib/tauri";
+import { pickFile, pickFolder, readFile, readDirTree, writeFile, watchFiles, onFileChanged, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview } from "./Preview";
@@ -133,9 +133,15 @@ export function AppShell() {
       <IconSprite />
       <div className="app" role="application" aria-label="md-reader">
         {/* 상단바 */}
-        <header className="titlebar">
-          <div className="brand">
-            <span className="dot" />
+        <header className="titlebar" data-tauri-drag-region="">
+          <div className="brand" data-tauri-drag-region="">
+            <svg className="logo" viewBox="0 0 100 100" aria-hidden="true">
+              <rect x="6" y="6" width="88" height="88" rx="22" fill="var(--accent)" />
+              <g fill="none" stroke="var(--bg)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M24 64V40l14 15 14-15v24" />
+                <path d="M66 40v18M57 51l9 9 9-9" />
+              </g>
+            </svg>
             <span>{t("app.name")}</span>
           </div>
           <span className="sep" />
@@ -161,7 +167,7 @@ export function AppShell() {
             </button>
           </div>
 
-          <span className="spacer" />
+          <span className="spacer" data-tauri-drag-region="" />
 
           <label className="search">
             <Icon name="search" />
@@ -193,13 +199,13 @@ export function AppShell() {
           </div>
 
           <div className="wctl">
-            <button type="button" aria-label="Minimize">
+            <button type="button" aria-label="Minimize" onClick={() => void winMinimize()}>
               <Icon name="min" />
             </button>
-            <button type="button" aria-label="Maximize">
+            <button type="button" aria-label="Maximize" onClick={() => void winToggleMaximize()}>
               <Icon name="max" />
             </button>
-            <button type="button" className="close" aria-label="Close">
+            <button type="button" className="close" aria-label="Close" onClick={() => void winClose()}>
               <Icon name="x" />
             </button>
           </div>
