@@ -2,11 +2,11 @@
 
 - **제품 / Product:** README.md (Windows 데스크톱 앱)
 - **시행일 / Effective date:** 2026-07-02
-- **게시자 / Publisher (Licensor):** `[게시자명 — 게시 전 입력]`
-- **문의 / Contact:** `[연락처 이메일 — 게시 전 입력]`
-- **준거법 / Governing law:** `[관할·준거법 — 예: 대한민국 / Republic of Korea]`
+- **게시자 / Publisher (Licensor):** `SlnU`
+- **문의 / Contact:** `raltlsdn@naver.com`
+- **준거법 / Governing law:** `대한민국 법 / the laws of the Republic of Korea`
 
-> 채워야 할 항목: 게시자명, 연락처, 준거법. 상업적 배포 전 필요 시 법률 자문을 권장합니다.
+> 상업적 배포 전 필요 시 법률 자문을 권장합니다.
 
 ---
 
@@ -46,7 +46,7 @@
 사용자가 본 계약을 위반하면 라이선스는 자동으로 종료되며, 사용자는 소프트웨어의 사용을 중단하고 이를 삭제해야 합니다.
 
 ### 10. 준거법
-본 계약은 `[준거법]`에 따라 해석되며, 관련 분쟁은 `[관할 법원]`을 관할로 합니다.
+본 계약은 `대한민국 법`에 따라 해석되며, 관련 분쟁은 `대한민국 법원`을 관할로 합니다.
 
 ---
 
@@ -86,4 +86,4 @@ To the maximum extent permitted by applicable law, we are not liable for any ind
 If you breach this Agreement, the license terminates automatically, and you must stop using and delete the Software.
 
 ### 10. Governing Law
-This Agreement is governed by `[governing law]`, and disputes are subject to the jurisdiction of `[competent court]`.
+This Agreement is governed by `the laws of the Republic of Korea`, and disputes are subject to the jurisdiction of `the courts of the Republic of Korea`.

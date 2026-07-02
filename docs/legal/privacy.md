@@ -2,10 +2,10 @@
 
 - **제품 / Product:** README.md (Windows 데스크톱 앱)
 - **시행일 / Effective date:** 2026-07-02
-- **게시자 / Publisher:** `[게시자명 — 게시 전 입력]`
-- **문의 / Contact:** `[연락처 이메일 — 게시 전 입력]`
+- **게시자 / Publisher:** `SlnU`
+- **문의 / Contact:** `raltlsdn@naver.com`
 
-> Microsoft Store 등록에는 접근 가능한 개인정보 처리방침이 필요합니다. 위 대괄호 항목만 채우면 그대로 사용할 수 있습니다.
+> Microsoft Store 등록에는 접근 가능한 개인정보 처리방침이 필요합니다. 공개 URL(예: GitHub)로 게시하면 됩니다.
 
 ---
 
@@ -36,7 +36,7 @@
 향후 선택적 온라인 기능(예: 클라우드 동기화)을 도입할 경우, 본 방침을 사전에 갱신하고 앱 내 또는 스토어 페이지에서 고지합니다.
 
 ### 7. 문의
-개인정보 관련 문의는 `[연락처 이메일]` 로 연락 주시기 바랍니다.
+개인정보 관련 문의는 `raltlsdn@naver.com` 로 연락 주시기 바랍니다.
 
 ---
 
@@ -67,4 +67,4 @@ Because the App collects no personal information, it collects none from children
 If optional online features (e.g., cloud sync) are introduced in the future, this policy will be updated in advance and disclosed in the App or on the store page.
 
 ### 7. Contact
-For privacy inquiries, please contact `[contact email]`.
+For privacy inquiries, please contact `raltlsdn@naver.com`.
