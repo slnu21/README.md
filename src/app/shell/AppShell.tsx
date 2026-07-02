@@ -1,9 +1,10 @@
 // 앱 셸 — 시안(docs/mockups/md-reader-shell.html) 이식 + 파일/폴더 열기·워크스페이스 트리(WBS 510).
 // 에디터는 현재 원문 표시(읽기 전용). 실제 편집=WBS 522, 미리보기 렌더=WBS 511.
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
 import { themes } from "../themes";
-import { pickFile, pickFolder, readFile, readDirTree } from "../lib/tauri";
+import { pickFile, pickFolder, readFile, readDirTree, writeFile, watchFiles, onFileChanged } from "../lib/tauri";
 import { Icon, IconSprite } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview } from "./Preview";
@@ -68,6 +69,65 @@ export function AppShell() {
     }
   }
 
+  async function saveActive() {
+    const st = useAppStore.getState();
+    const tab = st.tabs.find((tb) => tb.path === st.activePath);
+    if (!tab) return;
+    try {
+      await writeFile(tab.path, tab.content);
+      useAppStore.getState().markSaved(tab.path);
+    } catch (e) {
+      console.error("저장 실패:", e);
+    }
+  }
+
+  // Ctrl/Cmd+S 저장
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        void saveActive();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // 열린 파일 감시(경로 집합 변경 시에만 재등록 — 편집 시엔 안 함)
+  const pathsKey = tabs.map((tb) => tb.path).join("\n");
+  useEffect(() => {
+    void watchFiles(pathsKey ? pathsKey.split("\n") : []);
+  }, [pathsKey]);
+
+  // 외부 변경 → 미수정 탭만 조용히 리로드
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let alive = true;
+    void onFileChanged((changed) => {
+      const st = useAppStore.getState();
+      for (const p of changed) {
+        const tab = st.tabs.find((tb) => tb.path === p);
+        if (tab && !tab.dirty) {
+          readFile(p)
+            .then((content) => {
+              const cur = useAppStore.getState().tabs.find((tb) => tb.path === p);
+              if (cur && !cur.dirty && cur.content !== content) {
+                useAppStore.getState().reloadFile(p, content);
+              }
+            })
+            .catch(() => {});
+        }
+      }
+    }).then((un) => {
+      if (alive) unlisten = un;
+      else un();
+    });
+    return () => {
+      alive = false;
+      if (unlisten) unlisten();
+    };
+  }, []);
+
   return (
     <>
       <IconSprite />
@@ -91,7 +151,7 @@ export function AppShell() {
           </div>
           <span className="sep" />
           <div className="tgroup actions">
-            <button className="tbtn" type="button">
+            <button className="tbtn" type="button" onClick={() => void saveActive()} disabled={!active}>
               <Icon name="save" />
               <span className="lbl">{t("menu.save")}</span>
             </button>
@@ -266,8 +326,8 @@ export function AppShell() {
           {active ? (
             <>
               <span className="st">
-                <span className="dot-ok" />
-                <span>{t("status.saved")}</span>
+                <span className={active.dirty ? "dot-dirty" : "dot-ok"} />
+                <span>{active.dirty ? t("status.unsaved") : t("status.saved")}</span>
               </span>
               <span className="st">
                 {t("status.ln")} <strong>{lines.length}</strong>

@@ -13,11 +13,13 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(commands::watch::WatchState::default())
         .invoke_handler(tauri::generate_handler![
             greet,
             commands::fs_ops::read_file,
             commands::fs_ops::write_file,
-            commands::fs_ops::read_dir_tree
+            commands::fs_ops::read_dir_tree,
+            commands::watch::watch_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

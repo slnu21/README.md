@@ -124,6 +124,13 @@ body {
 .tbtn:hover {
   background: var(--hover);
 }
+.tbtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tbtn:disabled:hover {
+  background: transparent;
+}
 .tbtn .ic {
   color: var(--muted);
 }

@@ -1,6 +1,7 @@
 // Rust 커맨드 래퍼 + 다이얼로그. 실제 파일 I/O는 풀 접근 권한의 Rust(std::fs)에서 수행한다.
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 /** 워크스페이스 트리 노드(Rust `read_dir_tree` 반환, camelCase). */
 export interface DirEntryNode {
@@ -39,4 +40,14 @@ export async function pickFolder(): Promise<string | null> {
   return typeof res === "string" ? res : null;
 }
 
-// TODO: watch(파일 감시), search(FTS5), export 래퍼 추가
+/** 열린 파일들의 상위 디렉터리를 감시(경로 집합 재등록). */
+export function watchFiles(paths: string[]): Promise<void> {
+  return invoke<void>("watch_files", { paths });
+}
+
+/** 외부 파일 변경 이벤트 구독. 반환된 함수로 해제. */
+export function onFileChanged(cb: (paths: string[]) => void): Promise<UnlistenFn> {
+  return listen<string[]>("file-changed", (e) => cb(e.payload));
+}
+
+// TODO: search(FTS5), export 래퍼 추가
