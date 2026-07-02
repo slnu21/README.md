@@ -1,5 +1,6 @@
 <!doctype html>
-<!-- 앱 아이콘 소스 렌더용. 1024x1024 로 헤드리스 캡처 → npx tauri icon 입력. -->
+<!-- 앱 아이콘 소스 렌더용. 1024x1024 로 헤드리스 캡처 → npx tauri icon 입력.
+     마크: 공식 Markdown 마크(퍼블릭 도메인) — 둥근 사각 테두리 + M + ↓. -->
 <html>
 <head>
 <meta charset="utf-8" />
@@ -13,16 +14,14 @@
     align-items: center;
     justify-content: center;
   }
-  .icon svg { width: 620px; height: 620px; }
+  .icon svg { width: 760px; height: auto; }
 </style>
 </head>
 <body>
   <div class="icon">
-    <svg viewBox="0 0 100 100">
-      <g fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M24 66V38l15 17 15-17v28" />
-        <path d="M68 38v24M57 51l11 11 11-11" />
-      </g>
+    <svg viewBox="0 0 208 128" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="5" width="198" height="118" rx="16" fill="none" stroke="#ffffff" stroke-width="15" />
+      <path fill="#ffffff" d="M30 98V30h20l20 25 20-25h20v68H110V59L90 84 70 59v39zm125 0l-30-33h20V30h20v35h20z" />
     </svg>
   </div>
 </body>

@@ -135,12 +135,9 @@ export function AppShell() {
         {/* 상단바 */}
         <header className="titlebar" data-tauri-drag-region="">
           <div className="brand" data-tauri-drag-region="">
-            <svg className="logo" viewBox="0 0 100 100" aria-hidden="true">
-              <rect x="6" y="6" width="88" height="88" rx="22" fill="var(--accent)" />
-              <g fill="none" stroke="var(--bg)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M24 64V40l14 15 14-15v24" />
-                <path d="M66 40v18M57 51l9 9 9-9" />
-              </g>
+            <svg className="logo" viewBox="0 0 208 128" aria-hidden="true">
+              <rect x="6" y="6" width="196" height="116" rx="16" fill="none" stroke="var(--accent)" strokeWidth="14" />
+              <path fill="var(--accent)" d="M30 98V30h20l20 25 20-25h20v68H110V59L90 84 70 59v39zm125 0l-30-33h20V30h20v35h20z" />
             </svg>
             <span>{t("app.name")}</span>
           </div>
