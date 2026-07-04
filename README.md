@@ -11,7 +11,7 @@ md-reader/
 │  ├─ app/        # 웹 프론트엔드 (UI)
 │  └─ src-tauri/  # Rust 네이티브 셸
 ├─ release/   # 버전별 배포 산출물 (→ release/README.md)
-├─ THIRD-PARTY-NOTICES.md  # 의존성 라이선스 고지 (생성됨: npm 46 + cargo 265)
+├─ THIRD-PARTY-NOTICES.md  # 의존성 라이선스 고지 (생성됨: npm 174 + cargo 276 + 번들 폰트 OFL 전문)
 └─ README.md
 ```
 
@@ -27,7 +27,7 @@ npm install
 # 3) 개발 실행 (데스크톱 창)
 npm run tauri dev
 ```
-> 현재 이 환경에는 Rust가 미설치라 `tauri dev/build`는 Rust 설치 후 동작합니다. 타입체크(`npx tsc --noEmit`)는 바로 가능.
+> Rust 설치 완료 → `tauri dev/build` 동작. 프론트 타입체크는 Rust 없이도 `npx tsc --noEmit`로 가능.
 
 자세한 안내: [docs/notes/development.md](docs/notes/development.md).
 

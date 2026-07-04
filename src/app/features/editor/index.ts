@@ -26,8 +26,9 @@ const cmTheme = EditorView.theme({
   "&": { color: "var(--fg)", backgroundColor: "var(--bg)", height: "100%" },
   "&.cm-focused": { outline: "none" },
   ".cm-scroller": {
+    // 폰트 패밀리·크기는 :root CSS 변수로 제어 → 글꼴/줌 변경이 리컨피그 없이 즉시 반영(기능 3·5).
     fontFamily: "var(--mono-font)",
-    fontSize: "13px",
+    fontSize: "var(--editor-font-size, 13px)",
     lineHeight: "1.62",
     overflow: "auto",
   },
@@ -62,8 +63,25 @@ const cmTheme = EditorView.theme({
   ".cm-searchMatch-selected": { backgroundColor: "color-mix(in srgb, var(--accent) 48%, transparent)" },
 });
 
-/** 마크다운 에디터 확장 세트. 문서 변경 시 onChange(doc) 호출. */
-export function editorExtensions(onChange: (doc: string) => void): Extension[] {
+/** 에디터 상단에 보이는 소스 줄(0-based, data-line과 일치) — 미리보기 스크롤 동기화용(기능 8). */
+function topVisibleLine(view: EditorView): number {
+  const rect = view.scrollDOM.getBoundingClientRect();
+  const pos = view.posAtCoords({ x: rect.left + 6, y: rect.top + 6 });
+  if (pos == null) return 0;
+  return view.state.doc.lineAt(pos).number - 1;
+}
+
+/** 마크다운 에디터 확장 세트. 문서 변경 시 onChange(doc) 호출. onSyncLine=상단 가시줄(스크롤/편집 시). */
+export function editorExtensions(
+  onChange: (doc: string) => void,
+  onSyncLine?: (line: number) => void,
+): Extension[] {
+  let raf = 0;
+  const emit = (view: EditorView) => {
+    if (!onSyncLine) return;
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => onSyncLine(topVisibleLine(view)));
+  };
   return [
     lineNumbers(),
     highlightActiveLine(),
@@ -75,8 +93,13 @@ export function editorExtensions(onChange: (doc: string) => void): Extension[] {
     syntaxHighlighting(mdHighlight),
     cmTheme,
     EditorView.lineWrapping,
+    // 스크롤·편집 시 상단 가시줄을 방출(rAF 스로틀) → 미리보기가 따라 스크롤.
+    EditorView.domEventHandlers({ scroll: (_e, view) => emit(view) }),
     EditorView.updateListener.of((u) => {
-      if (u.docChanged) onChange(u.state.doc.toString());
+      if (u.docChanged) {
+        onChange(u.state.doc.toString());
+        emit(u.view);
+      }
     }),
   ];
 }

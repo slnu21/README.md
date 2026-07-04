@@ -292,6 +292,109 @@ body {
   box-shadow: 0 1px 2px color-mix(in srgb, var(--fg) 14%, transparent);
 }
 
+/* ── 설정 팝오버(기능 3·5·8) ── */
+.settings-wrap {
+  position: relative;
+}
+.settings-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 272px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow);
+  animation: riseIn 0.16s ease both;
+  cursor: default;
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--fg);
+}
+.set-row > span {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.set-row select {
+  flex: 1;
+  max-width: 152px;
+  height: 26px;
+  padding: 0 6px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.set-row.toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px;
+}
+.stepper button {
+  width: 24px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.stepper button:hover {
+  color: var(--accent);
+  background: var(--hover);
+}
+.stepper b {
+  min-width: 42px;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+.set-reset {
+  margin-top: 2px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+.set-reset:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .wctl {
   display: flex;
   align-items: center;
@@ -324,9 +427,194 @@ body {
   grid-area: sidebar;
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 60%, var(--bg));
-  overflow: auto;
-  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   transition: background-color 0.26s ease, border-color 0.26s ease;
+}
+/* 사이드바 상단 탭 [워크스페이스 | 최근] */
+.sidebar-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.sb-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.14s ease, background-color 0.14s ease;
+}
+.sb-tab .ic {
+  width: 14px;
+  height: 14px;
+}
+.sb-tab:hover {
+  color: var(--fg);
+}
+.sb-tab.active {
+  color: var(--accent);
+  background: var(--bg);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.sidebar-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+}
+/* 워크스페이스 툴바 */
+.ws-toolbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.ws-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+.ws-toolbar .ws-tool:first-child {
+  flex: 1;
+}
+.ws-tool.icon {
+  padding: 0;
+  width: 28px;
+  justify-content: center;
+  flex: none;
+}
+.ws-tool:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.ws-tool .ic {
+  width: 14px;
+  height: 14px;
+}
+
+/* 컨텍스트 메뉴 */
+.ctx-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 184px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow);
+  animation: riseIn 0.14s ease both;
+}
+.ctx-item {
+  text-align: left;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.ctx-item:hover {
+  background: var(--hover);
+}
+.ctx-item.danger {
+  color: #c0392b;
+}
+.ctx-item.danger:hover {
+  background: color-mix(in srgb, #c0392b 12%, transparent);
+}
+
+/* 이름 입력 모달 */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, #000 32%, transparent);
+}
+.modal {
+  width: 320px;
+  max-width: 86vw;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow);
+  animation: riseIn 0.16s ease both;
+}
+.modal-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.modal-input {
+  height: 32px;
+  padding: 0 10px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: 13px;
+}
+.modal-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.modal-btn {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.modal-btn:hover {
+  border-color: var(--accent);
+}
+.modal-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 .sec-label {
   display: flex;
@@ -370,6 +658,45 @@ body {
 .node .ic {
   flex: none;
   color: var(--muted);
+}
+/* 파일 행의 화살표 자리 확보 → 같은 깊이의 폴더/파일 아이콘 정렬 */
+.chev-pad {
+  width: 16px;
+  flex: none;
+}
+/* 드래그 배치·재정렬 표시 */
+.node {
+  position: relative;
+}
+.node.dragging {
+  opacity: 0.45;
+}
+.node.drop-into {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.node.drop-before::before,
+.node.drop-after::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  box-shadow: 0 0 4px var(--accent);
+}
+.node.drop-before::before {
+  top: -1px;
+}
+.node.drop-after::after {
+  bottom: -1px;
+}
+.ws.drop-root {
+  outline: 2px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: -3px;
+  border-radius: var(--r-md);
 }
 .node.folder .chev {
   transition: transform 0.16s ease;
@@ -457,6 +784,41 @@ body {
   gap: 2px;
   transition: background-color 0.26s ease, border-color 0.26s ease;
 }
+/* 탭 목록 스크롤 영역 — 넘치면 가로 스크롤(+버튼은 밖에 고정). */
+.tab-scroll {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+/* 드래그 재정렬 삽입 위치 표시선 */
+.tab-drop-marker {
+  position: absolute;
+  top: 6px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 4px var(--accent);
+  pointer-events: none;
+  z-index: 3;
+}
+.tab-scroll::-webkit-scrollbar {
+  height: 5px;
+}
+.tab-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+.tab-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
 .tab {
   display: inline-flex;
   align-items: center;
@@ -471,8 +833,13 @@ body {
   font: inherit;
   font-size: 12.5px;
   cursor: pointer;
+  flex: 0 0 auto; /* 과도 축소 금지 → 넘치면 .tab-scroll이 스크롤 */
   max-width: 180px;
+  touch-action: none; /* 포인터 드래그 재정렬 */
   transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+.tab.dragging {
+  opacity: 0.5;
 }
 .tab:hover {
   background: var(--hover);
@@ -945,15 +1312,122 @@ body {
 /* 미리보기 iframe (WBS 511) — 페인 채움, 내부 문서가 리더 여백 담당 */
 .preview {
   padding: 0;
-  background: var(--bg);
+  /* 가라앉은 매트 배경 → 편집 페인과 시각적 구분(기능 7) */
+  background: var(--sunken);
   overflow: hidden;
+  position: relative; /* 아웃라인 오버레이 앵커 */
 }
 .preview-frame {
   width: 100%;
   height: 100%;
   border: 0;
   display: block;
-  background: var(--bg);
+  background: var(--sunken);
+}
+
+/* ── 아웃라인 우측 오버레이(요청 2) ── */
+.outline-ov {
+  position: absolute;
+  top: 10px;
+  right: 0;
+  bottom: 10px;
+  z-index: 20;
+  pointer-events: none; /* 미리보기 스크롤/스크롤바는 통과 */
+}
+.outline-ov-inner {
+  position: relative;
+  height: 100%;
+  pointer-events: none; /* 탭/패널만 hittable → 나머지 통과 */
+}
+/* 접힘: 우측 중앙에 얇은 손잡이만 */
+.outline-ov-tab {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 46px;
+  pointer-events: auto;
+  border: 1px solid var(--border);
+  border-right: 0;
+  border-radius: var(--r-sm) 0 0 var(--r-sm);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  color: var(--muted);
+  box-shadow: var(--shadow);
+  transition: opacity 0.16s ease, color 0.16s ease;
+}
+.outline-ov-inner.open .outline-ov-tab {
+  opacity: 0;
+}
+/* 펼침 패널 — 손잡이(세로 중앙)와 같은 위치에 겹쳐 슬라이드 인(끊김 방지) */
+.outline-ov-panel {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 240px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transform: translateY(-50%) translateX(12px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.outline-ov-inner.open .outline-ov-panel {
+  opacity: 1;
+  transform: translateY(-50%);
+  pointer-events: auto;
+}
+.outline-ov-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.outline-ov-title {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.outline-ov-op {
+  width: 62px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.outline-ov-pin {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.14s ease, background-color 0.14s ease;
+}
+.outline-ov-pin:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+.outline-ov-pin.on {
+  color: var(--accent);
+}
+.outline-ov-panel .outline {
+  overflow: auto;
+  padding: 6px;
+  min-height: 0;
 }
 
 /* CodeMirror 에디터 호스트 (WBS 522) — 페인 채움, CM이 자체 스크롤 */
@@ -964,6 +1438,39 @@ body {
 .cm-host,
 .cm-host .cm-editor {
   height: 100%;
+}
+
+/* ── 파일 드롭 오버레이(기능 1a) ── */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+  animation: riseIn 0.14s ease both;
+}
+.drop-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 40px 56px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+}
+.drop-card .drop-ic {
+  width: 42px;
+  height: 42px;
+  color: var(--accent);
 }
 
 /* ── 접근성 & 포커스 ── */

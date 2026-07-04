@@ -4,20 +4,37 @@ import { useEffect, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { editorExtensions } from "../features/editor";
+import { useAppStore } from "../store";
 
-export function Editor({ content, onChange }: { content: string; onChange: (doc: string) => void }) {
+export function Editor({
+  content,
+  onChange,
+  onSyncLine,
+}: {
+  content: string;
+  onChange: (doc: string) => void;
+  onSyncLine?: (line: number) => void;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onSyncLineRef = useRef(onSyncLine);
+  onSyncLineRef.current = onSyncLine;
   const initial = useRef(content); // 마운트 시 초기 문서
+  // 글꼴/줌은 :root CSS 변수로 적용(App.tsx) → CM 높이 캐시 재측정 필요(커서/거터 정렬 유지).
+  const fontMono = useAppStore((s) => s.fontMono);
+  const editorZoom = useAppStore((s) => s.editorZoom);
 
   useEffect(() => {
     if (!host.current) return;
     const view = new EditorView({
       state: EditorState.create({
         doc: initial.current,
-        extensions: editorExtensions((doc) => onChangeRef.current(doc)),
+        extensions: editorExtensions(
+          (doc) => onChangeRef.current(doc),
+          (line) => onSyncLineRef.current?.(line),
+        ),
       }),
       parent: host.current,
     });
@@ -36,6 +53,14 @@ export function Editor({ content, onChange }: { content: string; onChange: (doc:
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: content } });
     }
   }, [content]);
+
+  // 글꼴/줌(CSS 변수) 변경 후 다음 프레임에 재측정 — 변수 적용 완료 시점 보장.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const id = requestAnimationFrame(() => view.requestMeasure());
+    return () => cancelAnimationFrame(id);
+  }, [fontMono, editorZoom]);
 
   return <div ref={host} className="cm-host" />;
 }

@@ -1,7 +1,37 @@
 {
   "app": { "name": "README.md" },
-  "menu": { "openFile": "Open File", "openFolder": "Open Folder", "save": "Save", "export": "Export" },
+  "menu": { "openFile": "Open File", "openFolder": "Open Folder", "save": "Save", "export": "Export", "exportHtml": "Export as HTML", "exportPdf": "Export as PDF", "ok": "OK", "cancel": "Cancel" },
   "sidebar": { "workspace": "Workspace", "favorites": "Favorites", "recent": "Recent" },
+  "ws": {
+    "newFolder": "New folder",
+    "newSubfolder": "New subfolder",
+    "addFile": "Add file",
+    "importFolder": "Import folder",
+    "rename": "Rename",
+    "removeFromWs": "Remove from workspace",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "newFolderName": "Folder name",
+    "newFolderDefault": "New folder",
+    "renameTitle": "Rename",
+    "empty": "Create folders, then add files and folders you open.",
+    "recentEmpty": "Recently opened files appear here."
+  },
   "search": { "placeholder": "Search...", "searching": "Searching…", "noResults": "No results" },
-  "status": { "saved": "Saved", "unsaved": "Unsaved", "words": "words", "ln": "Ln", "col": "Col" }
+  "status": { "saved": "Saved", "unsaved": "Unsaved", "words": "words", "ln": "Ln", "col": "Col" },
+  "settings": {
+    "title": "Settings",
+    "open": "Settings",
+    "readFont": "Reading font",
+    "editorFont": "Editor font",
+    "uiFont": "UI font",
+    "editorZoom": "Editor zoom",
+    "previewZoom": "Preview zoom",
+    "syncScroll": "Sync preview scroll",
+    "resetSplit": "Reset split (50/50)",
+    "reset": "Reset",
+    "outline": "Outline",
+    "opacity": "Opacity",
+    "pin": "Pin open"
+  }
 }

@@ -46,11 +46,12 @@ export const themes: Record<string, Theme> = {
     name: "Paper",
     type: "light",
     tokens: {
-      "--bg": "#f4ecd8",
-      "--fg": "#3b2f2f",
-      "--accent": "#8a5a2b",
-      "--surface": "#efe6d0",
-      "--border": "#dcceb0",
+      // 더 연한 크림톤 + 진한 연필(그래파이트) 글자색.
+      "--bg": "#fcf9f2",
+      "--fg": "#2e2c28", // 진한 연필심 느낌의 따뜻한 그래파이트
+      "--accent": "#8a5a2b", // 세피아 잉크(링크·헤딩)
+      "--surface": "#f6f2e8",
+      "--border": "#e9e1d1",
     },
   },
 };

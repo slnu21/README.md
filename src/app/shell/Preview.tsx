@@ -3,73 +3,12 @@
 // 200ms 디바운스. 테마 토큰을 iframe에 주입해 동기화. 로컬 이미지는 asset 프로토콜로 재작성.
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { themes, defaultThemeId } from "../themes";
 import { createMarkdown, extractToc, type TocItem } from "../lib/markdown";
 import { sanitizeHtml } from "../lib/sanitize";
 import { renderMermaid } from "../lib/mermaid";
-
-// iframe 내부(리더) 스타일. 폰트는 오프라인 시스템 폰트, 색은 주입된 5토큰 사용.
-const PREVIEW_CSS = `
-*{box-sizing:border-box}
-html,body{margin:0}
-body{padding:34px 40px 72px;background:var(--bg);color:var(--fg);
-  font-family:"Palatino Linotype","Book Antiqua",Georgia,"Times New Roman",serif;
-  font-size:16px;line-height:1.75;-webkit-font-smoothing:antialiased}
-.md{max-width:720px;margin:0 auto}
-h1,h2,h3,h4,h5{font-weight:600;line-height:1.25;margin:1.6em 0 .6em}
-h1{font-size:1.95em;margin-top:0;letter-spacing:-.01em}
-h2{font-size:1.45em;border-bottom:1px solid var(--border);padding-bottom:.25em}
-h3{font-size:1.2em}
-p{margin:0 0 1em}
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
-ul,ol{padding-left:1.5em;margin:0 0 1em}
-li{margin:.25em 0}
-blockquote{margin:0 0 1em;padding:.2em 0 .2em 1em;border-left:3px solid var(--accent);
-  color:color-mix(in srgb,var(--fg) 62%,var(--bg));font-style:italic}
-code{font-family:"Cascadia Code","Cascadia Mono",ui-monospace,Consolas,monospace;
-  font-size:.86em;background:color-mix(in srgb,var(--accent) 12%,var(--bg));
-  color:color-mix(in srgb,var(--accent) 55%,var(--fg));padding:.12em .4em;border-radius:5px}
-pre{background:color-mix(in srgb,var(--fg) 5%,var(--bg));border:1px solid var(--border);
-  border-radius:8px;padding:14px 16px;overflow:auto;margin:0 0 1em}
-pre code{background:none;color:inherit;padding:0;font-size:.85em}
-table{border-collapse:collapse;width:100%;margin:0 0 1em;
-  font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;font-size:.95em}
-th,td{border:1px solid var(--border);padding:7px 11px;text-align:left}
-thead th{background:var(--surface)}
-img{max-width:100%;height:auto;border-radius:6px}
-hr{border:none;border-top:1px solid var(--border);margin:1.6em 0}
-h1:first-child,h2:first-child,h3:first-child{margin-top:0}
-.task-list-item{list-style:none}
-.task-list-item-checkbox{margin:0 .5em 0 -1.4em}
-.footnotes{font-size:.9em;color:color-mix(in srgb,var(--fg) 78%,var(--bg));border-top:1px solid var(--border);margin-top:2.4em;padding-top:.4em}
-.footnotes ol{padding-left:1.4em}
-.footnote-ref a,.footnote-backref{text-decoration:none;color:var(--accent)}
-mark{background:color-mix(in srgb,var(--accent) 22%,var(--bg));color:inherit;padding:.05em .2em;border-radius:3px}
-ins{text-decoration:underline}
-sub,sup{font-size:.75em;line-height:0}
-abbr[title]{text-decoration:underline dotted;cursor:help}
-dl dt{font-weight:600;margin-top:.7em}
-dl dd{margin:0 0 .4em 1.3em}
-.callout{border-left:4px solid var(--accent);border-radius:0 6px 6px 0;padding:.4em 1em;margin:1em 0;background:color-mix(in srgb,var(--accent) 8%,var(--bg))}
-.callout>:first-child{margin-top:0}
-.callout>:last-child{margin-bottom:0}
-.callout.warning{border-color:#d97706;background:color-mix(in srgb,#d97706 8%,var(--bg))}
-.callout.tip{border-color:#059669;background:color-mix(in srgb,#059669 8%,var(--bg))}
-.hljs{background:transparent;color:inherit}
-.hljs-comment,.hljs-quote{color:color-mix(in srgb,var(--fg) 45%,var(--bg));font-style:italic}
-.hljs-keyword,.hljs-selector-tag,.hljs-literal,.hljs-section,.hljs-doctag,.hljs-type,.hljs-name,.hljs-strong{color:color-mix(in srgb,var(--accent) 80%,var(--fg));font-weight:600}
-.hljs-string,.hljs-title,.hljs-attr,.hljs-attribute,.hljs-symbol,.hljs-bullet,.hljs-addition,.hljs-template-tag,.hljs-template-variable{color:color-mix(in srgb,var(--accent) 52%,var(--fg))}
-.hljs-number,.hljs-meta,.hljs-built_in,.hljs-variable,.hljs-params,.hljs-selector-id,.hljs-selector-class{color:color-mix(in srgb,var(--fg) 82%,var(--bg))}
-.hljs-deletion{color:#c0392b}
-.hljs-emphasis{font-style:italic}
-math{font-size:1.02em}
-math[display="block"],eqn{display:block;margin:1em 0;text-align:center;overflow-x:auto}
-eq{padding:0 .1em}
-.mermaid-rendered{display:flex;justify-content:center;margin:1em 0}
-.mermaid-rendered svg{max-width:100%;height:auto}
-.mermaid-error{color:#c0392b}
-`;
+import { useAppStore } from "../store";
+import { readStack, BASE_READER_PX } from "../lib/fonts";
+import { buildDoc, type FontOpts } from "../lib/renderDoc";
 
 function dirOf(path: string): string {
   const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
@@ -98,21 +37,9 @@ function rewriteImages(html: string, fileDir: string): string {
   return doc.body.innerHTML;
 }
 
-function buildDoc(bodyHtml: string, themeId: string): string {
-  const theme = themes[themeId] ?? themes[defaultThemeId];
-  const vars = Object.entries(theme.tokens)
-    .map(([k, v]) => `${k}:${v};`)
-    .join("");
-  return (
-    `<!doctype html><html><head><meta charset="utf-8">` +
-    `<meta name="color-scheme" content="${theme.type}">` +
-    `<style>:root{${vars}}${PREVIEW_CSS}</style></head>` +
-    `<body><div class="md">${bodyHtml}</div></body></html>`
-  );
-}
-
 export interface PreviewHandle {
   scrollToHeading(id: string): void;
+  scrollToLine(line: number): void;
 }
 
 interface PreviewProps {
@@ -135,6 +62,10 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   const onTocRef = useRef(onToc);
   onTocRef.current = onToc;
   const [bodyHtml, setBodyHtml] = useState("");
+  // 읽기 글꼴/줌(기능 3·5) — iframe은 격리돼 있어 buildDoc에 직접 주입한다.
+  const fontRead = useAppStore((s) => s.fontRead);
+  const previewZoom = useAppStore((s) => s.previewZoom);
+  const font: FontOpts = { readStack: readStack(fontRead), readerPx: BASE_READER_PX * previewZoom };
   // 데모/스크린샷(?demo)에서는 헤드리스 캡처 타이밍 때문에 워커 대신 메인 스레드로 즉시 렌더.
   const isDemo = new URLSearchParams(window.location.search).has("demo");
 
@@ -145,6 +76,33 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
       scrollToHeading(id: string) {
         const doc = iframeRef.current?.contentDocument;
         doc?.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      },
+      // 소스 줄 → 렌더 위치로 스크롤(기능 8). data-line 앵커 사이 offsetTop 보간, 즉시 이동.
+      scrollToLine(line: number) {
+        const doc = iframeRef.current?.contentDocument;
+        const scroller = doc?.scrollingElement ?? doc?.documentElement;
+        if (!doc || !scroller) return;
+        const els = doc.querySelectorAll<HTMLElement>("[data-line]");
+        if (!els.length) return;
+        let prev: HTMLElement | null = null;
+        let next: HTMLElement | null = null;
+        for (const el of els) {
+          if (Number(el.getAttribute("data-line")) <= line) prev = el;
+          else {
+            next = el;
+            break;
+          }
+        }
+        const prevLine = prev ? Number(prev.getAttribute("data-line")) : 0;
+        const prevTop = prev ? prev.offsetTop : 0;
+        let target = prevTop;
+        if (next) {
+          const nextLine = Number(next.getAttribute("data-line"));
+          const nextTop = next.offsetTop;
+          const frac = nextLine > prevLine ? (line - prevLine) / (nextLine - prevLine) : 0;
+          target = prevTop + frac * (nextTop - prevTop);
+        }
+        scroller.scrollTop = Math.max(0, target - 8);
       },
     }),
     [],
@@ -178,9 +136,9 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
         const md = createMarkdown();
         onTocRef.current?.(extractToc(md, content));
         const body = rewriteImages(sanitizeHtml(md.render(content)), dirOf(pathRef.current));
-        if (iframe) iframe.srcdoc = buildDoc(body, themeId);
+        if (iframe) iframe.srcdoc = buildDoc(body, themeId, font);
       } catch (err) {
-        if (iframe) iframe.srcdoc = buildDoc("<pre>DEMO ERROR: " + String(err) + "</pre>", themeId);
+        if (iframe) iframe.srcdoc = buildDoc("<pre>DEMO ERROR: " + String(err) + "</pre>", themeId, font);
       }
       return;
     }
@@ -189,6 +147,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     const id = ++reqId.current;
     const timer = window.setTimeout(() => worker.postMessage({ id, source: content }), 200);
     return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content, path, isDemo]);
 
   // 정화된 HTML/테마 변경 시 iframe 재구성. mermaid(있으면)는 메인스레드 렌더 후 주입(비동기+레이스 가드).
@@ -201,12 +160,29 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     void (async () => {
       const finalBody = await renderMermaid(bodyHtml, themeId);
       if (cancelled || token !== buildToken.current) return;
-      iframe.srcdoc = buildDoc(finalBody, themeId);
+      iframe.srcdoc = buildDoc(finalBody, themeId, font);
     })();
     return () => {
       cancelled = true;
     };
-  }, [bodyHtml, themeId, isDemo]);
+    // font(readStack/readerPx)는 fontRead·previewZoom 파생 → 이들 변경 시 재빌드.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bodyHtml, themeId, isDemo, fontRead, previewZoom]);
 
-  return <iframe ref={iframeRef} className="preview-frame" sandbox="allow-same-origin" title="preview" />;
+  // srcdoc 로드 때마다 iframe 문서에 우클릭(브라우저 기본 메뉴) 억제 부착.
+  // 별도 문서라 부모 전역 리스너가 못 잡음 → same-origin(allow-same-origin)이라 스크립트 주입 없이 부착 가능.
+  function suppressIframeContextMenu() {
+    const doc = iframeRef.current?.contentDocument;
+    doc?.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
+  return (
+    <iframe
+      ref={iframeRef}
+      className="preview-frame"
+      sandbox="allow-same-origin"
+      title="preview"
+      onLoad={suppressIframeContextMenu}
+    />
+  );
 });

@@ -43,6 +43,7 @@ pwsh packaging/pack-zip.ps1
 ```
 
 ## 릴리스 전 체크(권장)
-- [ ] **CSP 하드닝** (WBS 514) — 현재 `csp: null`. Store 배포 전 정책 적용.
-- [ ] **THIRD-PARTY-NOTICES** (WBS 515) — 의존성 라이선스 고지.
-- [ ] 버전 = `tauri.conf.json`·`package.json` 동기화, git 태그(`v0.1.0`).
+- [x] **CSP 하드닝** — `app.security.csp` 적용됨(원격 차단, `script-src 'self'`).
+- [x] **THIRD-PARTY-NOTICES** — 생성됨(npm+cargo deps + 번들 폰트 OFL 전문). 신규 deps 추가 시 재생성.
+- [ ] 버전 = `tauri.conf.json`·`Cargo.toml`·`package.json` 동기화, git 태그(`vX.Y.Z`).
+- [ ] `.md`/`.markdown` 파일 연결 — 매니페스트 `windows.fileTypeAssociation` 포함(재제출 후 발효).

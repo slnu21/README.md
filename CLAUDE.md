@@ -13,7 +13,7 @@ Tauri v2(Rust 셸) · React + TypeScript + Vite · CodeMirror 6(에디터) · ma
 - `docs/` — 설계·배포·법무 문서, html 시안, 변경로그 (인덱스: `docs/README.md`)
 - `src/` — 앱 소스. **`src/app/`** = 웹 프론트엔드(UI), **`src/src-tauri/`** = Rust 셸
 - `release/` — 버전별 배포 산출물
-- 루트: `README.md`, `THIRD-PARTY-NOTICES.md`(자동생성 예정), `.gitignore`
+- 루트: `README.md`, `THIRD-PARTY-NOTICES.md`(생성됨: npm+cargo deps + 번들 폰트 OFL 전문), `.gitignore`
 
 > ⚠️ 프론트엔드 소스는 Tauri 기본 `src/`가 아니라 **`app/`** 다(최상위 `src` 폴더와의 `src/src` 혼동 방지). `src/index.html`·`src/tsconfig.json`이 `app/`를 참조.
 
@@ -29,20 +29,21 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 ## 규약 / 결정사항
 - **파일 I/O**: JS의 fs 플러그인이 아니라 **Rust 커맨드(`src-tauri/src/commands/fs_ops.rs`, `std::fs`)** 로 임의 경로 풀 접근. 프론트는 `src/app/lib/tauri.ts` 래퍼 사용.
 - **미리보기 보안**: markdown-it 렌더 결과는 **반드시 DOMPurify 정화 후 샌드박스 iframe** 주입.
-- **오프라인**: 원격/CDN 금지, 모든 자산 번들. 릴리스 전 하드닝 CSP 적용(현재 `tauri.conf.json`의 csp는 `null` — [docs/notes/development.md](docs/notes/development.md)).
+- **오프라인**: 원격/CDN 금지, 모든 자산 번들. **하드닝 CSP 적용됨**(`tauri.conf.json` `app.security.csp` — 원격 `http(s)` 차단, `img-src`에 `data:`/`asset:`, 인라인 스타일 허용). `script-src 'self'`(인라인 스크립트 불가).
 - **라이선스**: permissive(MIT/Apache/BSD/ISC 등)만 허용. GPL/AGPL/LGPL/SSPL 금지.
 - **Store 패키징**: **MSIX → Store**(Microsoft 재서명 → 코드서명 인증서 불필요)가 기본. Tauri는 MSI/NSIS만 내므로 **MSIX 래핑 1단계** 필요. 매니페스트에 `runFullTrust`. 자세히: [docs/deployment/microsoft-store.md](docs/deployment/microsoft-store.md).
 
-## 현재 상태 (2026-07-03 기준)
+## 현재 상태 (2026-07-04 기준)
 - **v0.1 릴리스 완료** — MVP(열기·편집·미리보기·저장·감시·최근·3테마·i18n·프레임리스·공식 마크다운 로고) + MSIX/NSIS/zip + GitHub(github.com/slnu21/README.md).
-- **v0.2 기능 구현 완료**(로컬 검증: `tsc`·`vite build`·`cargo check` 모두 통과):
-  - 리치 미리보기 — highlight.js 코드 하이라이트, KaTeX 수식(MathML 출력), markdown-it 플러그인 세트(각주·체크박스·콜아웃·sub/sup/mark/deflist 등), 아웃라인/TOC, mermaid(메인스레드 SVG 주입), 문서 내 찾기/바꾸기(@codemirror/search), 타이틀바 반응형(#118).
-  - 워크스페이스 & 검색 — SQLite(rusqlite bundled) 도입, 전역 FTS5 검색, 즐겨찾기·최근·설정 영속화, imported 폴더 영속(자식은 디스크 파생=D1). 스키마: [docs/design/data-model.md](docs/design/data-model.md).
-- **Rust 설치됨** → `cargo check`/`tauri dev/build` 가능. 미리보기 iframe은 `sandbox="allow-same-origin"`(allow-scripts는 절대 미포함, TOC 스크롤용).
-- 남은 런타임 검증(사용자 `tauri dev`): DB 스모크(`%APPDATA%\com.readme.app\md-reader.db`·FTS5 생성), 검색 인덱싱·질의, mermaid 실제 렌더.
+- **v0.2–v0.5 구현 완료**(로컬 검증 `tsc`·`vite build`·`cargo check` 통과 · **아직 미릴리스** — 패키지 버전 문자열은 `0.2.0` 그대로):
+  - **v0.2** 리치 미리보기(highlight.js·KaTeX(MathML)·markdown-it 플러그인 세트·아웃라인/TOC·mermaid·문서 내 찾기/바꾸기) + 워크스페이스/검색(SQLite rusqlite bundled·전역 FTS5·즐겨찾기·최근·설정 영속). 스키마: [docs/design/data-model.md](docs/design/data-model.md).
+  - **v0.3** 편집 UX 8종(드롭 열기·분할 폭 조정·글꼴 변경(시스템+번들 OFL)·펼침 상태 기억·에디터/미리보기 줌·paper 테마 톤·창 시각 구분 카드·편집 위치 스크롤 동기화).
+  - **v0.4** 워크스페이스 재구성(가상 폴더 UUID 그래프 렌더·생성/이동/재정렬 포인터 DnD·즐겨찾기 최상단 고정·[워크스페이스\|최근] 사이드바 탭) + 아웃라인 우측 오버레이 + UI 폰트 Pretendard + 탭 오버플로우/재정렬.
+  - **v0.5** 내보내기(자기완결 HTML: 이미지·선택 폰트 data URI 임베드 / PDF: OS 인쇄 대화상자) + `.md`/`.markdown` **파일 연결**(선언 + single-instance 실행인자 처리) + 기본 우클릭(브라우저) 메뉴 억제.
+- **Rust 설치됨** → `cargo check`/`tauri dev/build` 동작. 미리보기 iframe은 `sandbox="allow-same-origin"`(allow-scripts는 절대 미포함). CSP 하드닝 적용됨.
 
 ## 다음 단계
-- v0.2 런타임 검증 → 릴리스(산출물 재빌드; THIRD-PARTY-NOTICES는 신규 deps 반영 완료).
-- 후속: 내보내기 HTML/PDF(v0.3), 가상 폴더 생성 UI·드래그 재배치(Rust 커맨드는 준비됨, UI 후속), 설정 localStorage↔SQLite 이중화.
+- **배포 준비(진행 중)**: 릴리스 버전 확정(예: `0.2.0`→`0.5.0`) → `tauri.conf.json`·`Cargo.toml`·`package.json` 범프 → 산출물 재빌드(NSIS→MSIX 래핑→zip) → **THIRD-PARTY-NOTICES 재생성**(신규 deps `base64`·`tauri-plugin-single-instance` 반영) → `release/` 정리 → Store 재제출(**파일 연결은 MSIX 재제출 후 발효**).
+- 후속: 내보내기 고도화(WebView2 `PrintToPdfAsync` 무대화상자 PDF 저장 — `commands/export.rs`), 설정 localStorage↔SQLite 이중화, 에디터 커스텀 우클릭 메뉴.
 
 전체 로드맵은 [docs/README.md](docs/README.md) 참고.

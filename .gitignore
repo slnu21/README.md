@@ -17,5 +17,12 @@ dist/
 target/
 src/src-tauri/gen/
 
+# 릴리스 바이너리 — Store/GitHub Releases로 업로드(리포에 커밋하지 않음). 텍스트(노트·고지)만 추적.
+release/**/*.msix
+release/**/*.exe
+release/**/*.zip
+release/**/*.pfx
+release/**/*.cer
+
 # Logs / temp
 *.log

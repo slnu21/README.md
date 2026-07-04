@@ -1,6 +1,7 @@
 //! 파일 읽기/쓰기 · 디렉터리 나열 등 로컬 파일 I/O 커맨드.
 //! Rust 백엔드는 일반 데스크톱 프로세스와 동일한 풀 파일시스템 접근 권한을 가진다
 //! (JS측 fs 스코프/경로 탐색 제약을 우회). 임의 경로 읽기·쓰기·편집에 사용.
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
@@ -10,9 +11,23 @@ pub fn read_file(path: String) -> Result<String, String> {
     fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
+/// 파일 바이트를 base64로 반환(내보내기 시 로컬 이미지 data URI 내장용).
+/// 프론트에서 asset URL은 CSP connect-src로 fetch가 막혀 IPC(Rust)로 읽는다.
+#[tauri::command]
+pub fn read_file_base64(path: String) -> Result<String, String> {
+    let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(STANDARD.encode(bytes))
+}
+
 #[tauri::command]
 pub fn write_file(path: String, contents: String) -> Result<(), String> {
     fs::write(&path, contents).map_err(|e| e.to_string())
+}
+
+/// 드롭된 경로가 폴더인지 판별(파일 열기 vs 폴더 가져오기 분기용).
+#[tauri::command]
+pub fn path_is_dir(path: String) -> bool {
+    Path::new(&path).is_dir()
 }
 
 /// 워크스페이스 트리 노드(디스크 미러). 프론트의 WsNode 와 형태 일치(camelCase).

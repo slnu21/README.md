@@ -1,7 +1,37 @@
 {
   "app": { "name": "README.md" },
-  "menu": { "openFile": "파일 열기", "openFolder": "폴더 열기", "save": "저장", "export": "내보내기" },
+  "menu": { "openFile": "파일 열기", "openFolder": "폴더 열기", "save": "저장", "export": "내보내기", "exportHtml": "HTML로 내보내기", "exportPdf": "PDF로 내보내기", "ok": "확인", "cancel": "취소" },
   "sidebar": { "workspace": "워크스페이스", "favorites": "즐겨찾기", "recent": "최근" },
+  "ws": {
+    "newFolder": "새 폴더",
+    "newSubfolder": "새 하위 폴더",
+    "addFile": "파일 추가",
+    "importFolder": "폴더 가져오기",
+    "rename": "이름 변경",
+    "removeFromWs": "워크스페이스에서 제거",
+    "favorite": "즐겨찾기 추가",
+    "unfavorite": "즐겨찾기 해제",
+    "newFolderName": "폴더 이름",
+    "newFolderDefault": "새 폴더",
+    "renameTitle": "이름 변경",
+    "empty": "폴더를 만들고, 여는 파일·폴더를 배치하세요.",
+    "recentEmpty": "최근 연 파일이 여기 표시됩니다."
+  },
   "search": { "placeholder": "검색...", "searching": "검색 중…", "noResults": "결과 없음" },
-  "status": { "saved": "저장됨", "unsaved": "수정됨", "words": "단어", "ln": "줄", "col": "열" }
+  "status": { "saved": "저장됨", "unsaved": "수정됨", "words": "단어", "ln": "줄", "col": "열" },
+  "settings": {
+    "title": "설정",
+    "open": "설정",
+    "readFont": "읽기 글꼴",
+    "editorFont": "에디터 글꼴",
+    "uiFont": "UI 글꼴",
+    "editorZoom": "에디터 확대",
+    "previewZoom": "미리보기 확대",
+    "syncScroll": "미리보기 스크롤 동기화",
+    "resetSplit": "분할 초기화 (50/50)",
+    "reset": "초기화",
+    "outline": "아웃라인",
+    "opacity": "투명도",
+    "pin": "열림 고정"
+  }
 }

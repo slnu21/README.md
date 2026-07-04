@@ -104,6 +104,17 @@ export function createMarkdown(): MarkdownIt {
     katexOptions: { output: "mathml", throwOnError: false },
   });
 
+  // 소스라인 스탬프(기능 8: 스크롤 동기화) — 블록 여는 토큰에 data-line(0-based 시작줄) 부착.
+  // renderToken 경로로 렌더되는 요소(heading/para/list/blockquote/table/hr…)에 나타난다.
+  // DOMPurify는 data-* 를 보존(lib/sanitize.ts 에서 명시 허용).
+  md.core.ruler.push("source_line", (state) => {
+    for (const token of state.tokens) {
+      if (token.map && token.nesting >= 0 && token.type !== "inline") {
+        token.attrSet("data-line", String(token.map[0]));
+      }
+    }
+  });
+
   return md;
 }
 

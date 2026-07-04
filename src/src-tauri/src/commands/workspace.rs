@@ -221,6 +221,23 @@ pub fn ws_move(
     Ok(())
 }
 
+/// 형제 노드 재정렬 — ordered_ids 순서대로 sort_order 를 0..n 으로 원자적 재번호.
+/// (ws_move 는 절대값만 받고 형제 재번호를 안 하므로, 드래그 재정렬은 이 커맨드로.)
+#[tauri::command]
+pub fn ws_reorder(state: State<Db>, ordered_ids: Vec<String>) -> Result<(), String> {
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    for (i, id) in ordered_ids.iter().enumerate() {
+        tx.execute(
+            "UPDATE node SET sort_order = ?1 WHERE id = ?2",
+            params![i as i64, id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn ws_toggle_favorite(state: State<Db>, real_path: String) -> Result<bool, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;

@@ -18,7 +18,11 @@ export type IconName =
   | "x"
   | "min"
   | "max"
-  | "list";
+  | "list"
+  | "gear"
+  | "type"
+  | "zoom"
+  | "pin";
 
 export function Icon({ name, className }: { name: IconName; className?: string }) {
   return (
@@ -86,6 +90,20 @@ export function IconSprite() {
         </symbol>
         <symbol id="i-list" viewBox="0 0 24 24">
           <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />
+        </symbol>
+        <symbol id="i-gear" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4L5.3 5.3" />
+        </symbol>
+        <symbol id="i-type" viewBox="0 0 24 24">
+          <path d="M5 7V5h14v2M12 5v14M9 19h6" />
+        </symbol>
+        <symbol id="i-zoom" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="7" />
+          <path d="M20 20l-3.6-3.6M8 11h6M11 8v6" />
+        </symbol>
+        <symbol id="i-pin" viewBox="0 0 24 24">
+          <path d="M9 3h6l-1 6 3 3v2H7v-2l3-3zM12 14v7" />
         </symbol>
       </defs>
     </svg>

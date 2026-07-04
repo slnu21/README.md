@@ -1,8 +1,9 @@
 // Rust 커맨드 래퍼 + 다이얼로그. 실제 파일 I/O는 풀 접근 권한의 Rust(std::fs)에서 수행한다.
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 /** 워크스페이스 트리 노드(Rust `read_dir_tree` 반환, camelCase). */
 export interface DirEntryNode {
@@ -20,9 +21,33 @@ export function writeFile(path: string, contents: string): Promise<void> {
   return invoke<void>("write_file", { path, contents });
 }
 
+/** 파일 바이트를 base64로 읽기(내보내기 시 로컬 이미지 data URI 내장용). */
+export function readFileBase64(path: string): Promise<string> {
+  return invoke<string>("read_file_base64", { path });
+}
+
 /** 폴더를 재귀 스캔한 트리를 반환. */
 export function readDirTree(path: string): Promise<DirEntryNode> {
   return invoke<DirEntryNode>("read_dir_tree", { path });
+}
+
+/** 경로가 폴더인지 판별(드롭 분기용). */
+export function pathIsDir(path: string): Promise<boolean> {
+  return invoke<boolean>("path_is_dir", { path });
+}
+
+/** OS 파일 드롭 이벤트 구독(기능 1a). phase: 진입/이동/드롭/이탈. drop 시 실제 경로 제공. */
+export type DragDropPhase = "enter" | "over" | "drop" | "leave";
+export function onFileDrop(
+  cb: (state: { phase: DragDropPhase; paths: string[] }) => void,
+): Promise<UnlistenFn> {
+  return getCurrentWebview().onDragDropEvent((event) => {
+    const p = event.payload;
+    if (p.type === "enter") cb({ phase: "enter", paths: p.paths });
+    else if (p.type === "over") cb({ phase: "over", paths: [] });
+    else if (p.type === "drop") cb({ phase: "drop", paths: p.paths });
+    else cb({ phase: "leave", paths: [] });
+  });
 }
 
 /** 파일 열기 다이얼로그 → 선택 경로(취소 시 null). */
@@ -38,6 +63,15 @@ export async function pickFile(): Promise<string | null> {
 /** 폴더 열기 다이얼로그 → 선택 경로(취소 시 null). */
 export async function pickFolder(): Promise<string | null> {
   const res = await open({ directory: true, multiple: false });
+  return typeof res === "string" ? res : null;
+}
+
+/** 저장 다이얼로그(내보내기) → 선택 경로(취소 시 null). filters=[{name, extensions}]. */
+export async function saveFile(
+  defaultPath: string,
+  filters: { name: string; extensions: string[] }[],
+): Promise<string | null> {
+  const res = await save({ defaultPath, filters });
   return typeof res === "string" ? res : null;
 }
 
@@ -77,6 +111,8 @@ export const wsImportFolder = (id: string, parentId: string | null, realPath: st
   invoke("ws_import_folder", { id, parentId, realPath });
 export const wsMove = (id: string, newParentId: string | null, newSortOrder: number): Promise<void> =>
   invoke("ws_move", { id, newParentId, newSortOrder });
+export const wsReorder = (orderedIds: string[]): Promise<void> =>
+  invoke("ws_reorder", { orderedIds });
 export const wsToggleFavorite = (realPath: string): Promise<boolean> =>
   invoke("ws_toggle_favorite", { realPath });
 export const wsTouchRecent = (realPath: string): Promise<void> => invoke("ws_touch_recent", { realPath });
@@ -109,4 +145,9 @@ export const winMinimize = (): Promise<void> => getCurrentWindow().minimize();
 export const winToggleMaximize = (): Promise<void> => getCurrentWindow().toggleMaximize();
 export const winClose = (): Promise<void> => getCurrentWindow().close();
 
-// TODO: search(FTS5), export 래퍼 추가
+// ── 파일 연결(.md) 실행 인자 ──
+/** 콜드 스타트 시 .md 연결/명령행으로 넘어온 대기 파일 경로(없으면 null). 부팅 시 1회 호출. */
+export const takePendingOpen = (): Promise<string | null> => invoke<string | null>("take_pending_open");
+/** 실행 중 앱에 .md 연결로 새 파일이 넘어올 때(웜 스타트, single-instance) 이벤트 구독. */
+export const onOpenFile = (cb: (path: string) => void): Promise<UnlistenFn> =>
+  listen<string>("open-file", (e) => cb(e.payload));
