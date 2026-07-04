@@ -1,6 +1,6 @@
 // Editor: CodeMirror 6 설정(마크다운 문법 하이라이트 + 테마 토큰 연동).
 // React 마운트/생명주기는 shell/Editor.tsx. 색은 CSS 변수 var(--*) 사용 → 3테마 자동 대응.
-import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from "@codemirror/view";
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { search, searchKeymap } from "@codemirror/search";
@@ -35,11 +35,17 @@ const cmTheme = EditorView.theme({
   ".cm-content": { padding: "12px 0", caretColor: "var(--accent)" },
   ".cm-gutters": { backgroundColor: "var(--bg)", color: "var(--faint)", border: "none" },
   ".cm-lineNumbers .cm-gutterElement": { padding: "0 12px 0 14px" },
-  ".cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--accent) 6%, var(--bg))" },
+  // 활성 줄 배경은 알파 합성(transparent와 혼합) → 아래 선택 레이어(z-index:-1)가 비쳐 보인다.
+  // (불투명 --bg와 혼합하면 활성 줄에서 선택 영역이 가려지는 버그가 있었음)
+  ".cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--accent) 7%, transparent)" },
   ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--accent)" },
   "&.cm-focused .cm-cursor": { borderLeftColor: "var(--accent)" },
-  ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
-    backgroundColor: "color-mix(in srgb, var(--accent) 20%, var(--bg))",
+  // 선택 대비 강화 — 활성 줄 틴트 위에서도 또렷하게(포커스 시 더 진하게).
+  ".cm-selectionBackground": {
+    backgroundColor: "color-mix(in srgb, var(--accent) 22%, var(--bg))",
+  },
+  "&.cm-focused .cm-selectionBackground": {
+    backgroundColor: "color-mix(in srgb, var(--accent) 32%, var(--bg))",
   },
   // 찾기/바꾸기 패널(@codemirror/search) — 테마 토큰 연동
   ".cm-panels": { backgroundColor: "var(--surface)", color: "var(--fg)" },
@@ -85,6 +91,7 @@ export function editorExtensions(
   return [
     lineNumbers(),
     highlightActiveLine(),
+    highlightActiveLineGutter(),
     drawSelection(),
     history(),
     search({ top: true }),

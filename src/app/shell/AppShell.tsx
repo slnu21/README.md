@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, type TreeNode } from "../store";
 import { themes } from "../themes";
-import { pickFile, pickFolder, readFile, writeFile, watchFiles, onFileChanged, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
+import { pickFile, pickFolder, readFile, writeFile, watchFiles, onFileChanged, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
@@ -14,6 +14,7 @@ import { Editor } from "./Editor";
 import { Seam } from "./Seam";
 import { SettingsPopover } from "./SettingsPopover";
 import { ContextMenu } from "./ContextMenu";
+import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
 import { exportHtml, exportToPdf, type ExportParams } from "../features/export";
 import type { TocItem } from "../lib/markdown";
 
@@ -61,6 +62,7 @@ export function AppShell() {
   const splitRatio = useAppStore((s) => s.splitRatio);
   const fontRead = useAppStore((s) => s.fontRead);
   const previewZoom = useAppStore((s) => s.previewZoom);
+  const autosave = useAppStore((s) => s.autosave);
 
   const previewRef = useRef<PreviewHandle>(null);
   const splitRef = useRef<HTMLDivElement>(null);
@@ -72,6 +74,7 @@ export function AppShell() {
   const [indexNonce, setIndexNonce] = useState(0);
   const [dropActive, setDropActive] = useState(false);
   const [exportMenu, setExportMenu] = useState<{ x: number; y: number } | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   // ≤900px에서는 편집/미리보기가 세로 스택 → 리사이저 축 전환.
   const [vertical, setVertical] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches,
@@ -138,9 +141,12 @@ export function AppShell() {
   );
 
   // OS 파일 드롭으로 열기(기능 1a).
+  // StrictMode(dev)는 effect를 setup→cleanup→setup 로 두 번 돈다. cleanup이 async then보다 먼저
+  // 실행돼 unlisten이 아직 없으면 리스너가 새서 드롭이 2번 발화 → import 2번(중복 등록). cancelled 가드로 방지.
   useEffect(() => {
     if (isDemo) return;
     let unlisten: (() => void) | undefined;
+    let cancelled = false;
     onFileDrop(({ phase, paths }) => {
       if (phase === "enter" || phase === "over") setDropActive(true);
       else if (phase === "leave") setDropActive(false);
@@ -150,27 +156,36 @@ export function AppShell() {
       }
     })
       .then((fn) => {
-        unlisten = fn;
+        if (cancelled) fn();
+        else unlisten = fn;
       })
       .catch(() => {});
-    return () => unlisten?.();
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, [isDemo, openIncoming]);
 
   // .md 파일 연결/명령행 실행 → 해당 문서 열기. 콜드=대기열 take, 웜=open-file 이벤트(single-instance).
   useEffect(() => {
     if (isDemo) return;
     let unlisten: (() => void) | undefined;
+    let cancelled = false;
     void takePendingOpen()
       .then((p) => {
-        if (p) void openIncoming([p]);
+        if (p && !cancelled) void openIncoming([p]);
       })
       .catch(() => {});
     void onOpenFileEvent((p) => void openIncoming([p]))
       .then((fn) => {
-        unlisten = fn;
+        if (cancelled) fn();
+        else unlisten = fn;
       })
       .catch(() => {});
-    return () => unlisten?.();
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, [isDemo, openIncoming]);
 
   const ko = language === "ko";
@@ -268,6 +283,82 @@ export function AppShell() {
   function exportParamsOf(tab: { path: string; content: string }): ExportParams {
     return { content: tab.content, path: tab.path, themeId, fontRead, previewZoom };
   }
+
+  // 미저장 탭 일괄 저장(창 닫기 가드용).
+  async function saveAllDirty() {
+    const st = useAppStore.getState();
+    for (const tab of st.tabs.filter((tb) => tb.dirty)) {
+      try {
+        await writeFile(tab.path, tab.content);
+        useAppStore.getState().markSaved(tab.path);
+      } catch (e) {
+        console.error("저장 실패:", tab.path, e);
+      }
+    }
+  }
+
+  // 탭 닫기 — 미저장이면 확인 다이얼로그, 아니면 즉시.
+  function requestCloseTab(path: string) {
+    const tab = useAppStore.getState().tabs.find((tb) => tb.path === path);
+    if (!tab || !tab.dirty) {
+      closeTab(path);
+      return;
+    }
+    setConfirm({
+      title: t("dialog.unsavedTitle"),
+      message: t("dialog.unsavedTabMsg", { name: tab.title }),
+      onSave: () =>
+        void (async () => {
+          try {
+            await writeFile(tab.path, tab.content);
+          } catch (e) {
+            console.error("저장 실패:", e);
+          }
+          closeTab(path);
+        })(),
+      onDiscard: () => closeTab(path),
+    });
+  }
+
+  // 창 닫기 가드(데이터 안전): dirty 탭 있으면 확인 다이얼로그, 통과 시 destroy(이벤트 우회).
+  useEffect(() => {
+    if (isDemo) return;
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    onWindowCloseRequested((event) => {
+      const dirty = useAppStore.getState().tabs.filter((tb) => tb.dirty);
+      if (dirty.length === 0) return; // 미저장 없음 → 그대로 닫힘
+      event.preventDefault();
+      setConfirm({
+        title: t("dialog.unsavedTitle"),
+        message: t("dialog.unsavedCloseMsg", { count: dirty.length }),
+        onSave: () =>
+          void (async () => {
+            await saveAllDirty();
+            void winDestroy();
+          })(),
+        onDiscard: () => void winDestroy(),
+      });
+    })
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDemo, t]);
+
+  // 자동저장(옵트인): 활성 탭 편집 후 유휴 1.5s면 저장.
+  useEffect(() => {
+    if (!autosave || !active || !active.dirty) return;
+    const timer = window.setTimeout(() => void saveActive(), 1500);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autosave, active?.path, active?.content, active?.dirty]);
 
   // Ctrl/Cmd+S 저장
   useEffect(() => {
@@ -371,6 +462,7 @@ export function AppShell() {
   return (
     <>
       <IconSprite />
+      {confirm && <ConfirmDialog spec={confirm} onClose={() => setConfirm(null)} />}
       {dropActive && (
         <div className="drop-overlay" aria-hidden="true">
           <div className="drop-card">
@@ -604,7 +696,7 @@ export function AppShell() {
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
-                      closeTab(tab.path);
+                      requestCloseTab(tab.path);
                     }}
                   >
                     <Icon name="x" />

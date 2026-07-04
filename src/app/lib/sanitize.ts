@@ -30,11 +30,13 @@ export function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, CONFIG) as unknown as string;
 }
 
-/** mermaid 등에서 생성된 SVG 정화. foreignObject/인라인 style 허용. */
+/** mermaid 등에서 생성된 SVG 정화. foreignObject + 내부 표시용 HTML 라벨 허용.
+ *  htmlLabels를 끄면 대개 foreignObject 자체가 안 나오지만, 일부 다이어그램(class/state 등)이
+ *  foreignObject를 강제할 때 라벨 글자가 사라지지 않도록 양성 HTML 태그를 허용한다(no-scripts 샌드박스라 안전). */
 export function sanitizeSvg(svg: string): string {
   return DOMPurify.sanitize(svg, {
     USE_PROFILES: { svg: true, svgFilters: true },
-    ADD_TAGS: ["foreignObject"],
-    ADD_ATTR: ["style"],
+    ADD_TAGS: ["foreignObject", "div", "span", "p", "br", "b", "i", "strong", "em"],
+    ADD_ATTR: ["style", "class", "xmlns"],
   }) as unknown as string;
 }

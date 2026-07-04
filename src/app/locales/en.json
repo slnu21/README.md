@@ -28,10 +28,18 @@
     "editorZoom": "Editor zoom",
     "previewZoom": "Preview zoom",
     "syncScroll": "Sync preview scroll",
+    "autosave": "Autosave",
     "resetSplit": "Reset split (50/50)",
     "reset": "Reset",
     "outline": "Outline",
     "opacity": "Opacity",
     "pin": "Pin open"
+  },
+  "dialog": {
+    "unsavedTitle": "Unsaved changes",
+    "unsavedCloseMsg": "{{count}} document(s) have unsaved changes. Save them?",
+    "unsavedTabMsg": "\"{{name}}\" has unsaved changes. Save it?",
+    "saveAndClose": "Save",
+    "discardClose": "Don't save"
   }
 }

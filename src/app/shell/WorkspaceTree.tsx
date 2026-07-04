@@ -177,7 +177,7 @@ export function WorkspaceTree() {
   // ── 드래그 배치·재정렬 ──
   const index = useMemo(() => indexRoots(roots), [roots]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ id: string; startX: number; startY: number; moved: boolean } | null>(null);
+  const dragRef = useRef<{ id: string; pointerId: number; startX: number; startY: number; moved: boolean } | null>(null);
   const justDragged = useRef(false);
   const [drop, setDrop] = useState<DropTarget | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -234,8 +234,9 @@ export function WorkspaceTree() {
     if (el.closest("button") || el.closest("input")) return;
     const id = el.closest<HTMLElement>(".node[data-id]")?.getAttribute("data-id");
     if (!id) return;
-    dragRef.current = { id, startX: e.clientX, startY: e.clientY, moved: false };
-    containerRef.current?.setPointerCapture(e.pointerId);
+    // ⚠ 여기서 setPointerCapture 하면 안 된다 — 순수 클릭에도 캡처가 걸리면 뒤이은 click 이벤트가
+    //    행(row)이 아니라 컨테이너로 가서 onClick(펼치기/열기)이 안 먹는다. 실제 드래그 시작 때만 캡처.
+    dragRef.current = { id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, moved: false };
   }
   function onPointerMove(e: React.PointerEvent) {
     const d = dragRef.current;
@@ -244,6 +245,7 @@ export function WorkspaceTree() {
       if (Math.abs(e.clientX - d.startX) < 5 && Math.abs(e.clientY - d.startY) < 5) return;
       d.moved = true;
       setDraggingId(d.id);
+      containerRef.current?.setPointerCapture(d.pointerId); // 드래그 확정 시점에만 캡처
     }
     setDrop(computeDrop(e.clientX, e.clientY, d.id));
   }

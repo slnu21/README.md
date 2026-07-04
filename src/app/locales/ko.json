@@ -28,10 +28,18 @@
     "editorZoom": "에디터 확대",
     "previewZoom": "미리보기 확대",
     "syncScroll": "미리보기 스크롤 동기화",
+    "autosave": "자동 저장",
     "resetSplit": "분할 초기화 (50/50)",
     "reset": "초기화",
     "outline": "아웃라인",
     "opacity": "투명도",
     "pin": "열림 고정"
+  },
+  "dialog": {
+    "unsavedTitle": "저장되지 않은 변경",
+    "unsavedCloseMsg": "저장하지 않은 문서가 {{count}}개 있습니다. 저장할까요?",
+    "unsavedTabMsg": "'{{name}}'에 저장하지 않은 변경이 있습니다. 저장할까요?",
+    "saveAndClose": "저장",
+    "discardClose": "저장 안 함"
   }
 }

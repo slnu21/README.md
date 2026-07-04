@@ -133,6 +133,45 @@ fn insert_node(
     Ok(order)
 }
 
+fn row_to_node(r: &rusqlite::Row) -> rusqlite::Result<Node> {
+    Ok(Node {
+        id: r.get(0)?,
+        parent_id: r.get(1)?,
+        kind: r.get(2)?,
+        name: r.get(3)?,
+        real_path: r.get(4)?,
+        sort_order: r.get(5)?,
+    })
+}
+
+/// 같은 부모 아래 같은 경로/종류 노드가 이미 있으면 반환(중복 등록 방지 — idempotent add/import).
+fn find_by_parent_path(
+    conn: &Connection,
+    parent_id: &Option<String>,
+    kind: &str,
+    real_path: &str,
+) -> Result<Option<Node>, String> {
+    const COLS: &str = "SELECT id, parent_id, kind, name, real_path, sort_order FROM node
+         WHERE workspace_id='default' AND kind = ?1 AND real_path = ?2";
+    let found = match parent_id {
+        Some(p) => conn
+            .query_row(
+                &format!("{COLS} AND parent_id = ?3"),
+                params![kind, real_path, p],
+                row_to_node,
+            )
+            .optional(),
+        None => conn
+            .query_row(
+                &format!("{COLS} AND parent_id IS NULL"),
+                params![kind, real_path],
+                row_to_node,
+            )
+            .optional(),
+    };
+    found.map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn ws_load(state: State<Db>) -> Result<WorkspaceSnapshot, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -163,6 +202,10 @@ pub fn ws_add_file_ref(
     real_path: String,
 ) -> Result<Node, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
+    // 같은 부모에 같은 파일이 이미 있으면 중복 생성 안 함(기존 반환).
+    if let Some(existing) = find_by_parent_path(&conn, &parent_id, "file_ref", &real_path)? {
+        return Ok(existing);
+    }
     let name = basename(&real_path);
     let rp = Some(real_path);
     let order = insert_node(&conn, &id, &parent_id, "file_ref", &name, &rp)?;
@@ -177,6 +220,10 @@ pub fn ws_import_folder(
     real_path: String,
 ) -> Result<Node, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
+    // 같은 부모에 같은 폴더가 이미 있으면 중복 생성 안 함(기존 반환) — StrictMode 이중 호출/재드롭 방지.
+    if let Some(existing) = find_by_parent_path(&conn, &parent_id, "imported_folder", &real_path)? {
+        return Ok(existing);
+    }
     let name = basename(&real_path);
     let rp = Some(real_path);
     let order = insert_node(&conn, &id, &parent_id, "imported_folder", &name, &rp)?;

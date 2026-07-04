@@ -17,6 +17,8 @@ export function SettingsPopover() {
   const editorZoom = useAppStore((s) => s.editorZoom);
   const previewZoom = useAppStore((s) => s.previewZoom);
   const syncScroll = useAppStore((s) => s.syncScroll);
+  const autosave = useAppStore((s) => s.autosave);
+  const setAutosave = useAppStore((s) => s.setAutosave);
   const setFontRead = useAppStore((s) => s.setFontRead);
   const setFontMono = useAppStore((s) => s.setFontMono);
   const setFontUi = useAppStore((s) => s.setFontUi);
@@ -123,6 +125,15 @@ export function SettingsPopover() {
               type="checkbox"
               checked={syncScroll}
               onChange={(e) => setSyncScroll(e.target.checked)}
+            />
+          </label>
+
+          <label className="set-row toggle">
+            <span>{t("settings.autosave")}</span>
+            <input
+              type="checkbox"
+              checked={autosave}
+              onChange={(e) => setAutosave(e.target.checked)}
             />
           </label>
 

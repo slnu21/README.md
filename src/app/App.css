@@ -577,6 +577,12 @@ body {
   font-weight: 600;
   color: var(--fg);
 }
+.modal-msg {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
 .modal-input {
   height: 32px;
   padding: 0 10px;
@@ -615,6 +621,13 @@ body {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+.modal-btn.danger {
+  color: #c0392b;
+  border-color: color-mix(in srgb, #c0392b 40%, var(--border));
+}
+.modal-btn.danger:hover {
+  border-color: #c0392b;
 }
 .sec-label {
   display: flex;

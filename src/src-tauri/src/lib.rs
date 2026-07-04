@@ -3,7 +3,7 @@ mod commands;
 mod db;
 
 use std::sync::Mutex;
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -31,17 +31,26 @@ fn take_pending_open(state: tauri::State<PendingOpen>) -> Option<String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        // single-instance는 가장 먼저 등록(문서 권장). 두 번째 실행(예: .md 더블클릭) 시 새 프로세스는
-        // 종료되고 argv가 이 콜백으로 전달된다 → 기존 창 포커스 + open-file emit(웜 스타트).
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+    #[allow(unused_mut)] // release에서만 single-instance 등록으로 재대입(디버그는 미사용)
+    let mut builder = tauri::Builder::default();
+
+    // single-instance는 **릴리스에서만** 활성. 두 번째 실행(예: .md 더블클릭) 시 새 프로세스는
+    // 종료되고 argv가 콜백으로 전달된다 → 기존 창 포커스 + open-file emit(웜 스타트).
+    // 개발(디버그)에선 끈다 — 새 dev 빌드가 기존 인스턴스와 충돌해 즉시 종료되는 문제를 피하기 위해.
+    #[cfg(not(debug_assertions))]
+    {
+        use tauri::Emitter;
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             if let Some(path) = first_openable_arg(argv) {
                 if let Some(win) = app.get_webview_window("main") {
                     let _ = win.set_focus();
                 }
                 let _ = app.emit("open-file", path);
             }
-        }))
+        }));
+    }
+
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(commands::watch::WatchState::default())

@@ -145,6 +145,13 @@ export const winMinimize = (): Promise<void> => getCurrentWindow().minimize();
 export const winToggleMaximize = (): Promise<void> => getCurrentWindow().toggleMaximize();
 export const winClose = (): Promise<void> => getCurrentWindow().close();
 
+/** 창 닫기 요청 가로채기(미저장 변경 가드). handler에서 event.preventDefault()로 종료 취소. */
+export const onWindowCloseRequested = (
+  handler: (event: { preventDefault: () => void }) => void,
+): Promise<UnlistenFn> => getCurrentWindow().onCloseRequested(handler);
+/** 가드 통과 후 실제 종료(onCloseRequested를 우회). */
+export const winDestroy = (): Promise<void> => getCurrentWindow().destroy();
+
 // ── 파일 연결(.md) 실행 인자 ──
 /** 콜드 스타트 시 .md 연결/명령행으로 넘어온 대기 파일 경로(없으면 null). 부팅 시 1회 호출. */
 export const takePendingOpen = (): Promise<string | null> => invoke<string | null>("take_pending_open");

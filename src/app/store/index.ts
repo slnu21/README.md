@@ -5,6 +5,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { defaultThemeId } from "../themes";
 import {
+  readFile,
   readDirTree,
   wsLoad,
   wsCreateFolder,
@@ -59,14 +60,15 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 const isFolderKind = (k: TreeKind) =>
   k === "virtual_folder" || k === "imported_folder" || k === "disk_folder";
 
-/** 디스크 엔트리(DirEntryNode) → TreeNode(disk_*). */
-function diskToTree(d: DirEntryNode): TreeNode {
+/** 디스크 엔트리(DirEntryNode) → TreeNode(disk_*). scope=소유 imported_folder id로 key를 유일화
+ *  → 같은 폴더가 여러 곳에 import돼도 펼침 상태(expanded[key])가 서로 독립. */
+function diskToTree(d: DirEntryNode, scope: string): TreeNode {
   return {
-    key: "disk:" + d.path,
+    key: scope + "|disk:" + d.path,
     kind: d.isDir ? "disk_folder" : "disk_file",
     name: d.name,
     realPath: d.path,
-    children: d.isDir ? d.children.map(diskToTree) : [],
+    children: d.isDir ? d.children.map((c) => diskToTree(c, scope)) : [],
   };
 }
 
@@ -95,7 +97,7 @@ async function buildRoots(nodes: WorkspaceNode[]): Promise<TreeNode[]> {
     if (n.kind === "imported_folder" && n.realPath) {
       try {
         const disk = await readDirTree(n.realPath);
-        node.children = disk.children.map(diskToTree);
+        node.children = disk.children.map((c) => diskToTree(c, n.id));
       } catch {
         /* 폴더가 사라졌으면 빈 채로 */
       }
@@ -143,11 +145,13 @@ interface AppState {
   outlinePinned: boolean;
   outlineOpacity: number;
   activeSidebarTab: "workspace" | "recent"; // 사이드바 상단 탭
+  autosave: boolean; // 자동저장(옵트인) — 편집 후 유휴 시 디스크 저장
 
   roots: TreeNode[]; // 워크스페이스 트리(그래프+디스크 파생)
   expanded: Record<string, boolean>; // 폴더 펼침 상태(key 기준)
   tabs: OpenTab[];
   activePath: string | null;
+  openPaths: string[]; // 세션 복원용 — 마지막 열린 파일 경로(persist, 부팅 시 재오픈)
   recent: string[];
   favorites: string[];
 
@@ -164,6 +168,7 @@ interface AppState {
   setOutlinePinned: (on: boolean) => void;
   setOutlineOpacity: (v: number) => void;
   setSidebarTab: (tab: "workspace" | "recent") => void;
+  setAutosave: (on: boolean) => void;
 
   hydrate: () => Promise<void>;
   refreshWorkspace: () => Promise<void>;
@@ -206,11 +211,13 @@ export const useAppStore = create<AppState>()(
       outlinePinned: false,
       outlineOpacity: 0.92,
       activeSidebarTab: "workspace",
+      autosave: false,
 
       roots: [],
       expanded: {},
       tabs: [],
       activePath: null,
+      openPaths: [],
       recent: [],
       favorites: [],
 
@@ -227,10 +234,26 @@ export const useAppStore = create<AppState>()(
       setOutlinePinned: (on) => set({ outlinePinned: on }),
       setOutlineOpacity: (v) => set({ outlineOpacity: clamp(v, 0.3, 1) }),
       setSidebarTab: (tab) => set({ activeSidebarTab: tab }),
+      setAutosave: (on) => set({ autosave: on }),
 
-      // 부팅 시 로드 = refreshWorkspace.
+      // 부팅 시 로드 = refreshWorkspace + 세션 복원(마지막 열린 파일 재오픈).
       hydrate: async () => {
         await get().refreshWorkspace();
+        // 세션 복원: persist된 openPaths를 디스크에서 다시 읽어 탭 재오픈(사라진 파일은 skip).
+        // 내용은 파일에서 새로 읽으므로 저장된 문서만 복원(미저장 편집은 자동저장/닫기 가드가 담당).
+        const paths = get().openPaths;
+        const wantActive = get().activePath;
+        for (const p of paths) {
+          try {
+            const content = await readFile(p);
+            get().openFile(p, content);
+          } catch {
+            /* 파일이 사라졌으면 skip */
+          }
+        }
+        if (wantActive && get().tabs.some((tb) => tb.path === wantActive)) {
+          set({ activePath: wantActive });
+        }
       },
 
       // SQLite 스냅샷 → 트리 재구성 + 즐겨찾기·최근 갱신 + 펼침 병합.
@@ -337,7 +360,7 @@ export const useAppStore = create<AppState>()(
       // 데모 시드 전용(디스크 트리를 루트로 삽입).
       addFolder: (tree) =>
         set((s) => {
-          const node = diskToTree(tree);
+          const node = diskToTree(tree, tree.path);
           return {
             roots: [...s.roots.filter((r) => r.key !== node.key), node],
             expanded: { ...s.expanded, [node.key]: true },
@@ -412,6 +435,10 @@ export const useAppStore = create<AppState>()(
         outlinePinned: s.outlinePinned,
         outlineOpacity: s.outlineOpacity,
         activeSidebarTab: s.activeSidebarTab,
+        autosave: s.autosave,
+        // 세션 복원: 열린 파일 경로 + 활성 탭(내용은 비영속 — 용량, 부팅 시 디스크에서 재로딩).
+        openPaths: s.tabs.map((tb) => tb.path),
+        activePath: s.activePath,
       }),
     },
   ),

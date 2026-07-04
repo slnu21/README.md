@@ -17,7 +17,14 @@ export async function renderMermaid(html: string, themeId: string): Promise<stri
 
   const mermaid = (await loadMermaid()).default;
   const dark = themes[themeId]?.type === "dark";
-  mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: dark ? "dark" : "default" });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "strict",
+    theme: dark ? "dark" : "default",
+    // 라벨을 <foreignObject> 안 HTML이 아니라 SVG <text>로 렌더 → SVG 정화(sanitizeSvg)를 통과해
+    // flowchart 노드 글자가 사라지지 않는다(<br/>은 mermaid가 줄바꿈 tspan으로 처리).
+    flowchart: { htmlLabels: false },
+  });
 
   for (const node of nodes) {
     const src = node.getAttribute("data-src") ?? "";

@@ -23,6 +23,7 @@ release/**/*.exe
 release/**/*.zip
 release/**/*.pfx
 release/**/*.cer
+release/**/*_portable/
 
 # Logs / temp
 *.log
