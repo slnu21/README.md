@@ -18,7 +18,7 @@
     "recentEmpty": "최근 연 파일이 여기 표시됩니다."
   },
   "search": { "placeholder": "검색...", "searching": "검색 중…", "noResults": "결과 없음" },
-  "status": { "saved": "저장됨", "unsaved": "수정됨", "words": "단어", "ln": "줄", "col": "열" },
+  "status": { "saved": "저장됨", "unsaved": "수정됨", "words": "단어", "ln": "줄", "col": "열", "selected": "자 선택", "min": "분" },
   "settings": {
     "title": "설정",
     "open": "설정",

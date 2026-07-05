@@ -11,6 +11,7 @@ import { Preview, type PreviewHandle } from "./Preview";
 import { OutlineOverlay } from "./OutlineOverlay";
 import { SearchResults } from "./SearchResults";
 import { Editor } from "./Editor";
+import type { SelState } from "../features/editor";
 import { Seam } from "./Seam";
 import { SettingsPopover } from "./SettingsPopover";
 import { ContextMenu } from "./ContextMenu";
@@ -75,6 +76,7 @@ export function AppShell() {
   const [dropActive, setDropActive] = useState(false);
   const [exportMenu, setExportMenu] = useState<{ x: number; y: number } | null>(null);
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+  const [sel, setSel] = useState<SelState>({ line: 1, col: 1, selChars: 0 });
   // ≤900px에서는 편집/미리보기가 세로 스택 → 리사이저 축 전환.
   const [vertical, setVertical] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches,
@@ -191,8 +193,10 @@ export function AppShell() {
   const ko = language === "ko";
   const themeName = themes[themeId]?.name ?? "Light";
   const active = tabs.find((tb) => tb.path === activePath) ?? null;
-  const lines = active ? active.content.split("\n") : [];
   const words = active && active.content.trim() ? active.content.trim().split(/\s+/).length : 0;
+  // 읽기 시간(근사): 라틴 단어 200 wpm + CJK 글자 500자/분(≈단어 2.5개 상당).
+  const cjk = active ? (active.content.match(/[぀-ヿㄱ-힝一-鿿]/g) || []).length : 0;
+  const readMin = active ? Math.max(1, Math.ceil((words + cjk / 2.5) / 200)) : 0;
 
   async function onOpenFile() {
     const path = await pickFile();
@@ -720,6 +724,7 @@ export function AppShell() {
                   onSyncLine={(line) => {
                     if (useAppStore.getState().syncScroll) previewRef.current?.scrollToLine(line);
                   }}
+                  onSelState={setSel}
                 />
               </section>
 
@@ -758,16 +763,23 @@ export function AppShell() {
                 <span>{active.dirty ? t("status.unsaved") : t("status.saved")}</span>
               </span>
               <span className="st">
-                {t("status.ln")} <strong>{lines.length}</strong>
+                {t("status.ln")} <strong>{sel.line}</strong>, {t("status.col")} <strong>{sel.col}</strong>
               </span>
-              <span className="st">
-                <strong>{words}</strong> {t("status.words")}
-              </span>
+              {sel.selChars > 0 && (
+                <span className="st">
+                  <strong>{sel.selChars}</strong> {t("status.selected")}
+                </span>
+              )}
             </>
           ) : (
             <span className="st">{ko ? "열린 문서 없음" : "No document open"}</span>
           )}
-          <span className="st right">Markdown</span>
+          {active && (
+            <span className="st right">
+              <strong>{words}</strong> {t("status.words")} · ~{readMin} {t("status.min")}
+            </span>
+          )}
+          <span className={active ? "st" : "st right"}>Markdown</span>
           <span className="st">{themeName}</span>
           <span className="st">UTF-8</span>
         </footer>

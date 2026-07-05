@@ -18,7 +18,7 @@
     "recentEmpty": "Recently opened files appear here."
   },
   "search": { "placeholder": "Search...", "searching": "Searching…", "noResults": "No results" },
-  "status": { "saved": "Saved", "unsaved": "Unsaved", "words": "words", "ln": "Ln", "col": "Col" },
+  "status": { "saved": "Saved", "unsaved": "Unsaved", "words": "words", "ln": "Ln", "col": "Col", "selected": "selected", "min": "min" },
   "settings": {
     "title": "Settings",
     "open": "Settings",

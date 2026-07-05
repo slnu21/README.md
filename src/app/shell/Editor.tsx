@@ -3,17 +3,19 @@
 import { useEffect, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { editorExtensions } from "../features/editor";
+import { editorExtensions, selStateOf, type SelState } from "../features/editor";
 import { useAppStore } from "../store";
 
 export function Editor({
   content,
   onChange,
   onSyncLine,
+  onSelState,
 }: {
   content: string;
   onChange: (doc: string) => void;
   onSyncLine?: (line: number) => void;
+  onSelState?: (s: SelState) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -21,6 +23,8 @@ export function Editor({
   onChangeRef.current = onChange;
   const onSyncLineRef = useRef(onSyncLine);
   onSyncLineRef.current = onSyncLine;
+  const onSelStateRef = useRef(onSelState);
+  onSelStateRef.current = onSelState;
   const initial = useRef(content); // 마운트 시 초기 문서
   // 글꼴/줌은 :root CSS 변수로 적용(App.tsx) → CM 높이 캐시 재측정 필요(커서/거터 정렬 유지).
   const fontMono = useAppStore((s) => s.fontMono);
@@ -34,11 +38,13 @@ export function Editor({
         extensions: editorExtensions(
           (doc) => onChangeRef.current(doc),
           (line) => onSyncLineRef.current?.(line),
+          (s) => onSelStateRef.current?.(s),
         ),
       }),
       parent: host.current,
     });
     viewRef.current = view;
+    onSelStateRef.current?.(selStateOf(view)); // 마운트 직후 초기 커서 상태 보고
     return () => {
       view.destroy();
       viewRef.current = null;

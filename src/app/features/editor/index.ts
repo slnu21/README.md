@@ -1,12 +1,17 @@
 // Editor: CodeMirror 6 설정(마크다운 문법 하이라이트 + 테마 토큰 연동).
 // React 마운트/생명주기는 shell/Editor.tsx. 색은 CSS 변수 var(--*) 사용 → 3테마 자동 대응.
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection } from "@codemirror/view";
-import type { Extension } from "@codemirror/state";
+import { EditorState, Prec, type Extension } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { search, searchKeymap } from "@codemirror/search";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { markdown } from "@codemirror/lang-markdown";
-import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+import { syntaxHighlighting, HighlightStyle, indentOnInput } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
+import { toggleWrap, insertLink, continueList, smartPaste, selStateOf, type SelState } from "./commands";
+
+export { selStateOf } from "./commands";
+export type { SelState } from "./commands";
 
 // 마크다운 문법 하이라이트 — 색은 테마 토큰(var) 사용.
 const mdHighlight = HighlightStyle.define([
@@ -77,10 +82,27 @@ function topVisibleLine(view: EditorView): number {
   return view.state.doc.lineAt(pos).number - 1;
 }
 
-/** 마크다운 에디터 확장 세트. 문서 변경 시 onChange(doc) 호출. onSyncLine=상단 가시줄(스크롤/편집 시). */
+// 마크다운 서식 단축키(T1). Mod=Ctrl(Win)/Cmd(mac). Enter=목록 이어쓰기(우선).
+// defaultKeymap보다 앞에 둬야 Enter/Mod-* 가 먼저 잡힌다.
+const mdKeymap = keymap.of([
+  { key: "Mod-b", run: toggleWrap("**"), preventDefault: true },
+  { key: "Mod-i", run: toggleWrap("*"), preventDefault: true },
+  { key: "Mod-e", run: toggleWrap("`"), preventDefault: true }, // 인라인 코드
+  { key: "Mod-k", run: insertLink, preventDefault: true },
+  { key: "Enter", run: continueList },
+]);
+
+// 괄호/백틱 자동 닫기 — 프로즈 방해를 피해 따옴표는 제외(대명사 축약 등). 마크다운 언어데이터 위에 얹음.
+const bracketConfig = Prec.highest(
+  EditorState.languageData.of(() => [{ closeBrackets: { brackets: ["(", "[", "{", "`"] } }]),
+);
+
+/** 마크다운 에디터 확장 세트. 문서 변경 시 onChange(doc) 호출. onSyncLine=상단 가시줄(스크롤/편집 시).
+ *  onSelState=커서/선택 상태(상태바). */
 export function editorExtensions(
   onChange: (doc: string) => void,
   onSyncLine?: (line: number) => void,
+  onSelState?: (s: SelState) => void,
 ): Extension[] {
   let raf = 0;
   const emit = (view: EditorView) => {
@@ -95,7 +117,13 @@ export function editorExtensions(
     drawSelection(),
     history(),
     search({ top: true }),
-    keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+    bracketConfig,
+    closeBrackets(),
+    indentOnInput(),
+    smartPaste,
+    // 서식·목록 키를 기본 키맵보다 먼저(Enter 목록 이어쓰기 우선).
+    Prec.high(mdKeymap),
+    keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     markdown(),
     syntaxHighlighting(mdHighlight),
     cmTheme,
@@ -106,6 +134,9 @@ export function editorExtensions(
       if (u.docChanged) {
         onChange(u.state.doc.toString());
         emit(u.view);
+      }
+      if (onSelState && (u.docChanged || u.selectionSet)) {
+        onSelState(selStateOf(u.view));
       }
     }),
   ];
