@@ -8,9 +8,10 @@ export interface ConfirmSpec {
   message?: string;
   saveLabel?: string;
   discardLabel?: string;
-  onSave: () => void; // 저장 후 진행(닫기)
-  onDiscard: () => void; // 저장 없이 진행(닫기)
+  onSave: () => void; // 주 확인 동작(저장 후 진행 등)
+  onDiscard?: () => void; // 저장 없이 진행 — 생략 시 버림 버튼 미표시(2버튼 확인)
   onCancel?: () => void; // 취소(그대로 유지)
+  danger?: boolean; // 주 버튼을 위험(파괴적) 스타일로
 }
 
 export function ConfirmDialog({ spec, onClose }: { spec: ConfirmSpec; onClose: () => void }) {
@@ -39,19 +40,21 @@ export function ConfirmDialog({ spec, onClose }: { spec: ConfirmSpec; onClose: (
           <button type="button" className="modal-btn" onClick={cancel}>
             {t("menu.cancel")}
           </button>
+          {spec.onDiscard && (
+            <button
+              type="button"
+              className="modal-btn danger"
+              onClick={() => {
+                spec.onDiscard?.();
+                onClose();
+              }}
+            >
+              {spec.discardLabel ?? t("dialog.discardClose")}
+            </button>
+          )}
           <button
             type="button"
-            className="modal-btn danger"
-            onClick={() => {
-              spec.onDiscard();
-              onClose();
-            }}
-          >
-            {spec.discardLabel ?? t("dialog.discardClose")}
-          </button>
-          <button
-            type="button"
-            className="modal-btn primary"
+            className={"modal-btn " + (spec.danger ? "danger" : "primary")}
             onClick={() => {
               spec.onSave();
               onClose();

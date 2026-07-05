@@ -11,6 +11,7 @@ import {
   wsCreateFolder,
   wsAddFileRef,
   wsImportFolder,
+  wsImport,
   wsRename,
   wsDelete,
   wsMove,
@@ -173,6 +174,7 @@ interface AppState {
   hydrate: () => Promise<void>;
   refreshWorkspace: () => Promise<void>;
   importFolder: (path: string) => Promise<void>;
+  importWorkspaceJson: (json: string) => Promise<void>; // 워크스페이스 노드 그래프 전체 교체
   toggleFavorite: (path: string) => Promise<void>;
 
   // 워크스페이스 조작(가상 폴더 UUID 그래프). 전부 Rust 성공 → refreshWorkspace.
@@ -277,6 +279,12 @@ export const useAppStore = create<AppState>()(
           console.error("폴더 가져오기 실패:", e);
         }
         void searchIndexFolder(path).catch(() => {});
+      },
+
+      // 워크스페이스 노드 그래프 전체 교체(가져오기). 성공 → 재로딩.
+      importWorkspaceJson: async (json) => {
+        await wsImport(json);
+        await get().refreshWorkspace();
       },
 
       toggleFavorite: async (path) => {

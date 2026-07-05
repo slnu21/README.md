@@ -1,6 +1,6 @@
 {
   "app": { "name": "README.md" },
-  "menu": { "openFile": "파일 열기", "openFolder": "폴더 열기", "save": "저장", "export": "내보내기", "exportHtml": "HTML로 내보내기", "exportPdf": "PDF로 내보내기", "ok": "확인", "cancel": "취소" },
+  "menu": { "openFile": "파일 열기", "openFolder": "폴더 열기", "save": "저장", "export": "내보내기", "exportHtml": "HTML로 내보내기", "exportPdf": "PDF로 내보내기", "copyHtml": "HTML 복사(클립보드)", "ok": "확인", "cancel": "취소" },
   "sidebar": { "workspace": "워크스페이스", "favorites": "즐겨찾기", "recent": "최근" },
   "ws": {
     "newFolder": "새 폴더",
@@ -15,7 +15,13 @@
     "newFolderDefault": "새 폴더",
     "renameTitle": "이름 변경",
     "empty": "폴더를 만들고, 여는 파일·폴더를 배치하세요.",
-    "recentEmpty": "최근 연 파일이 여기 표시됩니다."
+    "recentEmpty": "최근 연 파일이 여기 표시됩니다.",
+    "jsonMenu": "워크스페이스 백업/복원",
+    "exportJson": "워크스페이스 내보내기(JSON)",
+    "importJson": "워크스페이스 가져오기(JSON)…",
+    "importJsonTitle": "워크스페이스 가져오기",
+    "importJsonMsg": "현재 워크스페이스 구성이 파일 내용으로 대체됩니다. 디스크의 실제 파일은 삭제되지 않습니다.",
+    "importAction": "가져오기"
   },
   "search": { "placeholder": "검색...", "searching": "검색 중…", "noResults": "결과 없음" },
   "status": { "saved": "저장됨", "unsaved": "수정됨", "words": "단어", "ln": "줄", "col": "열", "selected": "자 선택", "min": "분" },

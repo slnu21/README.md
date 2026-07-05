@@ -51,12 +51,12 @@ export function onFileDrop(
 }
 
 /** 파일 열기 다이얼로그 → 선택 경로(취소 시 null). */
-export async function pickFile(): Promise<string | null> {
-  const res = await open({
-    multiple: false,
-    directory: false,
-    filters: [{ name: "Markdown", extensions: ["md", "markdown", "mdx", "txt"] }],
-  });
+export async function pickFile(
+  filters: { name: string; extensions: string[] }[] = [
+    { name: "Markdown", extensions: ["md", "markdown", "mdx", "txt"] },
+  ],
+): Promise<string | null> {
+  const res = await open({ multiple: false, directory: false, filters });
   return typeof res === "string" ? res : null;
 }
 

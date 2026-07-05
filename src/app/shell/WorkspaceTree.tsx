@@ -2,11 +2,12 @@
 // 즐겨찾기 그룹 최상단 고정, 툴바(새 폴더·폴더 가져오기), 우클릭 메뉴, 포인터 드래그 배치·재정렬.
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { readFile, pickFile, pickFolder } from "../lib/tauri";
+import { readFile, pickFile, pickFolder, wsExport, saveFile, writeFile } from "../lib/tauri";
 import { useAppStore, FAVORITES_KEY, type TreeNode, type TreeKind } from "../store";
 import { Icon } from "./Icon";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { PromptModal, type PromptSpec } from "./PromptModal";
+import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
 
 const isFolderKind = (k: TreeKind) =>
   k === "virtual_folder" || k === "imported_folder" || k === "disk_folder";
@@ -166,13 +167,49 @@ export function WorkspaceTree() {
   const addFileRefTo = useAppStore((s) => s.addFileRefTo);
   const importFolderTo = useAppStore((s) => s.importFolderTo);
   const importFolder = useAppStore((s) => s.importFolder);
+  const importWorkspaceJson = useAppStore((s) => s.importWorkspaceJson);
   const renameNode = useAppStore((s) => s.renameNode);
   const removeNode = useAppStore((s) => s.removeNode);
   const moveNode = useAppStore((s) => s.moveNode);
   const reorderChildren = useAppStore((s) => s.reorderChildren);
 
   const [menu, setMenu] = useState<{ node: TreeNode; x: number; y: number } | null>(null);
+  const [wsMenu, setWsMenu] = useState<{ x: number; y: number } | null>(null);
   const [prompt, setPrompt] = useState<PromptSpec | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+
+  // 워크스페이스 JSON 백업(내보내기) — 노드 그래프를 파일로 저장. 파괴적이지 않음.
+  async function exportWorkspace() {
+    try {
+      const json = await wsExport();
+      const path = await saveFile("workspace.json", [{ name: "JSON", extensions: ["json"] }]);
+      if (path) await writeFile(path, json);
+    } catch (e) {
+      console.error("워크스페이스 내보내기 실패:", e);
+    }
+  }
+
+  // 워크스페이스 JSON 복원(가져오기) — 파일 선택 → 확인 후 전체 교체(디스크 파일은 보존).
+  async function importWorkspace() {
+    const path = await pickFile([{ name: "JSON", extensions: ["json"] }]);
+    if (!path) return;
+    let json: string;
+    try {
+      json = await readFile(path);
+    } catch (e) {
+      console.error("워크스페이스 파일 읽기 실패:", e);
+      return;
+    }
+    setConfirm({
+      title: t("ws.importJsonTitle"),
+      message: t("ws.importJsonMsg"),
+      saveLabel: t("ws.importAction"),
+      danger: true,
+      onSave: () => {
+        void importWorkspaceJson(json).catch((e) => console.error("워크스페이스 가져오기 실패:", e));
+      },
+    });
+  }
 
   // ── 드래그 배치·재정렬 ──
   const index = useMemo(() => indexRoots(roots), [roots]);
@@ -351,6 +388,19 @@ export function WorkspaceTree() {
         >
           <Icon name="plus" />
         </button>
+        <button
+          type="button"
+          className="ws-tool icon"
+          title={t("ws.jsonMenu")}
+          aria-label={t("ws.jsonMenu")}
+          aria-haspopup="menu"
+          onClick={(e) => {
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setWsMenu({ x: r.left, y: r.bottom + 4 });
+          }}
+        >
+          <Icon name="export" />
+        </button>
       </div>
 
       {/* 즐겨찾기 — 최상단 고정 합성 그룹 */}
@@ -423,7 +473,19 @@ export function WorkspaceTree() {
       {menu && menuItems(menu.node).length > 0 && (
         <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.node)} onClose={() => setMenu(null)} />
       )}
+      {wsMenu && (
+        <ContextMenu
+          x={wsMenu.x}
+          y={wsMenu.y}
+          onClose={() => setWsMenu(null)}
+          items={[
+            { label: t("ws.exportJson"), onClick: () => void exportWorkspace() },
+            { label: t("ws.importJson"), onClick: () => void importWorkspace() },
+          ]}
+        />
+      )}
       {prompt && <PromptModal spec={prompt} onClose={() => setPrompt(null)} />}
+      {confirm && <ConfirmDialog spec={confirm} onClose={() => setConfirm(null)} />}
     </div>
   );
 }

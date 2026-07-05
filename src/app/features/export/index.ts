@@ -32,3 +32,14 @@ export async function exportToPdf(params: ExportParams): Promise<void> {
   const html = await buildExportHtml(params, PRINT_CSS);
   printHtmlToPdf(html);
 }
+
+/** 자기완결 HTML을 클립보드에 복사. text/html(서식 붙여넣기)·text/plain(소스) 둘 다 기록. */
+export async function copyHtml(params: ExportParams): Promise<void> {
+  const html = await buildExportHtml(params);
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      "text/html": new Blob([html], { type: "text/html" }),
+      "text/plain": new Blob([html], { type: "text/plain" }),
+    }),
+  ]);
+}

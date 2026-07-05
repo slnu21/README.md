@@ -16,7 +16,7 @@ import { Seam } from "./Seam";
 import { SettingsPopover } from "./SettingsPopover";
 import { ContextMenu } from "./ContextMenu";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
-import { exportHtml, exportToPdf, type ExportParams } from "../features/export";
+import { exportHtml, exportToPdf, copyHtml, type ExportParams } from "../features/export";
 import type { TocItem } from "../lib/markdown";
 
 const THEME_ORDER = ["light", "dark", "paper"] as const;
@@ -601,6 +601,14 @@ export function AppShell() {
                 onClick: () => {
                   void exportToPdf(exportParamsOf(active)).catch((e) =>
                     console.error("PDF 내보내기 실패:", e),
+                  );
+                },
+              },
+              {
+                label: t("menu.copyHtml"),
+                onClick: () => {
+                  void copyHtml(exportParamsOf(active)).catch((e) =>
+                    console.error("HTML 복사 실패:", e),
                   );
                 },
               },
