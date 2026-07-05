@@ -17,12 +17,14 @@ import { Seam } from "./Seam";
 import { SettingsPopover } from "./SettingsPopover";
 import { ContextMenu } from "./ContextMenu";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
+import { CommandPalette, type PaletteItem } from "./CommandPalette";
 import { exportHtml, exportToPdf, copyHtml, type ExportParams } from "../features/export";
+import { READABLE_RE, isReadable } from "../lib/fileTypes";
 import type { TocItem } from "../lib/markdown";
 
 const THEME_ORDER = ["light", "dark", "paper"] as const;
 const THEME_ICON = { light: "sun", dark: "moon", paper: "paper" } as const;
-const OPENABLE = /\.(md|markdown|mdx|txt)$/i;
+const OPENABLE = READABLE_RE; // 드롭·파일연결에서 열 수 있는 문서 판별(공용 규칙)
 
 /** 트리에서 imported_folder 실경로 수집(중첩 포함) — 감시·재인덱싱 대상. */
 function collectImportedPaths(nodes: TreeNode[]): string[] {
@@ -33,6 +35,16 @@ function collectImportedPaths(nodes: TreeNode[]): string[] {
   };
   nodes.forEach(walk);
   return out;
+}
+
+/** 워크스페이스 트리의 파일 노드 수집(퀵오픈용) — 열 수 있는 문서만, realPath→name, 중복 경로 제거. */
+function collectFiles(nodes: TreeNode[], out: Map<string, string>): void {
+  for (const n of nodes) {
+    if ((n.kind === "file_ref" || n.kind === "disk_file") && n.realPath && isReadable(n.name)) {
+      out.set(n.realPath, n.name);
+    }
+    if (n.children.length) collectFiles(n.children, out);
+  }
 }
 
 function baseName(path: string): string {
@@ -84,6 +96,7 @@ export function AppShell() {
   const [sel, setSel] = useState<SelState>({ line: 1, col: 1, selChars: 0 });
   const [readerMode, setReaderMode] = useState(false); // 리딩(집중) 모드: 편집 숨기고 미리보기 전체폭
   const [presenting, setPresenting] = useState(false); // 프레젠테이션(전체화면 슬라이드)
+  const [paletteMode, setPaletteMode] = useState<"command" | "file" | null>(null); // 명령 팔레트/퀵오픈
   // ≤900px에서는 편집/미리보기가 세로 스택 → 리사이저 축 전환.
   const [vertical, setVertical] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches,
@@ -132,6 +145,20 @@ export function AppShell() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("wheel", onWheel);
     };
+  }, []);
+
+  // 명령 팔레트(Ctrl+Shift+P)·파일 퀵오픈(Ctrl+P). 같은 키 재입력 시 토글로 닫힘.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "p" || e.key === "P") {
+        e.preventDefault(); // 웹뷰 인쇄 대화상자 방지
+        const want = e.shiftKey ? "command" : "file";
+        setPaletteMode((m) => (m === want ? null : want));
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   // 경로 목록을 열기: 폴더=가져오기, .md/.txt=열기, 그 외 무시. 드롭·파일연결·명령행이 공유.
@@ -288,6 +315,55 @@ export function AppShell() {
     } catch (e) {
       console.error("저장 실패:", e);
     }
+  }
+
+  // 명령 팔레트 항목 — 앱 명령을 레지스트리로. 비활성(문서 없음 등)은 목록에서 제외.
+  function buildCommands(): PaletteItem[] {
+    const cmds: PaletteItem[] = [];
+    const add = (id: string, label: string, run: () => void, enabled = true) => {
+      if (enabled) cmds.push({ id, label, run });
+    };
+    add("open-file", t("menu.openFile"), () => void onOpenFile());
+    add("open-folder", t("menu.openFolder"), () => void onOpenFolder());
+    add("save", t("menu.save"), () => void saveActive(), !!active);
+    add("export-html", t("menu.exportHtml"), () => active && void exportHtml(exportParamsOf(active), active.title).catch(() => {}), !!active);
+    add("export-pdf", t("menu.exportPdf"), () => active && void exportToPdf(exportParamsOf(active)).catch(() => {}), !!active);
+    add("copy-html", t("menu.copyHtml"), () => active && void copyHtml(exportParamsOf(active)).catch(() => {}), !!active);
+    add("reader", t("view.reader"), () => setReaderMode((v) => !v), !!active);
+    add("present", t("view.present"), () => setPresenting(true), !!active);
+    THEME_ORDER.forEach((id) =>
+      add(`theme-${id}`, `${t("cmd.theme")}: ${themes[id]?.name ?? id}`, () => setTheme(id)),
+    );
+    (["narrow", "normal", "wide"] as const).forEach((w) =>
+      add(
+        `width-${w}`,
+        `${t("view.readingWidth")}: ${t(w === "narrow" ? "view.widthNarrow" : w === "wide" ? "view.widthWide" : "view.widthNormal")}`,
+        () => useAppStore.getState().setReadingWidth(w),
+      ),
+    );
+    add("lang-ko", `${t("cmd.language")}: 한국어`, () => setLanguage("ko"));
+    add("lang-en", `${t("cmd.language")}: English`, () => setLanguage("en"));
+    add("toggle-sync", t("settings.syncScroll"), () => {
+      const s = useAppStore.getState();
+      s.setSyncScroll(!s.syncScroll);
+    });
+    add("toggle-autosave", t("settings.autosave"), () => {
+      const s = useAppStore.getState();
+      s.setAutosave(!s.autosave);
+    });
+    return cmds;
+  }
+
+  // 파일 퀵오픈 항목 — 워크스페이스 등록 파일(파일 참조 + 가져온 폴더의 디스크 파일).
+  function buildFileItems(): PaletteItem[] {
+    const map = new Map<string, string>();
+    collectFiles(roots, map);
+    return Array.from(map, ([path, name]) => ({
+      id: path,
+      label: name,
+      sub: path,
+      run: () => void onOpenRecent(path),
+    }));
   }
 
   // 내보내기 파라미터(현재 테마·읽기 폰트·미리보기 줌 반영 → 미리보기와 동일하게 렌더).
@@ -619,6 +695,15 @@ export function AppShell() {
             path={active.path}
             themeId={themeId}
             onClose={() => setPresenting(false)}
+          />
+        )}
+
+        {paletteMode && (
+          <CommandPalette
+            items={paletteMode === "command" ? buildCommands() : buildFileItems()}
+            placeholder={paletteMode === "command" ? t("cmd.palette") : t("cmd.files")}
+            emptyText={paletteMode === "command" ? t("cmd.noCommands") : t("cmd.noFiles")}
+            onClose={() => setPaletteMode(null)}
           />
         )}
 

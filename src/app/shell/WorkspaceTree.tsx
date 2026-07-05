@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { readFile, pickFile, pickFolder, wsExport, saveFile, writeFile } from "../lib/tauri";
+import { isMarkdown, isReadable } from "../lib/fileTypes";
 import { useAppStore, FAVORITES_KEY, type TreeNode, type TreeKind } from "../store";
 import { Icon } from "./Icon";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
@@ -83,7 +84,9 @@ function TreeList({
       {nodes.map((n) => {
         const folder = isFolderKind(n.kind);
         const open = !!expanded[n.key];
-        const isFav = !folder && n.realPath ? favorites.includes(n.realPath) : false;
+        const readable = folder || isReadable(n.name); // 열 수 있는 문서(폴더는 항상 상호작용)
+        const md = !folder && isMarkdown(n.name);
+        const isFav = !folder && readable && n.realPath ? favorites.includes(n.realPath) : false;
         const dropCls =
           drop?.mode === "into" && n.id && drop.folderId === n.id
             ? " drop-into"
@@ -100,6 +103,7 @@ function TreeList({
                 (folder ? "folder" : "file") +
                 (folder && open ? " open" : "") +
                 (!folder && activePath === n.realPath ? " active" : "") +
+                (!folder && !readable ? " unreadable" : "") +
                 (draggingId && n.id === draggingId ? " dragging" : "") +
                 dropCls
               }
@@ -108,7 +112,10 @@ function TreeList({
               data-id={n.id ?? undefined}
               data-kind={n.kind}
               data-parent={n.parentId ?? "__root__"}
-              onClick={() => (folder ? toggleDir(n.key) : n.realPath && openPath(n.realPath))}
+              onClick={() => {
+                if (folder) toggleDir(n.key);
+                else if (readable && n.realPath) void openPath(n.realPath);
+              }}
               onContextMenu={(e) => {
                 e.preventDefault();
                 onContext(n, e.clientX, e.clientY);
@@ -117,14 +124,14 @@ function TreeList({
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   if (folder) toggleDir(n.key);
-                  else if (n.realPath) void openPath(n.realPath);
+                  else if (readable && n.realPath) void openPath(n.realPath);
                 }
               }}
             >
               {folder ? <Icon name="chev" className="chev" /> : <span className="chev-pad" aria-hidden="true" />}
-              <Icon name={folder ? "folder" : "file"} />
+              <Icon name={folder ? "folder" : md ? "md" : "file"} className={md ? "md-ic" : undefined} />
               <span className="name">{n.name}</span>
-              {!folder && n.realPath && (
+              {!folder && readable && n.realPath && (
                 <button
                   type="button"
                   className={"fav-toggle" + (isFav ? " on" : "")}

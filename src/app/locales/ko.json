@@ -3,6 +3,7 @@
   "menu": { "openFile": "파일 열기", "openFolder": "폴더 열기", "save": "저장", "export": "내보내기", "exportHtml": "HTML로 내보내기", "exportPdf": "PDF로 내보내기", "copyHtml": "HTML 복사(클립보드)", "ok": "확인", "cancel": "취소" },
   "sidebar": { "workspace": "워크스페이스", "favorites": "즐겨찾기", "recent": "최근" },
   "view": { "reader": "리딩 모드", "present": "프레젠테이션", "exitPresent": "나가기 (Esc)", "prevSlide": "이전", "nextSlide": "다음", "readingWidth": "리딩 폭", "widthNarrow": "좁게", "widthNormal": "보통", "widthWide": "넓게" },
+  "cmd": { "palette": "명령 실행…", "files": "파일 열기…", "command": "명령", "theme": "테마", "language": "언어", "noCommands": "일치하는 명령 없음", "noFiles": "워크스페이스에 파일이 없습니다" },
   "ws": {
     "newFolder": "새 폴더",
     "newSubfolder": "새 하위 폴더",
