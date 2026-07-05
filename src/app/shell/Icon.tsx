@@ -22,7 +22,9 @@ export type IconName =
   | "gear"
   | "type"
   | "zoom"
-  | "pin";
+  | "pin"
+  | "read"
+  | "present";
 
 export function Icon({ name, className }: { name: IconName; className?: string }) {
   return (
@@ -104,6 +106,14 @@ export function IconSprite() {
         </symbol>
         <symbol id="i-pin" viewBox="0 0 24 24">
           <path d="M9 3h6l-1 6 3 3v2H7v-2l3-3zM12 14v7" />
+        </symbol>
+        <symbol id="i-read" viewBox="0 0 24 24">
+          <path d="M12 6C10 4.7 7.5 4.5 4 5v13c3.5-.5 6-.3 8 1z" />
+          <path d="M12 6c2-1.3 4.5-1.5 8-1v13c-3.5-.5-6-.3-8 1z" />
+        </symbol>
+        <symbol id="i-present" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="12" rx="1.5" />
+          <path d="M12 16v3M8.5 21h7M10.5 8l3.5 2-3.5 2z" />
         </symbol>
       </defs>
     </svg>

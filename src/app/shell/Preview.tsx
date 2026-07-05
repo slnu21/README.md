@@ -62,10 +62,13 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   const onTocRef = useRef(onToc);
   onTocRef.current = onToc;
   const [bodyHtml, setBodyHtml] = useState("");
+  const [lightbox, setLightbox] = useState<string | null>(null); // 확대할 이미지 src(라이트박스)
   // 읽기 글꼴/줌(기능 3·5) — iframe은 격리돼 있어 buildDoc에 직접 주입한다.
   const fontRead = useAppStore((s) => s.fontRead);
   const previewZoom = useAppStore((s) => s.previewZoom);
   const font: FontOpts = { readStack: readStack(fontRead), readerPx: BASE_READER_PX * previewZoom };
+  // 미리보기 전용 추가 CSS(이미지에 확대 커서) — 내보내기엔 미적용.
+  const previewExtra = "img{cursor:zoom-in}";
   // 데모/스크린샷(?demo)에서는 헤드리스 캡처 타이밍 때문에 워커 대신 메인 스레드로 즉시 렌더.
   const isDemo = new URLSearchParams(window.location.search).has("demo");
 
@@ -136,9 +139,12 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
         const md = createMarkdown();
         onTocRef.current?.(extractToc(md, content));
         const body = rewriteImages(sanitizeHtml(md.render(content)), dirOf(pathRef.current));
-        if (iframe) iframe.srcdoc = buildDoc(body, themeId, font);
+        if (iframe) iframe.srcdoc = buildDoc(body, themeId, font, { extraCss: previewExtra });
       } catch (err) {
-        if (iframe) iframe.srcdoc = buildDoc("<pre>DEMO ERROR: " + String(err) + "</pre>", themeId, font);
+        if (iframe)
+          iframe.srcdoc = buildDoc("<pre>DEMO ERROR: " + String(err) + "</pre>", themeId, font, {
+            extraCss: previewExtra,
+          });
       }
       return;
     }
@@ -160,7 +166,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     void (async () => {
       const finalBody = await renderMermaid(bodyHtml, themeId);
       if (cancelled || token !== buildToken.current) return;
-      iframe.srcdoc = buildDoc(finalBody, themeId, font);
+      iframe.srcdoc = buildDoc(finalBody, themeId, font, { extraCss: previewExtra });
     })();
     return () => {
       cancelled = true;
@@ -169,20 +175,46 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bodyHtml, themeId, isDemo, fontRead, previewZoom]);
 
-  // srcdoc 로드 때마다 iframe 문서에 우클릭(브라우저 기본 메뉴) 억제 부착.
-  // 별도 문서라 부모 전역 리스너가 못 잡음 → same-origin(allow-same-origin)이라 스크립트 주입 없이 부착 가능.
-  function suppressIframeContextMenu() {
+  // Esc로 라이트박스 닫기.
+  useEffect(() => {
+    if (!lightbox) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setLightbox(null);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [lightbox]);
+
+  // srcdoc 로드 때마다 iframe 문서에 리스너 부착(별도 문서 → 부모 전역 리스너 못 잡음).
+  // same-origin(allow-same-origin)이라 스크립트 주입 없이 부착 가능:
+  //  · 우클릭(브라우저 기본 메뉴) 억제  · 이미지 클릭 → 라이트박스.
+  function onIframeLoad() {
     const doc = iframeRef.current?.contentDocument;
-    doc?.addEventListener("contextmenu", (e) => e.preventDefault());
+    if (!doc) return;
+    doc.addEventListener("contextmenu", (e) => e.preventDefault());
+    doc.addEventListener("click", (e) => {
+      const el = e.target as HTMLElement | null;
+      if (el?.tagName === "IMG") {
+        const src = (el as HTMLImageElement).currentSrc || el.getAttribute("src") || "";
+        if (src) setLightbox(src);
+      }
+    });
   }
 
   return (
-    <iframe
-      ref={iframeRef}
-      className="preview-frame"
-      sandbox="allow-same-origin"
-      title="preview"
-      onLoad={suppressIframeContextMenu}
-    />
+    <>
+      <iframe
+        ref={iframeRef}
+        className="preview-frame"
+        sandbox="allow-same-origin"
+        title="preview"
+        onLoad={onIframeLoad}
+      />
+      {lightbox && (
+        <div className="lightbox" role="dialog" aria-label="image" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt="" />
+        </div>
+      )}
+    </>
   );
 });

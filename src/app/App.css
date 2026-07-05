@@ -138,6 +138,14 @@ body {
 .tbtn:hover .ic {
   color: var(--accent);
 }
+/* 토글 켜짐(리딩 모드 등) */
+.tbtn.on {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.tbtn.on .ic {
+  color: var(--accent);
+}
 .spacer {
   flex: 1;
   min-width: 8px;
@@ -916,6 +924,42 @@ body {
   min-height: 0;
   display: grid;
   grid-template-columns: 1fr 7px 1fr;
+}
+/* 리딩(집중) 모드 — 편집·리사이저 숨기고 미리보기 전체폭. Preview는 언마운트되지 않아 스크롤 보존. */
+.split.reader {
+  grid-template-columns: 1fr !important;
+}
+.split.reader .editor,
+.split.reader .seam {
+  display: none;
+}
+
+/* 이미지 라이트박스(미리보기 이미지 클릭) */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.72);
+  cursor: zoom-out;
+  animation: lb-in 0.12s ease;
+}
+.lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+}
+@keyframes lb-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* 에디터(원고 / mono) */

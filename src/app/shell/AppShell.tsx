@@ -77,6 +77,7 @@ export function AppShell() {
   const [exportMenu, setExportMenu] = useState<{ x: number; y: number } | null>(null);
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const [sel, setSel] = useState<SelState>({ line: 1, col: 1, selChars: 0 });
+  const [readerMode, setReaderMode] = useState(false); // 리딩(집중) 모드: 편집 숨기고 미리보기 전체폭
   // ≤900px에서는 편집/미리보기가 세로 스택 → 리사이저 축 전환.
   const [vertical, setVertical] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches,
@@ -516,6 +517,20 @@ export function AppShell() {
               <span className="lbl">{t("menu.export")}</span>
             </button>
           </div>
+          <span className="sep" />
+          <div className="tgroup actions">
+            <button
+              className={"tbtn" + (readerMode ? " on" : "")}
+              type="button"
+              disabled={!active}
+              aria-pressed={readerMode}
+              title={t("view.reader")}
+              onClick={() => setReaderMode((v) => !v)}
+            >
+              <Icon name="read" />
+              <span className="lbl">{t("view.reader")}</span>
+            </button>
+          </div>
 
           <span className="spacer" data-tauri-drag-region="" />
 
@@ -723,7 +738,11 @@ export function AppShell() {
           </div>
 
           {active ? (
-            <div className="split" ref={splitRef} style={splitStyle}>
+            <div
+              className={"split" + (readerMode ? " reader" : "")}
+              ref={splitRef}
+              style={readerMode ? undefined : splitStyle}
+            >
               <section className="editor" aria-label="editor">
                 <Editor
                   key={active.path}

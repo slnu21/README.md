@@ -2,6 +2,7 @@
   "app": { "name": "README.md" },
   "menu": { "openFile": "Open File", "openFolder": "Open Folder", "save": "Save", "export": "Export", "exportHtml": "Export as HTML", "exportPdf": "Export as PDF", "copyHtml": "Copy as HTML", "ok": "OK", "cancel": "Cancel" },
   "sidebar": { "workspace": "Workspace", "favorites": "Favorites", "recent": "Recent" },
+  "view": { "reader": "Reading mode", "present": "Presentation", "exitPresent": "Exit (Esc)", "prevSlide": "Previous", "nextSlide": "Next", "readingWidth": "Reading width", "widthNarrow": "Narrow", "widthNormal": "Normal", "widthWide": "Wide" },
   "ws": {
     "newFolder": "New folder",
     "newSubfolder": "New subfolder",
