@@ -7,7 +7,7 @@ import { sanitizeHtml } from "../../lib/sanitize";
 import { renderMermaid } from "../../lib/mermaid";
 import { buildDoc } from "../../lib/renderDoc";
 import { readStack, BASE_READER_PX, bundledWoff2For } from "../../lib/fonts";
-import { readFileBase64 } from "../../lib/tauri";
+import { dirOf, inlineImages } from "../../lib/previewImages";
 
 export interface ExportParams {
   content: string;
@@ -15,54 +15,6 @@ export interface ExportParams {
   themeId: string;
   fontRead: string;
   previewZoom: number;
-}
-
-function dirOf(path: string): string {
-  const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return i >= 0 ? path.slice(0, i) : "";
-}
-
-function joinPath(dir: string, rel: string): string {
-  // 절대 경로(드라이브/슬래시 시작)는 그대로, 상대 경로는 문서 폴더 기준.
-  if (/^[a-zA-Z]:[\\/]/.test(rel) || rel.startsWith("/") || rel.startsWith("\\")) return rel;
-  const clean = rel.replace(/^\.[\\/]/, "");
-  return dir ? `${dir}/${clean}` : clean;
-}
-
-function mimeOf(path: string): string {
-  const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
-  switch (ext) {
-    case "png": return "image/png";
-    case "jpg":
-    case "jpeg": return "image/jpeg";
-    case "gif": return "image/gif";
-    case "webp": return "image/webp";
-    case "svg": return "image/svg+xml";
-    case "bmp": return "image/bmp";
-    case "avif": return "image/avif";
-    case "ico": return "image/x-icon";
-    default: return "application/octet-stream";
-  }
-}
-
-// 로컬 img src → data URI. 원격(http/data/blob)은 그대로 둔다.
-async function inlineImages(html: string, fileDir: string): Promise<string> {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const imgs = Array.from(doc.querySelectorAll("img"));
-  await Promise.all(
-    imgs.map(async (img) => {
-      const src = img.getAttribute("src") ?? "";
-      if (!src || /^(https?:|data:|blob:)/i.test(src)) return;
-      try {
-        const abs = joinPath(fileDir, src);
-        const b64 = await readFileBase64(abs);
-        img.setAttribute("src", `data:${mimeOf(abs)};base64,${b64}`);
-      } catch {
-        /* 읽기 실패 시 원본 유지 */
-      }
-    }),
-  );
-  return doc.body.innerHTML;
 }
 
 // 같은 오리진 자산을 base64로. CSP connect-src 'self' 내에서 fetch 가능(woff2는 앱 번들).

@@ -8,7 +8,7 @@ import { renderMermaid } from "../lib/mermaid";
 import { buildDoc } from "../lib/renderDoc";
 import { readStack, BASE_READER_PX } from "../lib/fonts";
 import { useAppStore } from "../store";
-import { dirOf, rewriteImages } from "../lib/previewImages";
+import { dirOf, inlineImages } from "../lib/previewImages";
 import { Icon } from "./Icon";
 
 // 슬라이드 분리: 단독 '---' 줄(수평선/구분자). 없으면 문서 전체를 1장으로.
@@ -47,7 +47,7 @@ export function Presentation({
     let cancelled = false;
     void (async () => {
       const md = createMarkdown();
-      const body0 = rewriteImages(sanitizeHtml(md.render(slides[cur])), dirOf(path));
+      const body0 = await inlineImages(sanitizeHtml(md.render(slides[cur])), dirOf(path));
       const body = await renderMermaid(body0, themeId);
       if (cancelled) return;
       const font = { readStack: readStack(fontRead), readerPx: BASE_READER_PX * 1.35 };

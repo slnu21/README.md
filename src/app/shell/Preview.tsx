@@ -8,7 +8,7 @@ import { renderMermaid } from "../lib/mermaid";
 import { useAppStore } from "../store";
 import { readStack, BASE_READER_PX } from "../lib/fonts";
 import { buildDoc, type FontOpts } from "../lib/renderDoc";
-import { dirOf, rewriteImages } from "../lib/previewImages";
+import { dirOf, inlineImages } from "../lib/previewImages";
 
 // 미리보기 스크롤 위치 → 상단에 보이는 소스 줄(0-based). scrollToLine의 역보간.
 function topSourceLine(doc: Document): number | null {
@@ -126,7 +126,10 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
       if (id !== reqId.current) return; // 오래된 응답 무시
       onTocRef.current?.(toc);
       const clean = sanitizeHtml(html);
-      setBodyHtml(rewriteImages(clean, dirOf(pathRef.current)));
+      void inlineImages(clean, dirOf(pathRef.current)).then((withImg) => {
+        if (id !== reqId.current) return; // 인라인(비동기) 후 최신 요청만 반영
+        setBodyHtml(withImg);
+      });
     };
     return () => {
       worker.terminate();
@@ -138,17 +141,19 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   useEffect(() => {
     if (isDemo) {
       const iframe = iframeRef.current;
-      try {
-        const md = createMarkdown();
-        onTocRef.current?.(extractToc(md, content));
-        const body = rewriteImages(sanitizeHtml(md.render(content)), dirOf(pathRef.current));
-        if (iframe) iframe.srcdoc = buildDoc(body, themeId, font, { extraCss: previewExtra });
-      } catch (err) {
-        if (iframe)
-          iframe.srcdoc = buildDoc("<pre>DEMO ERROR: " + String(err) + "</pre>", themeId, font, {
-            extraCss: previewExtra,
-          });
-      }
+      void (async () => {
+        try {
+          const md = createMarkdown();
+          onTocRef.current?.(extractToc(md, content));
+          const body = await inlineImages(sanitizeHtml(md.render(content)), dirOf(pathRef.current));
+          if (iframe) iframe.srcdoc = buildDoc(body, themeId, font, { extraCss: previewExtra });
+        } catch (err) {
+          if (iframe)
+            iframe.srcdoc = buildDoc("<pre>DEMO ERROR: " + String(err) + "</pre>", themeId, font, {
+              extraCss: previewExtra,
+            });
+        }
+      })();
       return;
     }
     const worker = workerRef.current;
