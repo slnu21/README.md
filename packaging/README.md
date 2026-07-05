@@ -44,6 +44,6 @@ pwsh packaging/pack-zip.ps1
 
 ## 릴리스 전 체크(권장)
 - [x] **CSP 하드닝** — `app.security.csp` 적용됨(원격 차단, `script-src 'self'`).
-- [x] **THIRD-PARTY-NOTICES** — 생성됨(npm+cargo deps + 번들 폰트 OFL 전문). 신규 deps 추가 시 재생성.
-- [ ] 버전 = `tauri.conf.json`·`Cargo.toml`·`package.json` 동기화, git 태그(`vX.Y.Z`).
-- [ ] `.md`/`.markdown` 파일 연결 — 매니페스트 `windows.fileTypeAssociation` 포함(재제출 후 발효).
+- [x] **THIRD-PARTY-NOTICES** — 생성됨(npm+cargo deps + 번들 폰트 OFL 전문). 신규 deps 추가 시 재생성. *(v0.6: `@codemirror/autocomplete`는 기존 transitive 포함 → 변화 없음.)*
+- [x] 버전 = `tauri.conf.json`·`Cargo.toml`·`package.json` 동기화(`0.6.0`), 배포 준비 커밋 후 git 태그(`vX.Y.Z`).
+- [x] `.md`/`.markdown` 파일 연결 — 매니페스트 `windows.fileTypeAssociation` 포함(재제출 후 발효).

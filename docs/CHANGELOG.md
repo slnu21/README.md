@@ -3,9 +3,32 @@
 이 프로젝트의 모든 주요 변경을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/),
 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
-## [Unreleased] — 다음 릴리스 대상 (v0.2–v0.5 통합, 목표 버전 `0.5.0`)
+## [0.6.0]
 
-> 로컬 검증(`tsc`·`vite build`·`cargo check`) 통과. 패키지 버전 문자열은 아직 `0.2.0` — 배포 준비 단계에서 범프.
+키보드 내비게이션 · 리더 UX · 전역 찾기바꾸기 · 작성 도구 중심의 대규모 업데이트. 로컬 검증(`tsc`·`vite build`) 통과.
+
+### Added
+- **(T1) 에디터 작성 도구** — 서식 단축키(Ctrl+B/I/E/K 토글: 굵게·기울임·인라인 코드·링크), 자동 목록 이어쓰기(-/번호/체크박스), 괄호·백틱 자동 닫기, 스마트 붙여넣기(선택 위 URL→링크), 상태바 커서 줄:열·선택 글자수·읽기 시간.
+- **(T5) 이식성** — HTML 클립보드 복사(text/html+text/plain), 워크스페이스 JSON 내보내기/가져오기(노드 그래프).
+- **(T4) 리더 UX** — 이미지 라이트박스, 리딩(집중) 모드, 프레젠테이션 모드(전체화면 슬라이드 · `---` 분할), 양방향 스크롤 동기화, 리딩 폭(좁게/보통/넓게).
+- **(T2) 명령 팔레트·퀵오픈** — 명령 팔레트(Ctrl+Shift+P), 파일 퍼지 퀵오픈(Ctrl+P), 경량 퍼지 매처. 워크스페이스 파일 타입 구분(마크다운 전용 아이콘·비문서 흐림·열기 비활성).
+- **(T3) 전역 찾기·바꾸기** — 워크스페이스 문서 대상 리터럴/정규식 검색, 파일별 미리보기·선택(기본=현재 파일), 파괴적 확인 다이얼로그, 미저장 편집 보호.
+- **(T6) 에디터 커스텀 우클릭 메뉴** — 잘라내기/복사/붙여넣기 + 서식(굵게/기울임/코드/링크) + 모두 선택.
+- **데이터 안전** — 창 닫기 저장 확인, 탭 닫기 확인, 세션 복원(열린 탭 재오픈), 자동저장(옵트인).
+
+### Changed / Fixed
+- 편집 활성 줄에서 선택 영역 가시성 수정(활성줄 배경 알파 합성 + 선택 대비 강화).
+- mermaid flowchart 라벨 렌더 수정(`htmlLabels:false` + sanitizer 확장).
+- 상대경로 이미지 표시 — 미리보기·프레젠테이션을 data URI 인라인(Rust `read_file_base64`)으로 통일(asset scope/CSP/정규화 우회).
+- 설정 아이콘을 실제 톱니바퀴로 교체(태양 아이콘과 혼동 제거).
+- 워크스페이스 상호작용 버그 — 폴더 중복 등록(StrictMode 리스너 누수 + Rust idempotent), 그래프 노드 클릭 불가(pointer capture), 디스크 키 유일화, dev single-instance 비활성화.
+
+### Dependencies
+- 추가(npm): `@codemirror/autocomplete` — 기존 transitive 포함이라 THIRD-PARTY-NOTICES 변화 없음(확인). Rust 의존성 변화 없음.
+
+## [0.5.0]
+
+> v0.2–v0.5 통합 릴리스. 로컬 검증(`tsc`·`vite build`·`cargo check`) 통과.
 
 ### Added
 - **(v0.2) 리치 미리보기** — highlight.js 코드 하이라이트, KaTeX 수식(MathML 출력), markdown-it 플러그인 세트(각주·체크박스·콜아웃·sub/sup/mark/ins/abbr/deflist·멀티라인 표·front-matter·anchor), 아웃라인/TOC, mermaid(메인스레드 SVG 주입), 문서 내 찾기/바꾸기(@codemirror/search).
@@ -30,5 +53,6 @@
 - **배포** — MSIX(Microsoft Store)/NSIS/portable zip, GitHub(github.com/slnu21/README.md).
 - **기반** — 프로젝트 구조(`docs`/`src`/`release`), Tauri v2 + React + TypeScript + Vite 스캐폴딩(프론트 소스 `app/`), 프론트/Rust 모듈 스켈레톤, 파일 I/O는 Rust 커맨드(`fs_ops`), `tauri-plugin-dialog` 연동, 설계·배포·법무 문서 초안.
 
-[Unreleased]: https://github.com/slnu21/README.md/compare/v0.1.0...HEAD
+[0.6.0]: https://github.com/slnu21/README.md/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/slnu21/README.md/compare/v0.1.0...v0.5.0
 [0.1.0]: https://github.com/slnu21/README.md/releases/tag/v0.1.0
