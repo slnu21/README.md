@@ -142,6 +142,7 @@ interface AppState {
   fontRead: string;
   fontMono: string;
   fontUi: string;
+  readingWidth: "narrow" | "normal" | "wide"; // 미리보기 본문 최대 폭(긴 줄 방지)
   syncScroll: boolean;
   outlinePinned: boolean;
   outlineOpacity: number;
@@ -165,6 +166,7 @@ interface AppState {
   setFontRead: (id: string) => void;
   setFontMono: (id: string) => void;
   setFontUi: (id: string) => void;
+  setReadingWidth: (w: "narrow" | "normal" | "wide") => void;
   setSyncScroll: (on: boolean) => void;
   setOutlinePinned: (on: boolean) => void;
   setOutlineOpacity: (v: number) => void;
@@ -209,6 +211,7 @@ export const useAppStore = create<AppState>()(
       fontRead: "default",
       fontMono: "default",
       fontUi: "pretendard",
+      readingWidth: "normal",
       syncScroll: true,
       outlinePinned: false,
       outlineOpacity: 0.92,
@@ -232,6 +235,7 @@ export const useAppStore = create<AppState>()(
       setFontRead: (id) => set({ fontRead: id }),
       setFontMono: (id) => set({ fontMono: id }),
       setFontUi: (id) => set({ fontUi: id }),
+      setReadingWidth: (w) => set({ readingWidth: w }),
       setSyncScroll: (on) => set({ syncScroll: on }),
       setOutlinePinned: (on) => set({ outlinePinned: on }),
       setOutlineOpacity: (v) => set({ outlineOpacity: clamp(v, 0.3, 1) }),
@@ -439,6 +443,7 @@ export const useAppStore = create<AppState>()(
         fontRead: s.fontRead,
         fontMono: s.fontMono,
         fontUi: s.fontUi,
+        readingWidth: s.readingWidth,
         syncScroll: s.syncScroll,
         outlinePinned: s.outlinePinned,
         outlineOpacity: s.outlineOpacity,

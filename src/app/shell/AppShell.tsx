@@ -10,8 +10,9 @@ import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
 import { OutlineOverlay } from "./OutlineOverlay";
 import { SearchResults } from "./SearchResults";
-import { Editor } from "./Editor";
+import { Editor, type EditorHandle } from "./Editor";
 import type { SelState } from "../features/editor";
+import { Presentation } from "./Presentation";
 import { Seam } from "./Seam";
 import { SettingsPopover } from "./SettingsPopover";
 import { ContextMenu } from "./ContextMenu";
@@ -66,7 +67,11 @@ export function AppShell() {
   const autosave = useAppStore((s) => s.autosave);
 
   const previewRef = useRef<PreviewHandle>(null);
+  const editorRef = useRef<EditorHandle>(null);
   const splitRef = useRef<HTMLDivElement>(null);
+  // 양방향 스크롤 동기화 에코 억제(비대칭 2-락): 한쪽이 상대를 구동하면 상대의 되반사만 잠깐 무시.
+  const previewLockUntil = useRef(0);
+  const editorLockUntil = useRef(0);
   const [outline, setOutline] = useState<TocItem[]>([]);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -78,6 +83,7 @@ export function AppShell() {
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const [sel, setSel] = useState<SelState>({ line: 1, col: 1, selChars: 0 });
   const [readerMode, setReaderMode] = useState(false); // 리딩(집중) 모드: 편집 숨기고 미리보기 전체폭
+  const [presenting, setPresenting] = useState(false); // 프레젠테이션(전체화면 슬라이드)
   // ≤900px에서는 편집/미리보기가 세로 스택 → 리사이저 축 전환.
   const [vertical, setVertical] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches,
@@ -530,6 +536,16 @@ export function AppShell() {
               <Icon name="read" />
               <span className="lbl">{t("view.reader")}</span>
             </button>
+            <button
+              className="tbtn"
+              type="button"
+              disabled={!active}
+              title={t("view.present")}
+              aria-label={t("view.present")}
+              onClick={() => setPresenting(true)}
+            >
+              <Icon name="present" />
+            </button>
           </div>
 
           <span className="spacer" data-tauri-drag-region="" />
@@ -596,6 +612,15 @@ export function AppShell() {
             </button>
           </div>
         </header>
+
+        {presenting && active && (
+          <Presentation
+            content={active.content}
+            path={active.path}
+            themeId={themeId}
+            onClose={() => setPresenting(false)}
+          />
+        )}
 
         {exportMenu && active && (
           <ContextMenu
@@ -746,10 +771,14 @@ export function AppShell() {
               <section className="editor" aria-label="editor">
                 <Editor
                   key={active.path}
+                  ref={editorRef}
                   content={active.content}
                   onChange={(doc) => updateContent(active.path, doc)}
                   onSyncLine={(line) => {
-                    if (useAppStore.getState().syncScroll) previewRef.current?.scrollToLine(line);
+                    if (!useAppStore.getState().syncScroll) return;
+                    if (Date.now() < editorLockUntil.current) return; // 미리보기가 방금 구동 → 에코 무시
+                    previewLockUntil.current = Date.now() + 90; // 미리보기 에코 억제
+                    previewRef.current?.scrollToLine(line);
                   }}
                   onSelState={setSel}
                 />
@@ -758,7 +787,20 @@ export function AppShell() {
               <Seam containerRef={splitRef} vertical={vertical} />
 
               <section className="preview" aria-label="preview">
-                <Preview ref={previewRef} content={active.content} path={active.path} themeId={themeId} onToc={setOutline} />
+                <Preview
+                  ref={previewRef}
+                  content={active.content}
+                  path={active.path}
+                  themeId={themeId}
+                  onToc={setOutline}
+                  onSourceLine={(line) => {
+                    if (readerMode) return; // 리딩 모드는 에디터 숨김 → 역동기화 불필요
+                    if (!useAppStore.getState().syncScroll) return;
+                    if (Date.now() < previewLockUntil.current) return; // 에디터가 방금 구동 → 에코 무시
+                    editorLockUntil.current = Date.now() + 90; // 에디터 에코 억제
+                    editorRef.current?.scrollToLine(line);
+                  }}
+                />
                 <OutlineOverlay items={outline} onSelect={(id) => previewRef.current?.scrollToHeading(id)} />
               </section>
             </div>

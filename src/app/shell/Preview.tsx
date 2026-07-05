@@ -2,39 +2,35 @@
 // 파이프라인: content → Web Worker(markdown-it) → DOMPurify 정화 → 샌드박스 iframe(srcdoc).
 // 200ms 디바운스. 테마 토큰을 iframe에 주입해 동기화. 로컬 이미지는 asset 프로토콜로 재작성.
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { createMarkdown, extractToc, type TocItem } from "../lib/markdown";
 import { sanitizeHtml } from "../lib/sanitize";
 import { renderMermaid } from "../lib/mermaid";
 import { useAppStore } from "../store";
 import { readStack, BASE_READER_PX } from "../lib/fonts";
 import { buildDoc, type FontOpts } from "../lib/renderDoc";
+import { dirOf, rewriteImages } from "../lib/previewImages";
 
-function dirOf(path: string): string {
-  const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return i >= 0 ? path.slice(0, i) : "";
-}
-
-function joinPath(dir: string, rel: string): string {
-  // 절대 경로(드라이브/슬래시 시작)는 그대로, 상대 경로는 문서 폴더 기준.
-  if (/^[a-zA-Z]:[\\/]/.test(rel) || rel.startsWith("/") || rel.startsWith("\\")) return rel;
-  const clean = rel.replace(/^\.[\\/]/, "");
-  return dir ? `${dir}/${clean}` : clean;
-}
-
-// 로컬(상대/절대 파일) 이미지 src → Tauri asset URL. 원격/데이터 URL은 그대로.
-function rewriteImages(html: string, fileDir: string): string {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  doc.querySelectorAll("img").forEach((img) => {
-    const src = img.getAttribute("src") ?? "";
-    if (!src || /^(https?:|data:|blob:|asset:)/i.test(src)) return;
-    try {
-      img.setAttribute("src", convertFileSrc(joinPath(fileDir, src)));
-    } catch {
-      /* 변환 실패 시 원본 유지 */
+// 미리보기 스크롤 위치 → 상단에 보이는 소스 줄(0-based). scrollToLine의 역보간.
+function topSourceLine(doc: Document): number | null {
+  const scroller = doc.scrollingElement ?? doc.documentElement;
+  const els = doc.querySelectorAll<HTMLElement>("[data-line]");
+  if (!els.length) return null;
+  const st = scroller.scrollTop + 8; // scrollToLine의 -8 오프셋과 대칭
+  let prev: HTMLElement | null = null;
+  let next: HTMLElement | null = null;
+  for (const el of els) {
+    if (el.offsetTop <= st) prev = el;
+    else {
+      next = el;
+      break;
     }
-  });
-  return doc.body.innerHTML;
+  }
+  if (!prev) return Number(els[0].getAttribute("data-line"));
+  const prevLine = Number(prev.getAttribute("data-line"));
+  if (!next) return prevLine;
+  const nextLine = Number(next.getAttribute("data-line"));
+  const frac = next.offsetTop > prev.offsetTop ? (st - prev.offsetTop) / (next.offsetTop - prev.offsetTop) : 0;
+  return prevLine + frac * (nextLine - prevLine);
 }
 
 export interface PreviewHandle {
@@ -47,10 +43,11 @@ interface PreviewProps {
   path: string;
   themeId: string;
   onToc?: (toc: TocItem[]) => void;
+  onSourceLine?: (line: number) => void; // 미리보기 스크롤 → 상단 소스 줄(양방향 동기화)
 }
 
 export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
-  { content, path, themeId, onToc },
+  { content, path, themeId, onToc, onSourceLine },
   ref,
 ) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -61,14 +58,20 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   pathRef.current = path;
   const onTocRef = useRef(onToc);
   onTocRef.current = onToc;
+  const onSourceLineRef = useRef(onSourceLine);
+  onSourceLineRef.current = onSourceLine;
   const [bodyHtml, setBodyHtml] = useState("");
   const [lightbox, setLightbox] = useState<string | null>(null); // 확대할 이미지 src(라이트박스)
   // 읽기 글꼴/줌(기능 3·5) — iframe은 격리돼 있어 buildDoc에 직접 주입한다.
   const fontRead = useAppStore((s) => s.fontRead);
   const previewZoom = useAppStore((s) => s.previewZoom);
+  const readingWidth = useAppStore((s) => s.readingWidth);
   const font: FontOpts = { readStack: readStack(fontRead), readerPx: BASE_READER_PX * previewZoom };
-  // 미리보기 전용 추가 CSS(이미지에 확대 커서) — 내보내기엔 미적용.
-  const previewExtra = "img{cursor:zoom-in}";
+  // 미리보기 전용 추가 CSS(내보내기엔 미적용): 이미지 확대 커서 + 리딩 폭(본문 최대 폭).
+  const widthPx = readingWidth === "narrow" ? "680px" : readingWidth === "wide" ? "none" : "860px";
+  const previewExtra =
+    "img{cursor:zoom-in}" +
+    (widthPx === "none" ? "" : `.md{max-width:${widthPx};margin-left:auto;margin-right:auto}`);
   // 데모/스크린샷(?demo)에서는 헤드리스 캡처 타이밍 때문에 워커 대신 메인 스레드로 즉시 렌더.
   const isDemo = new URLSearchParams(window.location.search).has("demo");
 
@@ -171,9 +174,9 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     return () => {
       cancelled = true;
     };
-    // font(readStack/readerPx)는 fontRead·previewZoom 파생 → 이들 변경 시 재빌드.
+    // font(readStack/readerPx)는 fontRead·previewZoom 파생 → 이들 변경 시 재빌드. readingWidth도 CSS 파생.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bodyHtml, themeId, isDemo, fontRead, previewZoom]);
+  }, [bodyHtml, themeId, isDemo, fontRead, previewZoom, readingWidth]);
 
   // Esc로 라이트박스 닫기.
   useEffect(() => {
@@ -190,6 +193,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   //  · 우클릭(브라우저 기본 메뉴) 억제  · 이미지 클릭 → 라이트박스.
   function onIframeLoad() {
     const doc = iframeRef.current?.contentDocument;
+    const win = iframeRef.current?.contentWindow;
     if (!doc) return;
     doc.addEventListener("contextmenu", (e) => e.preventDefault());
     doc.addEventListener("click", (e) => {
@@ -199,6 +203,18 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
         if (src) setLightbox(src);
       }
     });
+    // 미리보기 스크롤 → 상단 소스 줄 방출(rAF 스로틀). 새 srcdoc마다 문서 교체 → 옛 리스너 자동 소멸.
+    if (win) {
+      let raf = 0;
+      win.addEventListener("scroll", () => {
+        if (!onSourceLineRef.current) return;
+        if (raf) win.cancelAnimationFrame(raf);
+        raf = win.requestAnimationFrame(() => {
+          const line = topSourceLine(doc);
+          if (line != null) onSourceLineRef.current?.(line);
+        });
+      });
+    }
   }
 
   return (

@@ -17,6 +17,8 @@ export function SettingsPopover() {
   const editorZoom = useAppStore((s) => s.editorZoom);
   const previewZoom = useAppStore((s) => s.previewZoom);
   const syncScroll = useAppStore((s) => s.syncScroll);
+  const readingWidth = useAppStore((s) => s.readingWidth);
+  const setReadingWidth = useAppStore((s) => s.setReadingWidth);
   const autosave = useAppStore((s) => s.autosave);
   const setAutosave = useAppStore((s) => s.setAutosave);
   const setFontRead = useAppStore((s) => s.setFontRead);
@@ -116,6 +118,22 @@ export function SettingsPopover() {
               <button type="button" onClick={() => setPreviewZoom(previewZoom + 0.1)} aria-label="+">
                 +
               </button>
+            </div>
+          </div>
+
+          <div className="set-row">
+            <span>{t("view.readingWidth")}</span>
+            <div className="seg width" role="group" aria-label={t("view.readingWidth")}>
+              {(["narrow", "normal", "wide"] as const).map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  aria-pressed={readingWidth === w}
+                  onClick={() => setReadingWidth(w)}
+                >
+                  {t(w === "narrow" ? "view.widthNarrow" : w === "wide" ? "view.widthWide" : "view.widthNormal")}
+                </button>
+              ))}
             </div>
           </div>
 

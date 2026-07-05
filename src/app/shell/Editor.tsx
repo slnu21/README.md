@@ -1,22 +1,22 @@
 // CodeMirror 6 에디터 마운트/생명주기(WBS 522).
 // 부모에서 key={path}로 파일마다 재마운트. 편집 시 onChange → store 갱신 → 미리보기 라이브.
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { editorExtensions, selStateOf, type SelState } from "../features/editor";
 import { useAppStore } from "../store";
 
-export function Editor({
-  content,
-  onChange,
-  onSyncLine,
-  onSelState,
-}: {
+export interface EditorHandle {
+  /** 소스 줄(0-based, onSyncLine과 동일 규약)을 에디터 상단으로 스크롤(양방향 동기화). */
+  scrollToLine(line: number): void;
+}
+
+export const Editor = forwardRef<EditorHandle, {
   content: string;
   onChange: (doc: string) => void;
   onSyncLine?: (line: number) => void;
   onSelState?: (s: SelState) => void;
-}) {
+}>(function Editor({ content, onChange, onSyncLine, onSelState }, ref) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -68,5 +68,17 @@ export function Editor({
     return () => cancelAnimationFrame(id);
   }, [fontMono, editorZoom]);
 
+  // 양방향 스크롤 동기화(미리보기→에디터). 0-based 소스 줄을 상단으로.
+  useImperativeHandle(ref, () => ({
+    scrollToLine(line: number) {
+      const view = viewRef.current;
+      if (!view) return;
+      const total = view.state.doc.lines;
+      const n = Math.min(Math.max(1, Math.round(line) + 1), total); // 0-based → 1-based CM 줄
+      const info = view.state.doc.line(n);
+      view.dispatch({ effects: EditorView.scrollIntoView(info.from, { y: "start", yMargin: 0 }) });
+    },
+  }), []);
+
   return <div ref={host} className="cm-host" />;
-}
+});

@@ -962,6 +962,71 @@ body {
   }
 }
 
+/* 프레젠테이션(전체화면 슬라이드) */
+.present {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.present-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: var(--bg);
+}
+.present-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 46px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 70%, var(--bg));
+}
+.present-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  min-width: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+}
+.present-bar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.present-bar button:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.present-count {
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 64px;
+  text-align: center;
+}
+.present-exit {
+  margin-left: 10px;
+}
+.ic.flip {
+  transform: rotate(180deg);
+}
+
+/* 설정 팝오버의 리딩 폭 세그(컴팩트) */
+.settings-pop .seg.width button {
+  padding: 0 8px;
+  height: 24px;
+  font-size: 11px;
+}
+
 /* 에디터(원고 / mono) */
 .editor {
   min-width: 0;
