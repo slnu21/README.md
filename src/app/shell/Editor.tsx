@@ -1,10 +1,13 @@
 // CodeMirror 6 에디터 마운트/생명주기(WBS 522).
 // 부모에서 key={path}로 파일마다 재마운트. 편집 시 onChange → store 갱신 → 미리보기 라이브.
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { EditorState } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { EditorView, type Command } from "@codemirror/view";
 import { editorExtensions, selStateOf, type SelState } from "../features/editor";
+import { toggleWrap, insertLink } from "../features/editor/commands";
 import { useAppStore } from "../store";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 export interface EditorHandle {
   /** 소스 줄(0-based, onSyncLine과 동일 규약)을 에디터 상단으로 스크롤(양방향 동기화). */
@@ -29,6 +32,8 @@ export const Editor = forwardRef<EditorHandle, {
   // 글꼴/줌은 :root CSS 변수로 적용(App.tsx) → CM 높이 캐시 재측정 필요(커서/거터 정렬 유지).
   const fontMono = useAppStore((s) => s.fontMono);
   const editorZoom = useAppStore((s) => s.editorZoom);
+  const { t } = useTranslation();
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!host.current) return;
@@ -80,5 +85,81 @@ export const Editor = forwardRef<EditorHandle, {
     },
   }), []);
 
-  return <div ref={host} className="cm-host" />;
+  // ── 커스텀 우클릭 메뉴(서식 + 클립보드) ──
+  function runCmd(cmd: Command) {
+    const v = viewRef.current;
+    if (!v) return;
+    cmd(v);
+    v.focus();
+  }
+  function selectedText(): string {
+    const v = viewRef.current;
+    if (!v) return "";
+    const r = v.state.selection.main;
+    return v.state.sliceDoc(r.from, r.to);
+  }
+  async function copySel() {
+    const s = selectedText();
+    if (s) await navigator.clipboard.writeText(s);
+  }
+  async function cutSel() {
+    const v = viewRef.current;
+    if (!v) return;
+    const r = v.state.selection.main;
+    if (r.empty) return;
+    await navigator.clipboard.writeText(v.state.sliceDoc(r.from, r.to));
+    v.dispatch({ changes: { from: r.from, to: r.to, insert: "" }, userEvent: "delete.cut" });
+    v.focus();
+  }
+  async function pasteAt() {
+    const v = viewRef.current;
+    if (!v) return;
+    let text = "";
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      return;
+    }
+    if (!text) return;
+    const r = v.state.selection.main;
+    v.dispatch({
+      changes: { from: r.from, to: r.to, insert: text },
+      selection: { anchor: r.from + text.length },
+      userEvent: "input.paste",
+    });
+    v.focus();
+  }
+  function selectAll() {
+    const v = viewRef.current;
+    if (!v) return;
+    v.dispatch({ selection: { anchor: 0, head: v.state.doc.length } });
+    v.focus();
+  }
+
+  const menuItems: MenuItem[] = [
+    { label: t("ctx.cut"), onClick: () => void cutSel() },
+    { label: t("ctx.copy"), onClick: () => void copySel() },
+    { label: t("ctx.paste"), onClick: () => void pasteAt() },
+    { label: t("ctx.bold"), onClick: () => runCmd(toggleWrap("**")) },
+    { label: t("ctx.italic"), onClick: () => runCmd(toggleWrap("*")) },
+    { label: t("ctx.code"), onClick: () => runCmd(toggleWrap("`")) },
+    { label: t("ctx.link"), onClick: () => runCmd(insertLink) },
+    { label: t("ctx.selectAll"), onClick: () => selectAll() },
+  ];
+
+  return (
+    <>
+      <div
+        ref={host}
+        className="cm-host"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setCtxMenu({ x: e.clientX, y: e.clientY });
+        }}
+      />
+      {ctxMenu && (
+        <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={menuItems} onClose={() => setCtxMenu(null)} />
+      )}
+    </>
+  );
 });

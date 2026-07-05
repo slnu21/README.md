@@ -44,6 +44,7 @@
     "importJsonMsg": "Your current workspace layout will be replaced with the file's contents. Files on disk are not deleted.",
     "importAction": "Import"
   },
+  "ctx": { "cut": "Cut", "copy": "Copy", "paste": "Paste", "bold": "Bold", "italic": "Italic", "code": "Inline code", "link": "Link", "selectAll": "Select all" },
   "search": { "placeholder": "Search...", "searching": "Searching…", "noResults": "No results" },
   "status": { "saved": "Saved", "unsaved": "Unsaved", "words": "words", "ln": "Ln", "col": "Col", "selected": "selected", "min": "min" },
   "settings": {

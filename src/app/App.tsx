@@ -35,11 +35,10 @@ function App() {
   }, [fontMono, fontRead, fontUi, editorZoom]);
 
   // 데스크톱 앱답게 기본 우클릭(브라우저) 메뉴 억제 — 새로고침/저장/인쇄/검사 등이 뜨지 않게.
-  // 단 에디터(.cm-editor) 내부는 예외: WebView2가 편집영역에 잘라내기/복사/붙여넣기 텍스트 메뉴를 띄운다(유용).
-  // preventDefault 만 하므로 React onContextMenu(워크스페이스 커스텀 메뉴)는 정상 동작. 미리보기 iframe은 Preview.tsx에서 별도 처리.
+  // 에디터는 Editor.tsx의 커스텀 메뉴(서식+클립보드)가 뜨므로 브라우저 기본 메뉴도 억제.
+  // preventDefault 만 하므로 React onContextMenu(워크스페이스/에디터 커스텀 메뉴)는 정상 동작. 미리보기 iframe은 Preview.tsx에서 별도 처리.
   useEffect(() => {
     function onContextMenu(e: MouseEvent) {
-      if ((e.target as Element | null)?.closest(".cm-editor")) return;
       e.preventDefault();
     }
     document.addEventListener("contextmenu", onContextMenu);
