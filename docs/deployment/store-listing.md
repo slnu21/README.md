@@ -122,5 +122,5 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [ ] EULA — [docs/legal/EULA.md](../legal/EULA.md) (게시자 SlnU · raltlsdn@naver.com · 대한민국)
 - [x] 스크린샷 4장 (라이트/다크/페이퍼 + 기능) — `docs/deployment/screenshots/` *(v0.6 신기능 반영 권장)*
 - [x] 앱 아이콘/Store 로고 (공식 마크다운 마크)
-- [ ] Partner Center 이름 예약 → **미서명 MSIX(0.6.0) 업로드** (Name=SlnU.README.md · Publisher=CN=1398342C-A2D7-4B4A-BFE2-34D8CCFD7FBA · PublisherDisplayName=SlnU)
-- [ ] "이 업데이트의 새로운 기능" 필드 = 위 **업데이트 내용 v0.6.0** 문구
+- [x] Partner Center 이름 예약 → **미서명 MSIX(0.6.0) 업로드** (Name=SlnU.README.md · Publisher=CN=1398342C-A2D7-4B4A-BFE2-34D8CCFD7FBA · PublisherDisplayName=SlnU) — v0.6.0 게시 완료(2026-07-05)
+- [x] "이 업데이트의 새로운 기능" 필드 = 위 **업데이트 내용 v0.6.0** 문구

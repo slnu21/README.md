@@ -34,7 +34,7 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **Store 패키징**: **MSIX → Store**(Microsoft 재서명 → 코드서명 인증서 불필요)가 기본. Tauri는 MSI/NSIS만 내므로 **MSIX 래핑 1단계** 필요. 매니페스트에 `runFullTrust`. 자세히: [docs/deployment/microsoft-store.md](docs/deployment/microsoft-store.md).
 
 ## 현재 상태 (2026-07-05 기준)
-- **v0.6.0 배포 준비 중** — 버전 문자열 `0.6.0`으로 범프됨(`tauri.conf.json`·`Cargo.toml`·`package.json`). 릴리스 산출물(NSIS/MSIX/zip) 빌드·패키징, Store 리스팅 What's-new(v0.6.0) 갱신 완료. **push·Store 제출은 사용자 확인 후.**
+- **v0.6.0 릴리스 완료** — 버전 `0.6.0` 범프, 산출물(NSIS/MSIX/zip) 빌드·패키징, 실신원 MSIX(`SlnU.README.md`) **Microsoft Store 게시 완료**. GitHub `main` 푸시 + `v0.6.0` 태그 완료. 커밋 `27fe7b4`.
 - **v0.6 구현 완료**(로컬 검증 `tsc`·`vite build` 통과): 명령 팔레트·파일 퀵오픈(T2) · 리더 UX(라이트박스·리딩/프레젠테이션 모드·양방향 스크롤·리딩 폭 · T4) · 전역 찾기·바꾸기(T3) · 에디터 작성 도구(서식 단축키·자동 목록 · T1) · 에디터 우클릭 메뉴(T6) · HTML 클립보드/워크스페이스 JSON I/O(T5) · 데이터 안전(닫기 가드·세션 복원·자동저장) · 파일 타입 구분 · 상대경로 이미지(data URI) · 선택 강조·머메이드 버그 수정. 남은 로드맵: T7 상업화 게이팅(시기상조 · 보류).
 - **v0.1 릴리스 완료** — MVP(열기·편집·미리보기·저장·감시·최근·3테마·i18n·프레임리스·공식 마크다운 로고) + MSIX/NSIS/zip + GitHub(github.com/slnu21/README.md).
 - **v0.2–v0.5 릴리스 완료**(패키지 버전 `0.5.0`):
@@ -45,7 +45,6 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **Rust 설치됨** → `cargo check`/`tauri dev/build` 동작. 미리보기 iframe은 `sandbox="allow-same-origin"`(allow-scripts는 절대 미포함). CSP 하드닝 적용됨.
 
 ## 다음 단계
-- **v0.6.0 Store 제출**(사용자 확인 후): Partner Center 이름 예약된 상태 → 실신원 미서명 MSIX 업로드(Name=`SlnU.README.md` · Publisher=`CN=1398342C-A2D7-4B4A-BFE2-34D8CCFD7FBA` · PublisherDisplay=`SlnU`) + "이 업데이트의 새로운 기능"=리스팅 v0.6.0 문구. GitHub push + `v0.6.0` 태그 push.
 - **후속(로드맵)**: T7 상업화 게이팅(export·advancedThemes Pro — Store 트래픽·Pro 기능 확보 후), 내보내기 고도화(WebView2 `PrintToPdfAsync` 무대화상자 PDF — `commands/export.rs`), 설정 localStorage↔SQLite 이중화(저가치·보류).
 
 전체 로드맵은 [docs/README.md](docs/README.md) 참고.
