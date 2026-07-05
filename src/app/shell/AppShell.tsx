@@ -18,6 +18,7 @@ import { SettingsPopover } from "./SettingsPopover";
 import { ContextMenu } from "./ContextMenu";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
 import { CommandPalette, type PaletteItem } from "./CommandPalette";
+import { FindReplace } from "./FindReplace";
 import { exportHtml, exportToPdf, copyHtml, type ExportParams } from "../features/export";
 import { READABLE_RE, isReadable } from "../lib/fileTypes";
 import type { TocItem } from "../lib/markdown";
@@ -97,6 +98,7 @@ export function AppShell() {
   const [readerMode, setReaderMode] = useState(false); // 리딩(집중) 모드: 편집 숨기고 미리보기 전체폭
   const [presenting, setPresenting] = useState(false); // 프레젠테이션(전체화면 슬라이드)
   const [paletteMode, setPaletteMode] = useState<"command" | "file" | null>(null); // 명령 팔레트/퀵오픈
+  const [findOpen, setFindOpen] = useState(false); // 워크스페이스 전역 찾기·바꾸기
   // ≤900px에서는 편집/미리보기가 세로 스택 → 리사이저 축 전환.
   const [vertical, setVertical] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches,
@@ -147,7 +149,7 @@ export function AppShell() {
     };
   }, []);
 
-  // 명령 팔레트(Ctrl+Shift+P)·파일 퀵오픈(Ctrl+P). 같은 키 재입력 시 토글로 닫힘.
+  // 명령 팔레트(Ctrl+Shift+P)·파일 퀵오픈(Ctrl+P)·전역 찾기바꾸기(Ctrl+Shift+H). 같은 키 재입력 토글.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -155,6 +157,9 @@ export function AppShell() {
         e.preventDefault(); // 웹뷰 인쇄 대화상자 방지
         const want = e.shiftKey ? "command" : "file";
         setPaletteMode((m) => (m === want ? null : want));
+      } else if (e.shiftKey && (e.key === "h" || e.key === "H")) {
+        e.preventDefault();
+        setFindOpen((v) => !v);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -325,6 +330,7 @@ export function AppShell() {
     };
     add("open-file", t("menu.openFile"), () => void onOpenFile());
     add("open-folder", t("menu.openFolder"), () => void onOpenFolder());
+    add("find-replace", t("find.title"), () => setFindOpen(true));
     add("save", t("menu.save"), () => void saveActive(), !!active);
     add("export-html", t("menu.exportHtml"), () => active && void exportHtml(exportParamsOf(active), active.title).catch(() => {}), !!active);
     add("export-pdf", t("menu.exportPdf"), () => active && void exportToPdf(exportParamsOf(active)).catch(() => {}), !!active);
@@ -364,6 +370,13 @@ export function AppShell() {
       sub: path,
       run: () => void onOpenRecent(path),
     }));
+  }
+
+  // 전역 찾기·바꾸기 대상 — 워크스페이스 등록 문서 파일 경로.
+  function workspaceFilePaths(): string[] {
+    const map = new Map<string, string>();
+    collectFiles(roots, map);
+    return Array.from(map.keys());
   }
 
   // 내보내기 파라미터(현재 테마·읽기 폰트·미리보기 줌 반영 → 미리보기와 동일하게 렌더).
@@ -704,6 +717,14 @@ export function AppShell() {
             placeholder={paletteMode === "command" ? t("cmd.palette") : t("cmd.files")}
             emptyText={paletteMode === "command" ? t("cmd.noCommands") : t("cmd.noFiles")}
             onClose={() => setPaletteMode(null)}
+          />
+        )}
+
+        {findOpen && (
+          <FindReplace
+            files={workspaceFilePaths()}
+            activePath={activePath}
+            onClose={() => setFindOpen(false)}
           />
         )}
 
