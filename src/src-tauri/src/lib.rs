@@ -41,10 +41,15 @@ pub fn run() {
     {
         use tauri::Emitter;
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            // 두 번째 실행(예: .md 더블클릭)마다 기존 창을 **확실히 앞으로** 올린다.
+            // set_focus()만으로는 Windows에서 최소화/뒤에 있는 창이 올라오지 않으므로
+            // unminimize → show → set_focus 순서로 복원·표시·포커스한다(파일 유무와 무관하게).
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.unminimize();
+                let _ = win.show();
+                let _ = win.set_focus();
+            }
             if let Some(path) = first_openable_arg(argv) {
-                if let Some(win) = app.get_webview_window("main") {
-                    let _ = win.set_focus();
-                }
                 let _ = app.emit("open-file", path);
             }
         }));
@@ -59,7 +64,15 @@ pub fn run() {
             let database = db::init(app.handle()).expect("SQLite 초기화 실패");
             app.manage(database);
             // 콜드 스타트: 명령행 인자의 파일 경로를 대기열에 저장(프론트가 마운트 시 take_pending_open).
-            app.manage(PendingOpen(Mutex::new(first_openable_arg(std::env::args()))));
+            let pending = first_openable_arg(std::env::args());
+            // .md 연결로 실행된 콜드 스타트 → 창을 명시적으로 표시·포커스(파일이 곧 열림을 사용자가 인지).
+            if pending.is_some() {
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.show();
+                    let _ = win.set_focus();
+                }
+            }
+            app.manage(PendingOpen(Mutex::new(pending)));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
