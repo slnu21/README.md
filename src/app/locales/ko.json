@@ -42,7 +42,9 @@
     "importJson": "워크스페이스 가져오기(JSON)…",
     "importJsonTitle": "워크스페이스 가져오기",
     "importJsonMsg": "현재 워크스페이스 구성이 파일 내용으로 대체됩니다. 디스크의 실제 파일은 삭제되지 않습니다.",
-    "importAction": "가져오기"
+    "importAction": "가져오기",
+    "importedBadge": "가져옴",
+    "importedHint": "가져온 폴더 — 하위 파일이 통째로 묶인 단위입니다(개별 이동 대신 폴더째 이동)."
   },
   "ctx": { "cut": "잘라내기", "copy": "복사", "paste": "붙여넣기", "bold": "굵게", "italic": "기울임", "code": "인라인 코드", "link": "링크", "selectAll": "모두 선택" },
   "search": { "placeholder": "검색...", "searching": "검색 중…", "noResults": "결과 없음" },

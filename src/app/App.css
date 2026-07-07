@@ -705,8 +705,8 @@ body {
   opacity: 0.45;
 }
 .node.drop-into {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  outline: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 .node.drop-before::before,
@@ -752,6 +752,30 @@ body {
   list-style: none;
   margin: 0;
   padding: 0 0 0 16px;
+}
+/* ── 가져온 폴더(디스크 미러): 하위 전체가 통째로 묶인 단위임을 시각화 ── */
+/* 서브트리 좌측 레일 — '이 묶음은 함께 이동/관리되는 단위'를 암시 */
+.children.imported {
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1.5px solid color-mix(in srgb, var(--accent) 26%, var(--border));
+}
+.node.imported-root .ic {
+  color: color-mix(in srgb, var(--accent) 55%, var(--muted));
+}
+.node.imported .name {
+  color: color-mix(in srgb, var(--fg) 82%, var(--bg));
+}
+/* '가져옴' 배지 — .badge(margin-left:auto)로 우측 정렬, 칩 스타일 */
+.node .imported-badge {
+  flex: none;
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 .node.file .ic {
   color: color-mix(in srgb, var(--accent) 34%, var(--muted));

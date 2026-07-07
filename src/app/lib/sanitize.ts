@@ -35,8 +35,14 @@ export function sanitizeHtml(html: string): string {
  *  foreignObject를 강제할 때 라벨 글자가 사라지지 않도록 양성 HTML 태그를 허용한다(no-scripts 샌드박스라 안전). */
 export function sanitizeSvg(svg: string): string {
   return DOMPurify.sanitize(svg, {
-    USE_PROFILES: { svg: true, svgFilters: true },
-    ADD_TAGS: ["foreignObject", "div", "span", "p", "br", "b", "i", "strong", "em"],
+    // svg + html 프로파일을 **함께** → <foreignObject> 안 HTML 라벨(div/span/텍스트) 태그를 허용.
+    USE_PROFILES: { svg: true, svgFilters: true, html: true },
+    ADD_TAGS: ["foreignObject"],
     ADD_ATTR: ["style", "class", "xmlns"],
+    // 핵심: DOMPurify 기본 HTML 통합지점은 annotation-xml 뿐이라, SVG 네임스페이스인 <foreignObject>
+    // 안의 HTML(div 등)이 네임스페이스 검사에 걸려 **서브트리째 제거**된다(라벨 글자 사라짐).
+    // foreignobject를 통합지점으로 등록해야 flowchart·mindmap·class·state·journey 라벨이 보존된다.
+    // (스크립트 없는 sandbox iframe 주입 + DOMPurify가 script/이벤트는 계속 제거하므로 안전.)
+    HTML_INTEGRATION_POINTS: { foreignobject: true, "annotation-xml": true },
   }) as unknown as string;
 }

@@ -32,6 +32,9 @@ type DropTarget =
   | { mode: "root" }
   | { mode: "before" | "after"; key: string; parentId: string | null };
 
+// 드래그 중인 항목. 그래프 노드(id)면 이동/재정렬, 디스크 파일(path만)이면 참조(file_ref)로 편입.
+type DragItem = { id: string | null; key: string; path: string | null; kind: string };
+
 interface WsIndex {
   byId: Map<string, TreeNode>;
   parentOf: Map<string, string | null>;
@@ -59,20 +62,24 @@ function isDescendant(parentOf: Map<string, string | null>, ancestorId: string, 
   return false;
 }
 
-/** 재귀 트리 목록. onContext = 우클릭 → 메뉴. drop/draggingId = 드래그 표시. */
+/** 재귀 트리 목록. onContext = 우클릭 → 메뉴. drop/draggingKey = 드래그 표시.
+ *  imported = 상위가 '가져온 폴더'라 이 서브트리가 통째로 묶인 단위임(시각 그룹화). */
 function TreeList({
   nodes,
   depth,
   onContext,
   drop,
-  draggingId,
+  draggingKey,
+  imported = false,
 }: {
   nodes: TreeNode[];
   depth: number;
   onContext: (n: TreeNode, x: number, y: number) => void;
   drop: DropTarget | null;
-  draggingId: string | null;
+  draggingKey: string | null;
+  imported?: boolean;
 }) {
+  const { t } = useTranslation();
   const expanded = useAppStore((s) => s.expanded);
   const toggleDir = useAppStore((s) => s.toggleDir);
   const activePath = useAppStore((s) => s.activePath);
@@ -80,13 +87,16 @@ function TreeList({
   const toggleFavorite = useAppStore((s) => s.toggleFavorite);
 
   return (
-    <ul className={depth === 0 ? "tree" : "children"}>
+    <ul className={(depth === 0 ? "tree" : "children") + (imported ? " imported" : "")}>
       {nodes.map((n) => {
         const folder = isFolderKind(n.kind);
         const open = !!expanded[n.key];
         const readable = folder || isReadable(n.name); // 열 수 있는 문서(폴더는 항상 상호작용)
         const md = !folder && isMarkdown(n.name);
         const isFav = !folder && readable && n.realPath ? favorites.includes(n.realPath) : false;
+        // 가져온 폴더(루트)와 그 하위 전체를 하나의 묶음으로 표시.
+        const importedRoot = n.kind === "imported_folder";
+        const nodeImported = imported || importedRoot;
         const dropCls =
           drop?.mode === "into" && n.id && drop.folderId === n.id
             ? " drop-into"
@@ -104,7 +114,9 @@ function TreeList({
                 (folder && open ? " open" : "") +
                 (!folder && activePath === n.realPath ? " active" : "") +
                 (!folder && !readable ? " unreadable" : "") +
-                (draggingId && n.id === draggingId ? " dragging" : "") +
+                (nodeImported ? " imported" : "") +
+                (importedRoot ? " imported-root" : "") +
+                (draggingKey && n.key === draggingKey ? " dragging" : "") +
                 dropCls
               }
               tabIndex={0}
@@ -112,6 +124,7 @@ function TreeList({
               data-id={n.id ?? undefined}
               data-kind={n.kind}
               data-parent={n.parentId ?? "__root__"}
+              data-path={n.realPath ?? undefined}
               onClick={() => {
                 if (folder) toggleDir(n.key);
                 else if (readable && n.realPath) void openPath(n.realPath);
@@ -131,6 +144,11 @@ function TreeList({
               {folder ? <Icon name="chev" className="chev" /> : <span className="chev-pad" aria-hidden="true" />}
               <Icon name={folder ? "folder" : md ? "md" : "file"} className={md ? "md-ic" : undefined} />
               <span className="name">{n.name}</span>
+              {importedRoot && (
+                <span className="badge imported-badge" title={t("ws.importedHint")}>
+                  {t("ws.importedBadge")}
+                </span>
+              )}
               {!folder && readable && n.realPath && (
                 <button
                   type="button"
@@ -152,7 +170,8 @@ function TreeList({
                 depth={depth + 1}
                 onContext={onContext}
                 drop={drop}
-                draggingId={draggingId}
+                draggingKey={draggingKey}
+                imported={nodeImported}
               />
             )}
           </li>
@@ -221,31 +240,33 @@ export function WorkspaceTree() {
   // ── 드래그 배치·재정렬 ──
   const index = useMemo(() => indexRoots(roots), [roots]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ id: string; pointerId: number; startX: number; startY: number; moved: boolean } | null>(null);
+  const dragRef = useRef<{ item: DragItem; pointerId: number; startX: number; startY: number; moved: boolean } | null>(null);
   const justDragged = useRef(false);
   const [drop, setDrop] = useState<DropTarget | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [draggingKey, setDraggingKey] = useState<string | null>(null);
 
-  function computeDrop(x: number, y: number, draggedId: string): DropTarget | null {
+  function computeDrop(x: number, y: number, item: DragItem): DropTarget | null {
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
     const rowEl = el?.closest<HTMLElement>(".node");
     if (!rowEl) {
       return el && containerRef.current?.contains(el) ? { mode: "root" } : null;
     }
     const rowId = rowEl.getAttribute("data-id") || "";
-    if (!rowId) return null; // 즐겨찾기/디스크 행 → 대상 아님
     const rowKind = rowEl.getAttribute("data-kind") ?? "";
     const rowKey = rowEl.getAttribute("data-key") ?? "";
     const rect = rowEl.getBoundingClientRect();
     const rel = (y - rect.top) / rect.height;
-    if (rowKind === "virtual_folder" && rel > 0.25 && rel < 0.75) {
-      if (rowId !== draggedId && !isDescendant(index.parentOf, draggedId, rowId))
-        return { mode: "into", folderId: rowId };
-      return null;
+    // 가상 폴더 "into" — 밴드를 넓혀(20~80%) 잘 잡히게. 그래프 노드는 이동, 디스크 파일은 참조 편입.
+    if (rowKind === "virtual_folder" && rowId && rel > 0.2 && rel < 0.8) {
+      if (item.id && (rowId === item.id || isDescendant(index.parentOf, item.id, rowId))) return null;
+      return { mode: "into", folderId: rowId };
     }
+    // 디스크 파일 드래그는 재정렬 대상이 아님 — 가상 폴더 "into" 또는 루트만.
+    if (!item.id) return null;
+    if (!rowId) return null; // 즐겨찾기/디스크 행 → 재정렬 대상 아님
     const pAttr = rowEl.getAttribute("data-parent");
     const parentId = pAttr === "__root__" ? null : pAttr || null;
-    if (parentId && (parentId === draggedId || isDescendant(index.parentOf, draggedId, parentId))) return null;
+    if (parentId && (parentId === item.id || isDescendant(index.parentOf, item.id, parentId))) return null;
     return { mode: rel < 0.5 ? "before" : "after", key: rowKey, parentId };
   }
 
@@ -253,14 +274,24 @@ export function WorkspaceTree() {
     return kids.filter((c) => c.id).reduce((m, c) => Math.max(m, c.sortOrder ?? 0), -1) + 1;
   }
 
-  async function executeDrop(draggedId: string, t: DropTarget) {
+  async function executeDrop(item: DragItem, t: DropTarget) {
     if (t.mode === "into") {
-      const folder = index.byId.get(t.folderId);
-      await moveNode(draggedId, t.folderId, nextOrder(folder?.children ?? []));
+      if (item.id) {
+        const folder = index.byId.get(t.folderId);
+        await moveNode(item.id, t.folderId, nextOrder(folder?.children ?? []));
+      } else if (item.path) {
+        await addFileRefTo(t.folderId, item.path); // 디스크 파일 → 참조로 편입(디스크 미변경)
+      }
     } else if (t.mode === "root") {
-      if ((index.parentOf.get(draggedId) ?? null) === null) return; // 이미 루트
-      await moveNode(draggedId, null, nextOrder(roots));
+      if (item.id) {
+        if ((index.parentOf.get(item.id) ?? null) === null) return; // 이미 루트
+        await moveNode(item.id, null, nextOrder(roots));
+      } else if (item.path) {
+        await addFileRefTo(null, item.path); // 디스크 파일 → 루트에 참조 편입
+      }
     } else {
+      if (!item.id) return; // 재정렬은 그래프 노드만
+      const draggedId = item.id;
       const P = t.parentId;
       const siblingNodes = P === null ? roots : index.byId.get(P)?.children ?? [];
       const ordered = siblingNodes.filter((c) => c.id).map((c) => c.id!).filter((id) => id !== draggedId);
@@ -276,11 +307,23 @@ export function WorkspaceTree() {
     if (e.button !== 0) return;
     const el = e.target as HTMLElement;
     if (el.closest("button") || el.closest("input")) return;
-    const id = el.closest<HTMLElement>(".node[data-id]")?.getAttribute("data-id");
-    if (!id) return;
+    const row = el.closest<HTMLElement>(".node");
+    if (!row) return;
+    const id = row.getAttribute("data-id");
+    const kind = row.getAttribute("data-kind") ?? "";
+    const key = row.getAttribute("data-key") ?? "";
+    const path = row.getAttribute("data-path");
+    // 드래그 가능: 그래프 노드(uuid) 또는 디스크 파일(참조로 편입). 디스크 폴더·즐겨찾기는 제외.
+    if (!id && !(kind === "disk_file" && path)) return;
     // ⚠ 여기서 setPointerCapture 하면 안 된다 — 순수 클릭에도 캡처가 걸리면 뒤이은 click 이벤트가
     //    행(row)이 아니라 컨테이너로 가서 onClick(펼치기/열기)이 안 먹는다. 실제 드래그 시작 때만 캡처.
-    dragRef.current = { id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, moved: false };
+    dragRef.current = {
+      item: { id: id || null, key, path: path || null, kind },
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+    };
   }
   function onPointerMove(e: React.PointerEvent) {
     const d = dragRef.current;
@@ -288,20 +331,20 @@ export function WorkspaceTree() {
     if (!d.moved) {
       if (Math.abs(e.clientX - d.startX) < 5 && Math.abs(e.clientY - d.startY) < 5) return;
       d.moved = true;
-      setDraggingId(d.id);
+      setDraggingKey(d.item.key);
       containerRef.current?.setPointerCapture(d.pointerId); // 드래그 확정 시점에만 캡처
     }
-    setDrop(computeDrop(e.clientX, e.clientY, d.id));
+    setDrop(computeDrop(e.clientX, e.clientY, d.item));
   }
   function onPointerUp() {
     const d = dragRef.current;
     dragRef.current = null;
     const t = drop;
     setDrop(null);
-    setDraggingId(null);
+    setDraggingKey(null);
     if (!d || !d.moved) return;
     justDragged.current = true; // 뒤이어 오는 click(열기/토글) 억제
-    if (t) void executeDrop(d.id, t);
+    if (t) void executeDrop(d.item, t);
   }
 
   function newFolderPrompt(parentId: string | null) {
@@ -471,7 +514,7 @@ export function WorkspaceTree() {
           depth={0}
           onContext={(n, x, y) => setMenu({ node: n, x, y })}
           drop={drop}
-          draggingId={draggingId}
+          draggingKey={draggingKey}
         />
       ) : (
         <p className="tree-hint">{t("ws.empty")}</p>
