@@ -50,6 +50,16 @@ function registerLanguages(): void {
 
 const CALLOUTS = ["note", "warning", "tip"] as const;
 
+/** mermaid 소스 → base64(UTF-8). data-src 속성에 안전하게 싣기 위함(lib/mermaid.ts decodeMermaidSrc 와 짝).
+ *  원문의 `-->`·`->>`·`<|--` 등 `<`/`>` 포함 시 DOMPurify의 mXSS 방지 스크러빙이 data-src를 통째로
+ *  제거해 다이어그램이 렌더되지 않는 문제가 있었다 → base64([A-Za-z0-9+/=])는 절대 스크럽되지 않는다. */
+function encodeMermaidSrc(src: string): string {
+  const bytes = new TextEncoder().encode(src);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
 export function createMarkdown(): MarkdownIt {
   registerLanguages();
 
@@ -64,7 +74,8 @@ export function createMarkdown(): MarkdownIt {
   md.set({
     highlight: (str: string, lang: string): string => {
       if (lang === "mermaid") {
-        return `<pre class="mermaid" data-src="${md.utils.escapeHtml(str)}"></pre>`;
+        // 소스는 base64로 실어 나른다(속성값 안전) — DOMPurify가 `-->` 등 포함 data-src를 지우는 문제 회피.
+        return `<pre class="mermaid" data-src="${encodeMermaidSrc(str)}"></pre>`;
       }
       const language = lang && hljs.getLanguage(lang) ? lang : "";
       const code = language
