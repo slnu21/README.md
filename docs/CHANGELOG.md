@@ -3,6 +3,17 @@
 이 프로젝트의 모든 주요 변경을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/),
 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [Unreleased]
+
+릴리스 v0.6.0 이후 실사용 피드백 3건 수정. 로컬 검증(`tsc`·`vite build` + 릴리스 빌드 실행, WebView2 DevTools로 렌더 결과 확인) 통과.
+
+### Fixed
+- **mermaid 다이어그램 렌더** — `flowchart`·`erDiagram`·`classDiagram`·`stateDiagram`·`quadrantChart` 등이 릴리스 빌드에서 안 나오던 문제 해결. 근본 원인 2가지: (1) 소스의 `-->`·`->>`·`<|--`(`<`/`>` 포함) 때문에 DOMPurify(mXSS 방지)가 placeholder의 `data-src`를 통째로 제거 → 소스를 **base64로 실어** 회피. (2) `foreignObject` 안 HTML 라벨이 DOMPurify 네임스페이스 검사에 걸려 글자가 비던 문제 → **`foreignobject`를 HTML 통합지점(`HTML_INTEGRATION_POINTS`)으로 등록**해 라벨 보존. 렌더 실패 시 실제 오류 메시지를 표면화(빈 블록 대신 원인 표시). 회귀 픽스처 `docs/samples/mermaid-gallery.md`(12종) 추가.
+- **파일 연결 실행 시 창 전면화** — `.md`/`.markdown` 더블클릭 시 앱이 안 뜬 것처럼 보이던 문제. 웜 스타트(single-instance)에서 `set_focus()`만으로는 Windows에서 최소화/뒤 창이 안 올라오므로 **`unminimize()`+`show()`+`set_focus()`** 로 확실히 전면화(파일 유무 무관). 콜드 스타트도 파일 인자 실행 시 창을 표시·포커스.
+
+### Added
+- **워크스페이스 파일 → 폴더 드래그 이동** — 가져온 폴더 안 디스크 파일을 가상 폴더로 드래그하면 **참조(file_ref)로 편입**(디스크 미변경, 로컬퍼스트). 가상 폴더 "into" 히트존 확대(20~80%)로 잘 잡히게 개선. **가져온 폴더(imported)는 하위가 통째로 묶인 단위**임을 좌측 레일 + "가져옴/linked" 배지로 시각화(ko/en).
+
 ## [0.6.0]
 
 키보드 내비게이션 · 리더 UX · 전역 찾기바꾸기 · 작성 도구 중심의 대규모 업데이트. 로컬 검증(`tsc`·`vite build`) 통과.
