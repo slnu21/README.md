@@ -3,7 +3,7 @@
 이 프로젝트의 모든 주요 변경을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/),
 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
-## [Unreleased]
+## [0.6.1]
 
 릴리스 v0.6.0 이후 실사용 피드백 3건 수정. 로컬 검증(`tsc`·`vite build` + 릴리스 빌드 실행, WebView2 DevTools로 렌더 결과 확인) 통과.
 

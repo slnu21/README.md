@@ -83,6 +83,16 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v0.6.1 — ko-KR
+- **다이어그램(Mermaid) 렌더 안정화** — 순서도·ER·클래스·상태·쿼드런트 등이 안 나오거나 라벨 글자가 비던 문제 수정
+- **파일 연결 실행 개선** — `.md` 더블클릭 시 앱 창을 확실히 앞으로 띄우고 해당 파일을 엽니다
+- **워크스페이스 정리** — 파일을 폴더로 드래그해 정리(참조로 편입, 원본 미변경), 가져온 폴더는 하나의 묶음으로 표시
+
+### v0.6.1 — en-US
+- **Mermaid diagram rendering fixed** — flowchart, ER, class, state, quadrant and more that failed to render or showed empty labels
+- **File association** — double-clicking a `.md` now reliably brings the window to front and opens the file
+- **Workspace tidying** — drag files into folders to organize (added as references, originals untouched); imported folders shown as one group
+
 ### v0.6.0 — ko-KR
 - **명령 팔레트**(Ctrl+Shift+P) · **파일 퀵오픈**(Ctrl+P) — 모든 명령과 파일을 키보드로 빠르게
 - **워크스페이스 전역 찾기·바꾸기** — 여러 문서를 한 번에(미리보기·파일별 선택·정규식)
@@ -124,3 +134,4 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] 앱 아이콘/Store 로고 (공식 마크다운 마크)
 - [x] Partner Center 이름 예약 → **미서명 MSIX(0.6.0) 업로드** (Name=SlnU.README.md · Publisher=CN=1398342C-A2D7-4B4A-BFE2-34D8CCFD7FBA · PublisherDisplayName=SlnU) — v0.6.0 게시 완료(2026-07-05)
 - [x] "이 업데이트의 새로운 기능" 필드 = 위 **업데이트 내용 v0.6.0** 문구
+- [ ] **v0.6.1 업데이트 제출** — `release/v0.6.1/README_0.6.1_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.1** 문구
