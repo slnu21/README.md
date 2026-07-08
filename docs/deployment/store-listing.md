@@ -15,7 +15,11 @@
 **설명 (description):**
 README.md는 가볍고 **100% 오프라인**인 마크다운 리더 & 에디터입니다. 인터넷도, 계정도, 추적도 없이 — 당신의 글은 온전히 당신의 기기에만 머뭅니다.
 
-왼쪽에 마크다운을 쓰면 오른쪽에 조판된 문서가 **실시간으로** 나타납니다. 폴더를 열어 워크스페이스 트리로 문서를 오가고, 탭으로 여러 파일을 동시에 편집하세요. **라이트·다크·페이퍼(종이 질감)** 테마로 눈이 편한 읽기·쓰기 환경을 제공합니다.
+왼쪽에 마크다운을 쓰면 오른쪽에 조판된 문서가 **실시간으로** 나타납니다. 코드 문법 하이라이트, 수식(KaTeX), 다이어그램(Mermaid), 각주·표·콜아웃까지 그대로 렌더링됩니다. 다 쓴 문서는 이미지·폰트를 통째로 담은 **자기완결 HTML이나 PDF로 내보내기**할 수 있습니다.
+
+폴더를 열어 **워크스페이스 트리**로 문서를 오가고, 탭으로 여러 파일을 동시에 편집하세요. 흩어진 문서는 **가상 폴더로 드래그해** 원하는 구조로 정리할 수 있습니다. **워크스페이스 전역 검색**과 **정규식 찾기·바꾸기**, 문서 아웃라인, 즐겨찾기로 문서가 많아도 빠르게 다룹니다. **명령 팔레트(Ctrl+Shift+P)**와 **파일 퀵오픈(Ctrl+P)**으로 손을 키보드에서 떼지 않아도 됩니다.
+
+집중해서 읽는 **리딩 모드**, 발표용 **프레젠테이션(전체화면 슬라이드)**, 그리고 **라이트·다크·페이퍼(종이 질감)** 테마로 눈이 편한 읽기·쓰기 환경을 제공합니다.
 
 빠르게 켜지고, 메모리를 적게 쓰며, 군더더기가 없습니다. README·메모·문서 작성에 딱 맞는 도구입니다. 작성한 문서의 모든 권리는 당신의 것이며, 개인·상업 용도 모두 자유롭게 쓸 수 있습니다.
 
@@ -52,7 +56,11 @@ A lightweight, fully offline Markdown reader & editor with instant live preview.
 **Description:**
 README.md is a lightweight, **100% offline** Markdown reader and editor. No internet, no account, no tracking — your writing stays entirely on your device.
 
-Type Markdown on the left and watch a typeset document appear on the right, **live**. Open a folder to browse documents in the workspace tree, and edit several files at once with tabs. Read and write comfortably with **Light, Dark, and Paper** themes.
+Type Markdown on the left and watch a typeset document appear on the right, **live** — with code syntax highlighting, math (KaTeX), diagrams (Mermaid), footnotes, tables, and callouts rendered as you write. When you're done, **export a self-contained HTML or PDF** with images and fonts embedded.
+
+Open a folder to browse documents in the **workspace tree**, and edit several files at once with tabs. Tidy scattered documents by **dragging them into virtual folders**. Handle large collections fast with **workspace-wide search**, **regex find & replace**, a document outline, and favorites — and stay on the keyboard with the **command palette (Ctrl+Shift+P)** and **file quick-open (Ctrl+P)**.
+
+Read distraction-free in **Reading mode**, present with **full-screen slides**, and work comfortably in **Light, Dark, and Paper** themes.
 
 It starts fast, uses little memory, and stays out of your way — perfect for READMEs, notes, and documentation. You keep all rights to what you write, for personal and commercial use alike.
 
