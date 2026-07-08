@@ -83,6 +83,18 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v0.6.2 — ko-KR
+- **드래그 피드백** — 워크스페이스·탭을 드래그하면 커서에 항목 칩이 따라와 무엇을 옮기는지 표시(가져온 폴더의 개별 항목은 이동 불가로 안내)
+- **탭 우클릭 메뉴** — 워크스페이스에 추가 · 다른/모든 탭 닫기 · 파일 위치 열기 · 경로 복사
+- **스크롤 동기화 수정** — 에디터에서 스크롤할 때 미리보기가 문서 맨 위로 튀던 문제 해결
+- **파일 연결 수정** — 탐색기에서 `.md`를 열면 항상 그 파일이 바로 보이도록
+
+### v0.6.2 — en-US
+- **Drag feedback** — a chip follows the cursor when dragging in the workspace or tabs, so you can see what you're moving (items inside an imported folder show as non-movable)
+- **Tab right-click menu** — add to workspace, close other/all tabs, reveal in Explorer, copy path
+- **Scroll sync fix** — the preview no longer jumps to the top while you scroll the editor
+- **File association fix** — opening a `.md` from Explorer now always shows that file right away
+
 ### v0.6.1 — ko-KR
 - **다이어그램(Mermaid) 렌더 안정화** — 순서도·ER·클래스·상태·쿼드런트 등이 안 나오거나 라벨 글자가 비던 문제 수정
 - **파일 연결 실행 개선** — `.md` 더블클릭 시 앱 창을 확실히 앞으로 띄우고 해당 파일을 엽니다
@@ -135,3 +147,4 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] Partner Center 이름 예약 → **미서명 MSIX(0.6.0) 업로드** (Name=SlnU.README.md · Publisher=CN=1398342C-A2D7-4B4A-BFE2-34D8CCFD7FBA · PublisherDisplayName=SlnU) — v0.6.0 게시 완료(2026-07-05)
 - [x] "이 업데이트의 새로운 기능" 필드 = 위 **업데이트 내용 v0.6.0** 문구
 - [x] **v0.6.1 업데이트 제출** — `release/v0.6.1/README_0.6.1_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.1** 문구 — **v0.6.1 게시 완료(2026-07-08)**
+- [ ] **v0.6.2 업데이트 제출** — `release/v0.6.2/README_0.6.2_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.2** 문구
