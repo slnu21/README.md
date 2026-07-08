@@ -33,7 +33,8 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **라이선스**: permissive(MIT/Apache/BSD/ISC 등)만 허용. GPL/AGPL/LGPL/SSPL 금지.
 - **Store 패키징**: **MSIX → Store**(Microsoft 재서명 → 코드서명 인증서 불필요)가 기본. Tauri는 MSI/NSIS만 내므로 **MSIX 래핑 1단계** 필요. 매니페스트에 `runFullTrust`. 자세히: [docs/deployment/microsoft-store.md](docs/deployment/microsoft-store.md).
 
-## 현재 상태 (2026-07-05 기준)
+## 현재 상태 (2026-07-08 기준)
+- **v0.6.1 릴리스 완료** — v0.6.0 이후 실사용 3건 수정: mermaid 렌더(er/flowchart 등이 소스 `-->` 때문에 DOMPurify가 `data-src`를 삭제 → base64 전달로 회피, foreignObject 라벨은 `sanitizeSvg`의 `HTML_INTEGRATION_POINTS:{foreignobject:true}`로 보존, 렌더 오류 표면화 + 12종 회귀 픽스처 `docs/samples/mermaid-gallery.md`) · 파일연결 웜스타트 창 전면화(`unminimize+show+set_focus`) · 워크스페이스 디스크파일→가상폴더 참조 DnD + 가져온폴더 그룹 시각화. 릴리스 빌드+WebView2 DevTools(원격 디버깅)로 실측 검증. 산출물 빌드·패키징, 실신원 MSIX **Microsoft Store 게시 완료**. GitHub `main` 푸시 + `v0.6.1` 태그, 커밋 `171703c`.
 - **v0.6.0 릴리스 완료** — 버전 `0.6.0` 범프, 산출물(NSIS/MSIX/zip) 빌드·패키징, 실신원 MSIX(`SlnU.README.md`) **Microsoft Store 게시 완료**. GitHub `main` 푸시 + `v0.6.0` 태그 완료. 커밋 `27fe7b4`.
 - **v0.6 구현 완료**(로컬 검증 `tsc`·`vite build` 통과): 명령 팔레트·파일 퀵오픈(T2) · 리더 UX(라이트박스·리딩/프레젠테이션 모드·양방향 스크롤·리딩 폭 · T4) · 전역 찾기·바꾸기(T3) · 에디터 작성 도구(서식 단축키·자동 목록 · T1) · 에디터 우클릭 메뉴(T6) · HTML 클립보드/워크스페이스 JSON I/O(T5) · 데이터 안전(닫기 가드·세션 복원·자동저장) · 파일 타입 구분 · 상대경로 이미지(data URI) · 선택 강조·머메이드 버그 수정. 남은 로드맵: T7 상업화 게이팅(시기상조 · 보류).
 - **v0.1 릴리스 완료** — MVP(열기·편집·미리보기·저장·감시·최근·3테마·i18n·프레임리스·공식 마크다운 로고) + MSIX/NSIS/zip + GitHub(github.com/slnu21/README.md).
