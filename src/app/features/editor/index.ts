@@ -74,10 +74,14 @@ const cmTheme = EditorView.theme({
   ".cm-searchMatch-selected": { backgroundColor: "color-mix(in srgb, var(--accent) 48%, transparent)" },
 });
 
-/** 에디터 상단에 보이는 소스 줄(0-based, data-line과 일치) — 미리보기 스크롤 동기화용(기능 8). */
+/** 에디터 상단에 보이는 소스 줄(0-based, data-line과 일치) — 미리보기 스크롤 동기화용(기능 8).
+ *  ⚠ x를 스크롤러 왼쪽(rect.left+6)으로 잡으면 거터/상단 패딩에서 posAtCoords가 null → 0을 반환,
+ *    스크롤 중 유효값과 0이 번갈아 나와 미리보기가 문서 맨 위로 튀는 진동이 생긴다.
+ *    콘텐츠 영역 안쪽 x + 비정밀 모드(false=가장 가까운 위치로 클램프, 거의 null 없음)로 안정화. */
 function topVisibleLine(view: EditorView): number {
   const rect = view.scrollDOM.getBoundingClientRect();
-  const pos = view.posAtCoords({ x: rect.left + 6, y: rect.top + 6 });
+  const cx = view.contentDOM.getBoundingClientRect().left + 2; // 거터를 지나 콘텐츠 내부
+  const pos = view.posAtCoords({ x: cx, y: rect.top + 6 }, false);
   if (pos == null) return 0;
   return view.state.doc.lineAt(pos).number - 1;
 }

@@ -27,6 +27,7 @@
     "newFolder": "새 폴더",
     "newSubfolder": "새 하위 폴더",
     "addFile": "파일 추가",
+    "addRef": "워크스페이스에 참조 추가",
     "importFolder": "폴더 가져오기",
     "rename": "이름 변경",
     "removeFromWs": "워크스페이스에서 제거",
@@ -47,6 +48,7 @@
     "importedHint": "가져온 폴더 — 하위 파일이 통째로 묶인 단위입니다(개별 이동 대신 폴더째 이동)."
   },
   "ctx": { "cut": "잘라내기", "copy": "복사", "paste": "붙여넣기", "bold": "굵게", "italic": "기울임", "code": "인라인 코드", "link": "링크", "selectAll": "모두 선택" },
+  "tab": { "addToWorkspace": "워크스페이스에 추가", "close": "탭 닫기", "closeOthers": "다른 탭 모두 닫기", "closeAll": "모든 탭 닫기", "reveal": "파일 위치 열기", "copyPath": "경로 복사" },
   "search": { "placeholder": "검색...", "searching": "검색 중…", "noResults": "결과 없음" },
   "status": { "saved": "저장됨", "unsaved": "수정됨", "words": "단어", "ln": "줄", "col": "열", "selected": "자 선택", "min": "분" },
   "settings": {

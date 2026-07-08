@@ -27,6 +27,7 @@
     "newFolder": "New folder",
     "newSubfolder": "New subfolder",
     "addFile": "Add file",
+    "addRef": "Add reference to workspace",
     "importFolder": "Import folder",
     "rename": "Rename",
     "removeFromWs": "Remove from workspace",
@@ -47,6 +48,7 @@
     "importedHint": "Imported folder — its files move together as one unit (move the folder, not individual files)."
   },
   "ctx": { "cut": "Cut", "copy": "Copy", "paste": "Paste", "bold": "Bold", "italic": "Italic", "code": "Inline code", "link": "Link", "selectAll": "Select all" },
+  "tab": { "addToWorkspace": "Add to workspace", "close": "Close tab", "closeOthers": "Close other tabs", "closeAll": "Close all tabs", "reveal": "Reveal in Explorer", "copyPath": "Copy path" },
   "search": { "placeholder": "Search...", "searching": "Searching…", "noResults": "No results" },
   "status": { "saved": "Saved", "unsaved": "Unsaved", "words": "words", "ln": "Ln", "col": "Col", "selected": "selected", "min": "min" },
   "settings": {
