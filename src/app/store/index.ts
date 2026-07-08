@@ -194,6 +194,8 @@ interface AppState {
   setActive: (path: string) => void;
   moveTab: (path: string, toIndex: number) => void;
   closeTab: (path: string) => void;
+  closeOthers: (path: string) => void; // 지정 탭만 남기고 나머지 닫기
+  closeAll: () => void;
   updateContent: (path: string, content: string) => void;
   markSaved: (path: string) => void;
   reloadFile: (path: string, content: string) => void;
@@ -415,6 +417,14 @@ export const useAppStore = create<AppState>()(
           }
           return { tabs, activePath };
         }),
+
+      closeOthers: (path) =>
+        set((s) => {
+          const keep = s.tabs.find((t) => t.path === path);
+          return keep ? { tabs: [keep], activePath: path } : {};
+        }),
+
+      closeAll: () => set({ tabs: [], activePath: null }),
 
       updateContent: (path, content) =>
         set((s) => ({

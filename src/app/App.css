@@ -731,6 +731,45 @@ body {
   outline-offset: -3px;
   border-radius: var(--r-md);
 }
+/* 드래그 중 커서를 따라오는 반투명 칩 — 워크스페이스 트리/열린문서 탭 공용(무엇을 옮기는지 표시) */
+.drag-ghost {
+  position: fixed;
+  z-index: 200;
+  pointer-events: none;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  max-width: 240px;
+  padding: 3px 8px;
+  font: 12px/1.2 var(--ui-font);
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  opacity: 0.85;
+}
+.drag-ghost .ic {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--muted);
+}
+.drag-ghost-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 이동 불가 항목(가져온 폴더의 개별 파일)을 잡았을 때 — 금지 표시 + 흐린/붉은 톤 */
+.drag-ghost.forbidden {
+  color: var(--muted);
+  border-color: color-mix(in srgb, #e5484d 45%, var(--border));
+}
+.drag-ghost-no {
+  flex: none;
+  font-size: 12px;
+  line-height: 1;
+}
 .node.folder .chev {
   transition: transform 0.16s ease;
   color: var(--muted);
@@ -776,6 +815,15 @@ body {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 1px 5px;
+}
+/* '폴더 행'에 마우스를 올렸을 때만 묶음 전체(폴더+하위+레일)를 함께 강조 — 함께 이동하는 단위임을 안내.
+   하위 개별 항목은 옮길 수 없으므로, 그 위에서는 그룹 강조를 하지 않는다(개별 행 hover만). */
+.node.imported-root:hover,
+.node.imported-root:hover + .children.imported .node.imported {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.node.imported-root:hover + .children.imported {
+  border-left-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 .node.file .ic {
   color: color-mix(in srgb, var(--accent) 34%, var(--muted));

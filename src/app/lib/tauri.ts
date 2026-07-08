@@ -1,6 +1,7 @@
 // Rust 커맨드 래퍼 + 다이얼로그. 실제 파일 I/O는 풀 접근 권한의 Rust(std::fs)에서 수행한다.
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -158,3 +159,6 @@ export const takePendingOpen = (): Promise<string | null> => invoke<string | nul
 /** 실행 중 앱에 .md 연결로 새 파일이 넘어올 때(웜 스타트, single-instance) 이벤트 구독. */
 export const onOpenFile = (cb: (path: string) => void): Promise<UnlistenFn> =>
   listen<string>("open-file", (e) => cb(e.payload));
+
+/** 시스템 파일 탐색기에서 해당 파일 위치를 파일 선택 상태로 연다(탭 우클릭 메뉴). */
+export const revealInExplorer = (path: string): Promise<void> => revealItemInDir(path);

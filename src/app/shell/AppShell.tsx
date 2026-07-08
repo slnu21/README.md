@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, type TreeNode } from "../store";
 import { themes } from "../themes";
-import { pickFile, pickFolder, readFile, writeFile, watchFiles, onFileChanged, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
+import { pickFile, pickFolder, readFile, writeFile, watchFiles, onFileChanged, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
@@ -15,7 +15,7 @@ import type { SelState } from "../features/editor";
 import { Presentation } from "./Presentation";
 import { Seam } from "./Seam";
 import { SettingsPopover } from "./SettingsPopover";
-import { ContextMenu } from "./ContextMenu";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
 import { CommandPalette, type PaletteItem } from "./CommandPalette";
 import { FindReplace } from "./FindReplace";
@@ -70,6 +70,9 @@ export function AppShell() {
   const setActive = useAppStore((s) => s.setActive);
   const moveTab = useAppStore((s) => s.moveTab);
   const closeTab = useAppStore((s) => s.closeTab);
+  const closeOthers = useAppStore((s) => s.closeOthers);
+  const closeAll = useAppStore((s) => s.closeAll);
+  const addFileRefTo = useAppStore((s) => s.addFileRefTo);
   const updateContent = useAppStore((s) => s.updateContent);
   const importFolder = useAppStore((s) => s.importFolder);
   const hydrate = useAppStore((s) => s.hydrate);
@@ -207,16 +210,12 @@ export function AppShell() {
     };
   }, [isDemo, openIncoming]);
 
-  // .md 파일 연결/명령행 실행 → 해당 문서 열기. 콜드=대기열 take, 웜=open-file 이벤트(single-instance).
+  // .md 파일 연결/명령행(웜 스타트): 실행 중 앱에 새 파일이 넘어오면 즉시 열기(single-instance).
+  // 콜드 스타트 대기열(takePendingOpen)은 세션 복원과 경합하므로 hydrate 이후에 처리(아래 부팅 이펙트).
   useEffect(() => {
     if (isDemo) return;
     let unlisten: (() => void) | undefined;
     let cancelled = false;
-    void takePendingOpen()
-      .then((p) => {
-        if (p && !cancelled) void openIncoming([p]);
-      })
-      .catch(() => {});
     void onOpenFileEvent((p) => void openIncoming([p]))
       .then((fn) => {
         if (cancelled) fn();
@@ -258,6 +257,8 @@ export function AppShell() {
   const justDraggedTab = useRef(false);
   const [dragTabPath, setDragTabPath] = useState<string | null>(null);
   const [dropMark, setDropMark] = useState<{ index: number; left: number } | null>(null);
+  const [tabGhost, setTabGhost] = useState<{ x: number; y: number; label: string } | null>(null); // 드래그 중 커서 추종 칩
+  const [tabMenu, setTabMenu] = useState<{ x: number; y: number; path: string } | null>(null); // 탭 우클릭 메뉴
 
   // 포인터 x 기준 삽입 위치(원본 배열 좌표 0..n) + 표시선 left(px, 스크롤 콘텐츠 좌표) 계산.
   function computeDrop(scrollEl: HTMLElement, clientX: number): { index: number; left: number } {
@@ -285,6 +286,7 @@ export function AppShell() {
     if (d.moved) {
       const scrollEl = (e.currentTarget as HTMLElement).closest<HTMLElement>(".tab-scroll");
       if (scrollEl) setDropMark(computeDrop(scrollEl, e.clientX));
+      setTabGhost({ x: e.clientX, y: e.clientY, label: tabs.find((tb) => tb.path === d.path)?.title ?? "" });
     }
   }
   function onTabPointerUp() {
@@ -293,6 +295,7 @@ export function AppShell() {
     const mark = dropMark;
     setDragTabPath(null);
     setDropMark(null);
+    setTabGhost(null);
     if (!d || !d.moved || !mark) return; // 이동 없음 → 클릭(setActive)에 맡김
     justDraggedTab.current = true; // 뒤이어 오는 click(setActive) 억제
     const from = tabs.findIndex((t) => t.path === d.path);
@@ -420,6 +423,48 @@ export function AppShell() {
     });
   }
 
+  // 일괄 닫기(다른 탭/모든 탭) — 닫힐 대상 중 미저장이 있으면 저장/버림 확인, 없으면 즉시.
+  // keepPath=null → 전부 닫기, 아니면 해당 탭만 남김.
+  function requestBulkClose(keepPath: string | null) {
+    const dirty = useAppStore.getState().tabs.filter((tb) => tb.path !== keepPath && tb.dirty);
+    const doClose = () => (keepPath ? closeOthers(keepPath) : closeAll());
+    if (dirty.length === 0) {
+      doClose();
+      return;
+    }
+    setConfirm({
+      title: t("dialog.unsavedTitle"),
+      message: t("dialog.unsavedCloseMsg", { count: dirty.length }),
+      onSave: () =>
+        void (async () => {
+          for (const tb of dirty) {
+            try {
+              await writeFile(tb.path, tb.content);
+              useAppStore.getState().markSaved(tb.path);
+            } catch (e) {
+              console.error("저장 실패:", tb.path, e);
+            }
+          }
+          doClose();
+        })(),
+      onDiscard: () => doClose(),
+    });
+  }
+
+  // 탭 우클릭 메뉴 항목. 저장 경로 있는 탭만 워크스페이스 추가·위치 열기·경로 복사 노출.
+  function tabMenuItems(path: string): MenuItem[] {
+    const items: MenuItem[] = [];
+    if (path) items.push({ label: t("tab.addToWorkspace"), onClick: () => void addFileRefTo(null, path) });
+    items.push({ label: t("tab.close"), onClick: () => requestCloseTab(path) });
+    if (tabs.length > 1) items.push({ label: t("tab.closeOthers"), onClick: () => requestBulkClose(path) });
+    items.push({ label: t("tab.closeAll"), onClick: () => requestBulkClose(null) });
+    if (path) {
+      items.push({ label: t("tab.reveal"), onClick: () => void revealInExplorer(path).catch((e) => console.error("위치 열기 실패:", e)) });
+      items.push({ label: t("tab.copyPath"), onClick: () => void navigator.clipboard.writeText(path).catch(() => {}) });
+    }
+    return items;
+  }
+
   // 창 닫기 가드(데이터 안전): dirty 탭 있으면 확인 다이얼로그, 통과 시 destroy(이벤트 우회).
   useEffect(() => {
     if (isDemo) return;
@@ -511,9 +556,25 @@ export function AppShell() {
     };
   }, []);
 
-  // 부팅 시 SQLite에서 워크스페이스 하이드레이트(데모/브라우저 제외).
+  // 부팅: 워크스페이스 하이드레이트(세션 복원) → 완료 후 콜드 스타트 대기 파일 열기.
+  // hydrate가 마지막에 activePath를 이전 세션 값으로 덮어쓰므로, 파일 연결로 연 문서가 항상 활성이
+  // 되도록 반드시 hydrate 이후에 open한다(그래야 openFile이 마지막 기록자 = 활성 확정).
   useEffect(() => {
-    if (!isDemo) void hydrate();
+    if (isDemo) return;
+    let cancelled = false;
+    void (async () => {
+      await hydrate();
+      if (cancelled) return;
+      try {
+        const p = await takePendingOpen();
+        if (p && !cancelled) await openIncoming([p]);
+      } catch {
+        /* 대기 파일 없음/실패는 무시 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -563,6 +624,9 @@ export function AppShell() {
     <>
       <IconSprite />
       {confirm && <ConfirmDialog spec={confirm} onClose={() => setConfirm(null)} />}
+      {tabMenu && (
+        <ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems(tabMenu.path)} onClose={() => setTabMenu(null)} />
+      )}
       {dropActive && (
         <div className="drop-overlay" aria-hidden="true">
           <div className="drop-card">
@@ -837,6 +901,10 @@ export function AppShell() {
                   onPointerDown={(e) => onTabPointerDown(e, tab.path)}
                   onPointerMove={onTabPointerMove}
                   onPointerUp={onTabPointerUp}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setTabMenu({ x: e.clientX, y: e.clientY, path: tab.path });
+                  }}
                   onClick={() => {
                     if (justDraggedTab.current) {
                       justDraggedTab.current = false; // 방금 드래그였으면 활성화 억제
@@ -862,6 +930,12 @@ export function AppShell() {
                 </button>
               ))}
               {dropMark && <span className="tab-drop-marker" style={{ left: dropMark.left }} />}
+              {tabGhost && (
+                <div className="drag-ghost" style={{ left: tabGhost.x + 14, top: tabGhost.y + 10 }}>
+                  <Icon name="file" />
+                  <span className="drag-ghost-name">{tabGhost.label}</span>
+                </div>
+              )}
             </div>
             <button type="button" className="tab-add" aria-label={t("menu.openFile")} title={t("menu.openFile")} onClick={onOpenFile}>
               <Icon name="plus" />

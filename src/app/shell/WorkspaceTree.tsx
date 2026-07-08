@@ -240,12 +240,15 @@ export function WorkspaceTree() {
   // ── 드래그 배치·재정렬 ──
   const index = useMemo(() => indexRoots(roots), [roots]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ item: DragItem; pointerId: number; startX: number; startY: number; moved: boolean } | null>(null);
+  const dragRef = useRef<{ item: DragItem; pointerId: number; startX: number; startY: number; moved: boolean; label: string; movable: boolean } | null>(null);
   const justDragged = useRef(false);
   const [drop, setDrop] = useState<DropTarget | null>(null);
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
+  // 드래그 중 커서 추종 칩. forbidden=이동 불가 항목(가져온 폴더의 개별 파일)을 잡았을 때 금지 표시.
+  const [ghost, setGhost] = useState<{ x: number; y: number; label: string; kind: string; forbidden: boolean } | null>(null);
 
   function computeDrop(x: number, y: number, item: DragItem): DropTarget | null {
+    if (!item.id) return null; // 그래프 노드만 드래그(=이동). 방어 겸 타입 좁힘.
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
     const rowEl = el?.closest<HTMLElement>(".node");
     if (!rowEl) {
@@ -256,14 +259,12 @@ export function WorkspaceTree() {
     const rowKey = rowEl.getAttribute("data-key") ?? "";
     const rect = rowEl.getBoundingClientRect();
     const rel = (y - rect.top) / rect.height;
-    // 가상 폴더 "into" — 밴드를 넓혀(20~80%) 잘 잡히게. 그래프 노드는 이동, 디스크 파일은 참조 편입.
+    // 가상 폴더 "into" — 밴드를 넓혀(20~80%) 잘 잡히게(그래프 노드 이동).
     if (rowKind === "virtual_folder" && rowId && rel > 0.2 && rel < 0.8) {
-      if (item.id && (rowId === item.id || isDescendant(index.parentOf, item.id, rowId))) return null;
+      if (rowId === item.id || isDescendant(index.parentOf, item.id, rowId)) return null;
       return { mode: "into", folderId: rowId };
     }
-    // 디스크 파일 드래그는 재정렬 대상이 아님 — 가상 폴더 "into" 또는 루트만.
-    if (!item.id) return null;
-    if (!rowId) return null; // 즐겨찾기/디스크 행 → 재정렬 대상 아님
+    if (!rowId) return null; // 즐겨찾기/디스크 행 → 드롭 위치(재정렬) 대상 아님
     const pAttr = rowEl.getAttribute("data-parent");
     const parentId = pAttr === "__root__" ? null : pAttr || null;
     if (parentId && (parentId === item.id || isDescendant(index.parentOf, item.id, parentId))) return null;
@@ -275,23 +276,15 @@ export function WorkspaceTree() {
   }
 
   async function executeDrop(item: DragItem, t: DropTarget) {
+    if (!item.id) return; // 그래프 노드만 이동(디스크 파생 항목은 드래그 대상이 아님)
+    const draggedId = item.id;
     if (t.mode === "into") {
-      if (item.id) {
-        const folder = index.byId.get(t.folderId);
-        await moveNode(item.id, t.folderId, nextOrder(folder?.children ?? []));
-      } else if (item.path) {
-        await addFileRefTo(t.folderId, item.path); // 디스크 파일 → 참조로 편입(디스크 미변경)
-      }
+      const folder = index.byId.get(t.folderId);
+      await moveNode(draggedId, t.folderId, nextOrder(folder?.children ?? []));
     } else if (t.mode === "root") {
-      if (item.id) {
-        if ((index.parentOf.get(item.id) ?? null) === null) return; // 이미 루트
-        await moveNode(item.id, null, nextOrder(roots));
-      } else if (item.path) {
-        await addFileRefTo(null, item.path); // 디스크 파일 → 루트에 참조 편입
-      }
+      if ((index.parentOf.get(draggedId) ?? null) === null) return; // 이미 루트
+      await moveNode(draggedId, null, nextOrder(roots));
     } else {
-      if (!item.id) return; // 재정렬은 그래프 노드만
-      const draggedId = item.id;
       const P = t.parentId;
       const siblingNodes = P === null ? roots : index.byId.get(P)?.children ?? [];
       const ordered = siblingNodes.filter((c) => c.id).map((c) => c.id!).filter((id) => id !== draggedId);
@@ -313,8 +306,10 @@ export function WorkspaceTree() {
     const kind = row.getAttribute("data-kind") ?? "";
     const key = row.getAttribute("data-key") ?? "";
     const path = row.getAttribute("data-path");
-    // 드래그 가능: 그래프 노드(uuid) 또는 디스크 파일(참조로 편입). 디스크 폴더·즐겨찾기는 제외.
-    if (!id && !(kind === "disk_file" && path)) return;
+    // 트리 항목(data-kind 있음)만 드래그 후보. 즐겨찾기 등 합성 행은 제외.
+    if (!kind) return;
+    // 그래프 노드(uuid)만 실제 '이동'. 가져온 폴더의 하위 개별 항목(disk_file/disk_folder)은
+    // '폴더째 이동하는 단위'라 이동 불가 — 잡으면 금지 칩만 띄워 안내(참조 추가는 우클릭 메뉴).
     // ⚠ 여기서 setPointerCapture 하면 안 된다 — 순수 클릭에도 캡처가 걸리면 뒤이은 click 이벤트가
     //    행(row)이 아니라 컨테이너로 가서 onClick(펼치기/열기)이 안 먹는다. 실제 드래그 시작 때만 캡처.
     dragRef.current = {
@@ -323,6 +318,8 @@ export function WorkspaceTree() {
       startX: e.clientX,
       startY: e.clientY,
       moved: false,
+      label: row.querySelector<HTMLElement>(".name")?.textContent ?? "",
+      movable: !!id,
     };
   }
   function onPointerMove(e: React.PointerEvent) {
@@ -331,10 +328,11 @@ export function WorkspaceTree() {
     if (!d.moved) {
       if (Math.abs(e.clientX - d.startX) < 5 && Math.abs(e.clientY - d.startY) < 5) return;
       d.moved = true;
-      setDraggingKey(d.item.key);
+      if (d.movable) setDraggingKey(d.item.key); // 이동 가능 항목만 원본을 흐리게
       containerRef.current?.setPointerCapture(d.pointerId); // 드래그 확정 시점에만 캡처
     }
-    setDrop(computeDrop(e.clientX, e.clientY, d.item));
+    if (d.movable) setDrop(computeDrop(e.clientX, e.clientY, d.item)); // 이동 불가 항목은 드롭 대상 미표시
+    setGhost({ x: e.clientX, y: e.clientY, label: d.label, kind: d.item.kind, forbidden: !d.movable });
   }
   function onPointerUp() {
     const d = dragRef.current;
@@ -342,9 +340,10 @@ export function WorkspaceTree() {
     const t = drop;
     setDrop(null);
     setDraggingKey(null);
+    setGhost(null);
     if (!d || !d.moved) return;
     justDragged.current = true; // 뒤이어 오는 click(열기/토글) 억제
-    if (t) void executeDrop(d.item, t);
+    if (d.movable && t) void executeDrop(d.item, t); // 이동 가능 항목만 실제 이동
   }
 
   function newFolderPrompt(parentId: string | null) {
@@ -396,6 +395,8 @@ export function WorkspaceTree() {
     } else if (n.kind === "disk_file" && n.realPath) {
       const rp = n.realPath;
       const fav = favorites.includes(rp);
+      // 가져온 폴더의 개별 파일은 드래그로 옮길 수 없으므로, 참조(바로가기) 추가는 여기서 명시적으로.
+      items.push({ label: t("ws.addRef"), onClick: () => void addFileRefTo(null, rp) });
       items.push({
         label: fav ? t("ws.unfavorite") : t("ws.favorite"),
         onClick: () => void toggleFavorite(rp),
@@ -536,6 +537,21 @@ export function WorkspaceTree() {
       )}
       {prompt && <PromptModal spec={prompt} onClose={() => setPrompt(null)} />}
       {confirm && <ConfirmDialog spec={confirm} onClose={() => setConfirm(null)} />}
+      {ghost && (
+        <div
+          className={"drag-ghost" + (ghost.forbidden ? " forbidden" : "")}
+          style={{ left: ghost.x + 14, top: ghost.y + 10 }}
+        >
+          {ghost.forbidden ? (
+            <span className="drag-ghost-no" aria-hidden="true">
+              🚫
+            </span>
+          ) : (
+            <Icon name={isFolderKind(ghost.kind as TreeKind) ? "folder" : isMarkdown(ghost.label) ? "md" : "file"} />
+          )}
+          <span className="drag-ghost-name">{ghost.label}</span>
+        </div>
+      )}
     </div>
   );
 }
