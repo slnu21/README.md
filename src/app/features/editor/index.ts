@@ -1,7 +1,7 @@
 // Editor: CodeMirror 6 설정(마크다운 문법 하이라이트 + 테마 토큰 연동).
 // React 마운트/생명주기는 shell/Editor.tsx. 색은 CSS 변수 var(--*) 사용 → 3테마 자동 대응.
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection } from "@codemirror/view";
-import { EditorState, Prec, type Extension } from "@codemirror/state";
+import { EditorState, Prec, Annotation, type Extension } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { search, searchKeymap } from "@codemirror/search";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
@@ -12,6 +12,10 @@ import { toggleWrap, insertLink, continueList, smartPaste, selStateOf, type SelS
 
 export { selStateOf } from "./commands";
 export type { SelState } from "./commands";
+
+/** 프로그램적 문서 교체(파일 열기/외부 변경 리로드)를 사용자 편집과 구분하는 표식.
+ *  이 표식이 붙은 트랜잭션은 onChange를 건너뛰어 탭을 dirty로 만들지 않는다. */
+export const contentSync = Annotation.define<boolean>();
 
 // 마크다운 문법 하이라이트 — 색은 테마 토큰(var) 사용.
 const mdHighlight = HighlightStyle.define([
@@ -136,7 +140,9 @@ export function editorExtensions(
     EditorView.domEventHandlers({ scroll: (_e, view) => emit(view) }),
     EditorView.updateListener.of((u) => {
       if (u.docChanged) {
-        onChange(u.state.doc.toString());
+        // 프로그램적 문서 교체(contentSync 표식)는 사용자 편집이 아니므로 dirty로 만들지 않는다.
+        const external = u.transactions.some((tr) => tr.annotation(contentSync));
+        if (!external) onChange(u.state.doc.toString());
         emit(u.view);
       }
       if (onSelState && (u.docChanged || u.selectionSet)) {
