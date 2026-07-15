@@ -4,7 +4,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { useTranslation } from "react-i18next";
 import { EditorState } from "@codemirror/state";
 import { EditorView, type Command } from "@codemirror/view";
-import { editorExtensions, selStateOf, type SelState } from "../features/editor";
+import { editorExtensions, selStateOf, contentSync, type SelState } from "../features/editor";
 import { toggleWrap, insertLink } from "../features/editor/commands";
 import { useAppStore } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
@@ -61,7 +61,11 @@ export const Editor = forwardRef<EditorHandle, {
   useEffect(() => {
     const view = viewRef.current;
     if (view && content !== view.state.doc.toString()) {
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: content } });
+      // contentSync 표식 → updateListener가 이 교체를 사용자 편집으로 오인해 dirty로 만들지 않게.
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: content },
+        annotations: contentSync.of(true),
+      });
     }
   }, [content]);
 

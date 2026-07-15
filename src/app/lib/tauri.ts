@@ -14,8 +14,11 @@ export interface DirEntryNode {
   children: DirEntryNode[];
 }
 
-export function readFile(path: string): Promise<string> {
-  return invoke<string>("read_file", { path });
+/** 파일 내용을 읽어 줄바꿈을 LF로 정규화. CodeMirror 문서 표현(LF)과 일치시켜
+ *  열자마자 dirty로 표시되던 CRLF↔LF 불일치를 제거(에디터가 편집 시 이미 LF로 정규화). */
+export async function readFile(path: string): Promise<string> {
+  const s = await invoke<string>("read_file", { path });
+  return s.replace(/\r\n?/g, "\n");
 }
 
 export function writeFile(path: string, contents: string): Promise<void> {
