@@ -3,6 +3,13 @@
 이 프로젝트의 모든 주요 변경을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/),
 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [Unreleased]
+
+v0.6.2 실사용 후속 수정. 로컬 검증(`tsc`·`vite build`) 통과, 신규 경고 0.
+
+### Fixed
+- **파일을 열자마자 미저장으로 표시** — `.md`를 열기만 해도 탭에 미저장 점과 "Unsaved"가 뜨던 문제. 근본 원인 2가지(둘 다 프로그램적 문서 로드를 사용자 편집으로 오인): (1) `read_file`이 반환한 원본 줄바꿈(Windows=CRLF)과 CodeMirror 문서의 내부 표현(LF)이 달라, 마운트 시 콘텐츠 동기화 effect가 문서 전체 교체를 dispatch → `onChange` → dirty. (2) `updateListener`가 `docChanged`면 무조건 `onChange`를 불러 프로그램적 교체와 사용자 편집을 구분하지 못함. **`contentSync` 애노테이션**을 정의해 프로그램적 교체에 표식을 붙이고 `updateListener`가 이를 건너뛰게 하고(사용자 입력은 표식이 없어 그대로 dirty — 편집 유실 없음), `readFile`에서 **CRLF/CR→LF 정규화**로 기준값을 에디터의 정준 표현과 맞춰 불필요한 교체 자체를 제거. 외부 변경 리로드 직후 같은 탭이 다시 dirty가 되던 문제도 함께 해소.
+
 ## [0.6.2]
 
 v0.6.1 실사용 후속 보완 — 워크스페이스/탭 드래그 피드백, 탭 우클릭 메뉴, 스크롤 동기화·파일 연결 버그 수정. 로컬 검증(`tsc`·`vite build`·`cargo check` + 릴리스 빌드 실행) 통과.
