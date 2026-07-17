@@ -91,6 +91,14 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v0.6.3 — ko-KR
+- **열자마자 '미저장'으로 표시되던 문제 수정** — 파일을 열기만 해도 탭에 미저장 표시가 뜨던 문제를 해결했습니다. 이제 실제로 편집했을 때만 미저장으로 표시됩니다.
+- 파일이 외부에서 바뀌어 새로 불러온 뒤에도 미저장으로 잘못 표시되던 문제를 함께 고쳤습니다.
+
+### v0.6.3 — en-US
+- **Fixed files showing as unsaved right after opening** — simply opening a file no longer marks the tab as unsaved. Only your actual edits do.
+- Also fixed tabs being incorrectly marked unsaved after reloading a file that changed on disk.
+
 ### v0.6.2 — ko-KR
 - **드래그 피드백** — 워크스페이스·탭을 드래그하면 커서에 항목 칩이 따라와 무엇을 옮기는지 표시(가져온 폴더의 개별 항목은 이동 불가로 안내)
 - **탭 우클릭 메뉴** — 워크스페이스에 추가 · 다른/모든 탭 닫기 · 파일 위치 열기 · 경로 복사
@@ -156,3 +164,4 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] "이 업데이트의 새로운 기능" 필드 = 위 **업데이트 내용 v0.6.0** 문구
 - [x] **v0.6.1 업데이트 제출** — `release/v0.6.1/README_0.6.1_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.1** 문구 — **v0.6.1 게시 완료(2026-07-08)**
 - [x] **v0.6.2 업데이트 제출** — `release/v0.6.2/README_0.6.2_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.2** 문구 — **v0.6.2 게시 완료(2026-07-10)**
+- [ ] **v0.6.3 업데이트 제출** — `release/v0.6.3/README_0.6.3_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.3** 문구
