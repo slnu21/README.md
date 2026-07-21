@@ -91,6 +91,14 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v0.6.4 — ko-KR
+- **워크스페이스 깊은 항목 이름 표시** — 폴더 계층이 깊거나 이름이 긴 파일이 왼쪽 워크스페이스에서 잘려 보이지 않던 것을, 가로 스크롤로 전체 이름을 확인하도록 개선했습니다.
+- **잘린 이름 툴팁** — 잘린 파일 이름에 마우스를 잠시 올리면 전체 이름이 툴팁으로 나타납니다.
+
+### v0.6.4 — en-US
+- **See full names of deep items in the workspace** — deeply-nested or long-named files that were clipped in the left sidebar can now be revealed in full by scrolling horizontally.
+- **Tooltip for clipped names** — hover a clipped file name for a moment to see its full name in a tooltip.
+
 ### v0.6.3 — ko-KR
 - **열자마자 '미저장'으로 표시되던 문제 수정** — 파일을 열기만 해도 탭에 미저장 표시가 뜨던 문제를 해결했습니다. 이제 실제로 편집했을 때만 미저장으로 표시됩니다.
 - 파일이 외부에서 바뀌어 새로 불러온 뒤에도 미저장으로 잘못 표시되던 문제를 함께 고쳤습니다.
@@ -165,3 +173,4 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.6.1 업데이트 제출** — `release/v0.6.1/README_0.6.1_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.1** 문구 — **v0.6.1 게시 완료(2026-07-08)**
 - [x] **v0.6.2 업데이트 제출** — `release/v0.6.2/README_0.6.2_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.2** 문구 — **v0.6.2 게시 완료(2026-07-10)**
 - [x] **v0.6.3 업데이트 제출** — `release/v0.6.3/README_0.6.3_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.3** 문구 — **제출 완료(2026-07-17), 인증·게시 대기**
+- [ ] **v0.6.4 업데이트 제출** — `release/v0.6.4/README_0.6.4_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.4** 문구 — 산출물 준비 완료, 제출 대기

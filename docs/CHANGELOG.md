@@ -3,6 +3,14 @@
 이 프로젝트의 모든 주요 변경을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/),
 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [0.6.4]
+
+v0.6.3 실사용 후속 개선 — 워크스페이스 사이드바에서 깊은 계층·긴 이름 파일의 전체 이름 확인. 로컬 검증(`tsc`·`vite build`) + 릴리스 빌드(신규 경고 0) + 실사용 확인 통과.
+
+### Added
+- **워크스페이스 사이드바 가로 스크롤** — 계층이 깊거나 이름이 긴 항목이 고정 폭(248px) 사이드바에서 잘리던 것을, 이름을 자연 너비로 펼치고 **가로 스크롤바**로 확인하도록 개선(VS Code 파일 탐색기 방식). 가로 스크롤 시 상단 툴바는 좌측에 고정. `.node .name`의 줄임표를 제거하고 `.tree`를 `width:max-content; min-width:100%`로, 스크롤 컨테이너는 기존 `.sidebar-body`(양축 `overflow:auto`)를 사용.
+- **잘린 이름 툴팁** — 이름이 사이드바 밖으로 잘린 항목에 마우스를 잠시 올리면 **전체 이름을 네이티브 툴팁**으로 표시(`lib/hoverName.ts`의 `showFullNameOnClip` — 이름 rect가 `.sidebar-body` 가시 폭을 벗어났을 때만 `title` 세팅). 워크스페이스 트리·즐겨찾기·최근 탭 공통.
+
 ## [0.6.3]
 
 v0.6.2 실사용 후속 수정. 로컬 검증(`tsc`·`vite build`·`cargo` dev 빌드 경고 0) + 실사용 확인 통과.
