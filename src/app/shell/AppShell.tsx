@@ -21,6 +21,7 @@ import { CommandPalette, type PaletteItem } from "./CommandPalette";
 import { FindReplace } from "./FindReplace";
 import { exportHtml, exportToPdf, copyHtml, type ExportParams } from "../features/export";
 import { READABLE_RE, isReadable } from "../lib/fileTypes";
+import { showFullNameOnClip } from "../lib/hoverName";
 import type { TocItem } from "../lib/markdown";
 
 const THEME_ORDER = ["light", "dark", "paper"] as const;
@@ -870,7 +871,9 @@ export function AppShell() {
                       }}
                     >
                       <Icon name="clock" />
-                      <span className="name">{baseName(p)}</span>
+                      <span className="name" onMouseEnter={(e) => showFullNameOnClip(e, baseName(p))}>
+                        {baseName(p)}
+                      </span>
                     </div>
                   </li>
                 ))}

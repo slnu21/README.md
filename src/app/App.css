@@ -487,6 +487,10 @@ body {
   display: flex;
   gap: 4px;
   margin-bottom: 8px;
+  /* 가로 스크롤 시 툴바 버튼은 좌측에 고정(트리만 스크롤) */
+  position: sticky;
+  left: 0;
+  z-index: 1;
 }
 .ws-tool {
   display: inline-flex;
@@ -659,6 +663,9 @@ body {
   list-style: none;
   margin: 0;
   padding: 0;
+  /* 가장 긴 행 기준으로 가로폭을 정의하되(가로 스크롤 노출) 최소 패널 폭은 채움 */
+  width: max-content;
+  min-width: 100%;
 }
 .node {
   display: flex;
@@ -777,9 +784,8 @@ body {
 .node.folder.open .chev {
   transform: rotate(90deg);
 }
+/* 이름은 자연 너비(줄임표 없음) → 넘치면 .sidebar-body 가로 스크롤로 노출 */
 .node .name {
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .node .badge {

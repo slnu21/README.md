@@ -9,6 +9,7 @@ import { Icon } from "./Icon";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { PromptModal, type PromptSpec } from "./PromptModal";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
+import { showFullNameOnClip } from "../lib/hoverName";
 
 const isFolderKind = (k: TreeKind) =>
   k === "virtual_folder" || k === "imported_folder" || k === "disk_folder";
@@ -143,7 +144,9 @@ function TreeList({
             >
               {folder ? <Icon name="chev" className="chev" /> : <span className="chev-pad" aria-hidden="true" />}
               <Icon name={folder ? "folder" : md ? "md" : "file"} className={md ? "md-ic" : undefined} />
-              <span className="name">{n.name}</span>
+              <span className="name" onMouseEnter={(e) => showFullNameOnClip(e, n.name)}>
+                {n.name}
+              </span>
               {importedRoot && (
                 <span className="badge imported-badge" title={t("ws.importedHint")}>
                   {t("ws.importedBadge")}
@@ -489,7 +492,9 @@ export function WorkspaceTree() {
                   >
                     <span className="chev-pad" aria-hidden="true" />
                     <Icon name="star" />
-                    <span className="name">{baseName(p)}</span>
+                    <span className="name" onMouseEnter={(e) => showFullNameOnClip(e, baseName(p))}>
+                      {baseName(p)}
+                    </span>
                     <button
                       type="button"
                       className="fav-toggle on"
