@@ -1,6 +1,7 @@
 // 실시간 미리보기(WBS 511).
 // 파이프라인: content → Web Worker(markdown-it) → DOMPurify 정화 → 샌드박스 iframe(srcdoc).
-// 200ms 디바운스. 테마 토큰을 iframe에 주입해 동기화. 로컬 이미지는 asset 프로토콜로 재작성.
+// 디바운스(previewDelay 설정, 기본 500ms). 테마 토큰을 iframe에 주입해 동기화. 로컬 이미지는 asset 프로토콜로 재작성.
+// 재렌더는 srcdoc 통째 리로드 → 직전 상단 소스 줄을 저장·복원해 스크롤 위치 유지(restoreLineRef).
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { createMarkdown, extractToc, type TocItem } from "../lib/markdown";
 import { sanitizeHtml } from "../lib/sanitize";
@@ -33,6 +34,34 @@ function topSourceLine(doc: Document): number | null {
   return prevLine + frac * (nextLine - prevLine);
 }
 
+// 소스 줄 → 렌더 위치로 스크롤(기능 8). data-line 앵커 사이 offsetTop 보간, 즉시 이동. topSourceLine의 역.
+// imperative scrollToLine과 재렌더 후 스크롤 위치 복원(restoreLineRef)이 공유한다.
+function scrollDocToLine(doc: Document, line: number): void {
+  const scroller = doc.scrollingElement ?? doc.documentElement;
+  if (!scroller) return;
+  const els = doc.querySelectorAll<HTMLElement>("[data-line]");
+  if (!els.length) return;
+  let prev: HTMLElement | null = null;
+  let next: HTMLElement | null = null;
+  for (const el of els) {
+    if (Number(el.getAttribute("data-line")) <= line) prev = el;
+    else {
+      next = el;
+      break;
+    }
+  }
+  const prevLine = prev ? Number(prev.getAttribute("data-line")) : 0;
+  const prevTop = prev ? prev.offsetTop : 0;
+  let target = prevTop;
+  if (next) {
+    const nextLine = Number(next.getAttribute("data-line"));
+    const nextTop = next.offsetTop;
+    const frac = nextLine > prevLine ? (line - prevLine) / (nextLine - prevLine) : 0;
+    target = prevTop + frac * (nextTop - prevTop);
+  }
+  scroller.scrollTop = Math.max(0, target - 8);
+}
+
 export interface PreviewHandle {
   scrollToHeading(id: string): void;
   scrollToLine(line: number): void;
@@ -54,6 +83,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   const workerRef = useRef<Worker | null>(null);
   const reqId = useRef(0);
   const buildToken = useRef(0);
+  const restoreLineRef = useRef<number | null>(null); // 재렌더(srcdoc 리로드) 직전 상단 소스 줄 → 로드 후 복원
   const pathRef = useRef(path);
   pathRef.current = path;
   const onTocRef = useRef(onToc);
@@ -66,6 +96,8 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   const fontRead = useAppStore((s) => s.fontRead);
   const previewZoom = useAppStore((s) => s.previewZoom);
   const readingWidth = useAppStore((s) => s.readingWidth);
+  const previewDelay = useAppStore((s) => s.previewDelay); // 재렌더 디바운스(ms) — 설정에서 조절
+
   const font: FontOpts = { readStack: readStack(fontRead), readerPx: BASE_READER_PX * previewZoom };
   // 미리보기 전용 추가 CSS(내보내기엔 미적용): 이미지 확대 커서 + 리딩 폭(본문 최대 폭).
   const widthPx = readingWidth === "narrow" ? "680px" : readingWidth === "wide" ? "none" : "860px";
@@ -83,32 +115,10 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
         const doc = iframeRef.current?.contentDocument;
         doc?.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
       },
-      // 소스 줄 → 렌더 위치로 스크롤(기능 8). data-line 앵커 사이 offsetTop 보간, 즉시 이동.
+      // 소스 줄 → 렌더 위치로 스크롤(기능 8).
       scrollToLine(line: number) {
         const doc = iframeRef.current?.contentDocument;
-        const scroller = doc?.scrollingElement ?? doc?.documentElement;
-        if (!doc || !scroller) return;
-        const els = doc.querySelectorAll<HTMLElement>("[data-line]");
-        if (!els.length) return;
-        let prev: HTMLElement | null = null;
-        let next: HTMLElement | null = null;
-        for (const el of els) {
-          if (Number(el.getAttribute("data-line")) <= line) prev = el;
-          else {
-            next = el;
-            break;
-          }
-        }
-        const prevLine = prev ? Number(prev.getAttribute("data-line")) : 0;
-        const prevTop = prev ? prev.offsetTop : 0;
-        let target = prevTop;
-        if (next) {
-          const nextLine = Number(next.getAttribute("data-line"));
-          const nextTop = next.offsetTop;
-          const frac = nextLine > prevLine ? (line - prevLine) / (nextLine - prevLine) : 0;
-          target = prevTop + frac * (nextTop - prevTop);
-        }
-        scroller.scrollTop = Math.max(0, target - 8);
+        if (doc) scrollDocToLine(doc, line);
       },
     }),
     [],
@@ -137,7 +147,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     };
   }, [isDemo]);
 
-  // content/path 변경 시 디바운스(200ms) 후 워커에 렌더 요청.
+  // content/path 변경 시 디바운스(previewDelay ms) 후 워커에 렌더 요청.
   useEffect(() => {
     if (isDemo) {
       const iframe = iframeRef.current;
@@ -159,10 +169,10 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     const worker = workerRef.current;
     if (!worker) return;
     const id = ++reqId.current;
-    const timer = window.setTimeout(() => worker.postMessage({ id, source: content }), 200);
+    const timer = window.setTimeout(() => worker.postMessage({ id, source: content }), previewDelay);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, path, isDemo]);
+  }, [content, path, isDemo, previewDelay]);
 
   // 정화된 HTML/테마 변경 시 iframe 재구성. mermaid(있으면)는 메인스레드 렌더 후 주입(비동기+레이스 가드).
   useEffect(() => {
@@ -174,6 +184,9 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     void (async () => {
       const finalBody = await renderMermaid(bodyHtml, themeId);
       if (cancelled || token !== buildToken.current) return;
+      // srcdoc 재대입은 iframe 문서를 통째로 리로드 → scrollTop 0 초기화. 직전 상단 소스 줄을
+      // 저장했다가 onIframeLoad에서 복원해 "맨 위로 튐"을 막는다(테마/글꼴/줌 변경 시에도 위치 보존).
+      restoreLineRef.current = iframe.contentDocument ? topSourceLine(iframe.contentDocument) : null;
       iframe.srcdoc = buildDoc(finalBody, themeId, font, { extraCss: previewExtra });
     })();
     return () => {
@@ -200,6 +213,12 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     const doc = iframeRef.current?.contentDocument;
     const win = iframeRef.current?.contentWindow;
     if (!doc) return;
+    // 리로드로 0이 된 스크롤을 직전 위치(소스 줄)로 복원. 아래 scroll 리스너 부착 전에 해서
+    // 프로그램적 스크롤이 역동기화(onSourceLine) 에코를 유발하지 않도록 한다.
+    if (restoreLineRef.current != null) {
+      scrollDocToLine(doc, restoreLineRef.current);
+      restoreLineRef.current = null;
+    }
     doc.addEventListener("contextmenu", (e) => e.preventDefault());
     doc.addEventListener("click", (e) => {
       const el = e.target as HTMLElement | null;
