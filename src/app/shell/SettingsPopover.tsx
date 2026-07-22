@@ -19,6 +19,8 @@ export function SettingsPopover() {
   const syncScroll = useAppStore((s) => s.syncScroll);
   const readingWidth = useAppStore((s) => s.readingWidth);
   const setReadingWidth = useAppStore((s) => s.setReadingWidth);
+  const previewDelay = useAppStore((s) => s.previewDelay);
+  const setPreviewDelay = useAppStore((s) => s.setPreviewDelay);
   const autosave = useAppStore((s) => s.autosave);
   const setAutosave = useAppStore((s) => s.setAutosave);
   const setFontRead = useAppStore((s) => s.setFontRead);
@@ -118,6 +120,22 @@ export function SettingsPopover() {
               <button type="button" onClick={() => setPreviewZoom(previewZoom + 0.1)} aria-label="+">
                 +
               </button>
+            </div>
+          </div>
+
+          <div className="set-row">
+            <span>{t("settings.previewDelay")}</span>
+            <div className="seg width" role="group" aria-label={t("settings.previewDelay")}>
+              {([200, 500, 1000] as const).map((ms) => (
+                <button
+                  key={ms}
+                  type="button"
+                  aria-pressed={previewDelay === ms}
+                  onClick={() => setPreviewDelay(ms)}
+                >
+                  {t(ms === 200 ? "settings.delayFast" : ms === 1000 ? "settings.delayRelaxed" : "settings.delayNormal")}
+                </button>
+              ))}
             </div>
           </div>
 
