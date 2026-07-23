@@ -91,6 +91,14 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v0.6.5 — ko-KR
+- **미리보기 갱신 빈도 선택** — 글자를 칠 때마다 미리보기가 다시 그려져 산만하던 것을, 설정에서 빠름/보통/느긋 중 고를 수 있게 했습니다(기본 보통).
+- **미리보기 스크롤 위치 유지** — 미리보기가 갱신될 때 화면이 문서 맨 위로 튀던 문제를 고쳤습니다. 테마·글꼴·확대율을 바꿔도 보던 위치가 유지됩니다.
+
+### v0.6.5 — en-US
+- **Choose how often the preview refreshes** — the preview no longer has to redraw on every keystroke; pick Fast, Normal, or Relaxed in Settings (Normal by default).
+- **Preview keeps your scroll position** — the preview no longer jumps back to the top of the document when it refreshes, including when you change the theme, font, or zoom.
+
 ### v0.6.4 — ko-KR
 - **워크스페이스 깊은 항목 이름 표시** — 폴더 계층이 깊거나 이름이 긴 파일이 왼쪽 워크스페이스에서 잘려 보이지 않던 것을, 가로 스크롤로 전체 이름을 확인하도록 개선했습니다.
 - **잘린 이름 툴팁** — 잘린 파일 이름에 마우스를 잠시 올리면 전체 이름이 툴팁으로 나타납니다.
@@ -173,4 +181,5 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.6.1 업데이트 제출** — `release/v0.6.1/README_0.6.1_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.1** 문구 — **v0.6.1 게시 완료(2026-07-08)**
 - [x] **v0.6.2 업데이트 제출** — `release/v0.6.2/README_0.6.2_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.2** 문구 — **v0.6.2 게시 완료(2026-07-10)**
 - [x] **v0.6.3 업데이트 제출** — `release/v0.6.3/README_0.6.3_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.3** 문구 — **제출 완료(2026-07-17), 인증·게시 대기**
-- [x] **v0.6.4 업데이트 제출** — `release/v0.6.4/README_0.6.4_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.4** 문구 — **제출 완료(2026-07-21), 인증·게시 대기**
+- [x] **v0.6.4 업데이트 제출** — `release/v0.6.4/README_0.6.4_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.4** 문구 — **제출 완료(2026-07-21) · 게시 완료**(2026-07-23 확인: `Get-AppxPackage SlnU.README.md` → `0.6.4.0` · `SignatureKind=Store`)
+- [ ] **v0.6.5 업데이트 제출** — `release/v0.6.5/README_0.6.5_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.5** 문구
