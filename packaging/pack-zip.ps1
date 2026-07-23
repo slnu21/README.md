@@ -5,8 +5,9 @@
   (ASCII-only so it runs under both Windows PowerShell 5.1 and PowerShell 7.)
 #>
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "_paths.ps1")
 $root = Split-Path -Parent $PSScriptRoot
-$rel  = Join-Path $root "src\src-tauri\target\release"
+$rel  = Get-CargoReleaseDir (Join-Path $root "src\src-tauri")
 $out  = Join-Path $PSScriptRoot "build"
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 
@@ -16,6 +17,8 @@ $exe = @("README.exe", "md-reader.exe") |
 if (-not $exe) { throw "Release exe not found. Run 'npx tauri build' first. ($rel)" }
 
 $conf = [System.IO.File]::ReadAllText((Join-Path $root "src\src-tauri\tauri.conf.json"), [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+Assert-ExeVersion -Exe $exe -Expected $conf.version
+
 $stage = Join-Path $out "zip-stage"
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
