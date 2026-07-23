@@ -20,9 +20,10 @@ param(
   [switch]$Sign
 )
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "_paths.ps1")
 
 $root  = Split-Path -Parent $PSScriptRoot
-$rel   = Join-Path $root "src\src-tauri\target\release"
+$rel   = Get-CargoReleaseDir (Join-Path $root "src\src-tauri")
 $icons = Join-Path $root "src\src-tauri\icons"
 $out   = Join-Path $PSScriptRoot "build"
 $stage = Join-Path $out "stage"
@@ -38,6 +39,7 @@ $exeName = Split-Path $exe -Leaf
 $conf = [System.IO.File]::ReadAllText((Join-Path $root "src\src-tauri\tauri.conf.json"), [System.Text.Encoding]::UTF8) | ConvertFrom-Json
 $ver3 = $conf.version
 $ver4 = "$ver3.0"
+Assert-ExeVersion -Exe $exe -Expected $ver3
 
 # 3) locate SDK tools
 $makeappx = (Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makeappx.exe" -ErrorAction SilentlyContinue |
