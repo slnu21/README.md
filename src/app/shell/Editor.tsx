@@ -9,6 +9,18 @@ import { toggleWrap, insertLink } from "../features/editor/commands";
 import { useAppStore } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
+/** CM 폰트 메트릭 캐시(charWidth/lineHeight/textHeight)를 강제 재측정.
+ *  plain requestMeasure()는 콘텐츠 높이가 바뀌어야만 메트릭을 다시 읽는다. 줄높이를 정수 px로
+ *  고정한 뒤로는 글꼴이 바뀌어도(예: lazy woff2 swap) 높이가 안 변해 charWidth가 갱신되지 않으므로,
+ *  CM이 document.fonts.ready 콜백에서 쓰는 것과 동일하게 mustMeasureContent="refresh"를 세워
+ *  measureTextSize()로 캐시를 무조건 다시 읽게 한다(@codemirror/view v6.43.x).
+ *  viewState는 .d.ts 미노출 내부 필드라 좁은 캐스트 — 필드가 사라져도 뒤의 requestMeasure()로 안전 저하. */
+function remeasureFont(view: EditorView) {
+  const vs = (view as unknown as { viewState?: { mustMeasureContent: boolean | "refresh" } }).viewState;
+  if (vs) vs.mustMeasureContent = "refresh";
+  view.requestMeasure();
+}
+
 export interface EditorHandle {
   /** 소스 줄(0-based, onSyncLine과 동일 규약)을 에디터 상단으로 스크롤(양방향 동기화). */
   scrollToLine(line: number): void;
@@ -69,13 +81,35 @@ export const Editor = forwardRef<EditorHandle, {
     }
   }, [content]);
 
-  // 글꼴/줌(CSS 변수) 변경 후 다음 프레임에 재측정 — 변수 적용 완료 시점 보장.
+  // 글꼴/줌(CSS 변수) 변경 후 다음 프레임에 재측정 — 변수 적용 완료 시점 보장 + 메트릭 강제 갱신.
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
-    const id = requestAnimationFrame(() => view.requestMeasure());
+    const id = requestAnimationFrame(() => remeasureFont(view));
     return () => cancelAnimationFrame(id);
   }, [fontMono, editorZoom]);
+
+  // 에디터 폰트가 마운트 이후 로드 완료되면(번들 lazy woff2, font-display:swap) 메트릭 캐시 갱신.
+  // CM은 생성자에서 document.fonts.ready 를 한 번만 구독하므로, 그 뒤 로드되는 폰트는 스스로
+  // 재측정하지 못한다(콜드스타트에서 클릭/커서 x좌표가 폴백 폰트 기준으로 어긋나는 것 방지).
+  useEffect(() => {
+    const fonts = document.fonts;
+    if (!fonts) return;
+    let raf = 0;
+    const onDone = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const view = viewRef.current;
+        if (view) remeasureFont(view);
+      });
+    };
+    fonts.addEventListener("loadingdone", onDone);
+    void fonts.ready.then(onDone); // 이미 로드가 끝난 뒤(파일 재마운트 등)도 한 번 보장
+    return () => {
+      fonts.removeEventListener("loadingdone", onDone);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
 
   // 양방향 스크롤 동기화(미리보기→에디터). 0-based 소스 줄을 상단으로.
   useImperativeHandle(ref, () => ({

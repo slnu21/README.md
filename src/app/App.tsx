@@ -31,7 +31,12 @@ function App() {
     root.setProperty("--mono-font", monoStack(fontMono));
     root.setProperty("--read-font", readStack(fontRead));
     root.setProperty("--ui-font", uiStack(fontUi));
-    root.setProperty("--editor-font-size", `${(BASE_EDITOR_PX * editorZoom).toFixed(1)}px`);
+    // 에디터 폰트크기·줄높이는 정수 px로 고정. 분수 값(예 13*1.62=21.06px)은 줄바꿈(wrap)된
+    // 여러 줄짜리 행에서 CM 높이모델과 실제 렌더가 행 수만큼 누적으로 어긋나, 스크롤 후
+    // 커서/거터가 밀리는 원인이 된다(정수화하면 측정=실제=모델로 드리프트 0).
+    const px = Math.round(BASE_EDITOR_PX * editorZoom);
+    root.setProperty("--editor-font-size", `${px}px`);
+    root.setProperty("--editor-line-height", `${Math.round(px * 1.62)}px`);
   }, [fontMono, fontRead, fontUi, editorZoom]);
 
   // 데스크톱 앱답게 기본 우클릭(브라우저) 메뉴 억제 — 새로고침/저장/인쇄/검사 등이 뜨지 않게.
