@@ -38,7 +38,9 @@ const cmTheme = EditorView.theme({
     // 폰트 패밀리·크기는 :root CSS 변수로 제어 → 글꼴/줌 변경이 리컨피그 없이 즉시 반영(기능 3·5).
     fontFamily: "var(--mono-font)",
     fontSize: "var(--editor-font-size, 13px)",
-    lineHeight: "1.62",
+    // 정수 px 줄높이(App.tsx가 주입) — 분수 줄높이가 래핑 줄에서 높이모델↔실제 렌더를
+    // 어긋나게 해 커서/거터가 밀리던 것 방지. 폴백 21px = 13px * 1.62 반올림.
+    lineHeight: "var(--editor-line-height, 21px)",
     overflow: "auto",
   },
   ".cm-content": { padding: "12px 0", caretColor: "var(--accent)" },
