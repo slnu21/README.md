@@ -91,6 +91,12 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v0.6.6 — ko-KR
+- **줄바꿈된 줄에서 커서·화면 어긋남 수정** — 너비 때문에 여러 줄로 접힌 행을 스크롤할 때 커서가 사라지거나 화면이 일부만 그려지고, 클릭·위아래 이동·Home/End가 엉뚱한 줄로 가던 문제를 고쳤습니다. 커서가 놓인 줄과 왼쪽 줄번호 강조가 다시 정확히 맞습니다.
+
+### v0.6.6 — en-US
+- **Fixed cursor & rendering drift on wrapped lines** — scrolling through lines that wrap to multiple rows could make the cursor vanish or the editor render only partially, and clicks / up-down / Home-End could jump to the wrong line. The active line and its line-number highlight line up correctly again.
+
 ### v0.6.5 — ko-KR
 - **미리보기 갱신 빈도 선택** — 글자를 칠 때마다 미리보기가 다시 그려져 산만하던 것을, 설정에서 빠름/보통/느긋 중 고를 수 있게 했습니다(기본 보통).
 - **미리보기 스크롤 위치 유지** — 미리보기가 갱신될 때 화면이 문서 맨 위로 튀던 문제를 고쳤습니다. 테마·글꼴·확대율을 바꿔도 보던 위치가 유지됩니다.
@@ -183,3 +189,4 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.6.3 업데이트 제출** — `release/v0.6.3/README_0.6.3_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.3** 문구 — **제출 완료(2026-07-17), 인증·게시 대기**
 - [x] **v0.6.4 업데이트 제출** — `release/v0.6.4/README_0.6.4_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.4** 문구 — **제출 완료(2026-07-21) · 게시 완료**(2026-07-23 확인: `Get-AppxPackage SlnU.README.md` → `0.6.4.0` · `SignatureKind=Store`)
 - [x] **v0.6.5 업데이트 제출** — `release/v0.6.5/README_0.6.5_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.5** 문구 — **제출 완료(2026-07-23), 인증·게시 대기**
+- [ ] **v0.6.6 업데이트 제출** — `release/v0.6.6/README_0.6.6_x64.msix`(동일 실신원) **배포 준비 완료(2026-07-26)**. Partner Center 업로드 → 인증 → 재서명 대기. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.6** 문구

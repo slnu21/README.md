@@ -3,6 +3,13 @@
 이 프로젝트의 모든 주요 변경을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/),
 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [0.6.6]
+
+v0.6.5 실사용 후속 수정 — 편집기 커서/렌더 오작동 1건. 로컬 검증(`tsc`·`vite build`) + 릴리스 빌드(신규 경고 0) + dev 빌드 실사용 확인 통과.
+
+### Fixed
+- **줄바꿈된 줄을 스크롤하면 커서·렌더가 어긋나던 문제** — 화면 너비 때문에 여러 줄로 접힌 행을 지나 스크롤하면 어느 순간 커서가 사라지고 편집기가 부분만 그려지며, 클릭·위아래 이동·Home/End가 엉뚱한 줄로 가고 활성 줄과 왼쪽 줄번호 강조가 세로로 어긋나던 문제. 원인 2겹: (1) CodeMirror 6.43.4(뷰/높이 모델을 "tile tree"로 새로 짠 버전대)의 스크롤 시 렌더 트리 손상 → `@codemirror/view`를 **6.43.6**으로 패치 업데이트(상류 tile-tree corruption 수정 반영). (2) 분수 줄높이(13px×1.62=21.06px, 줌 시 소수 폰트 크기)가 줄바꿈 행(높이=행수×줄높이)에서 CodeMirror 높이 모델과 실제 렌더를 누적으로 어긋나게 함 → 에디터 폰트 크기·줄높이를 **정수 px로 고정**(`--editor-line-height`, `.cm-scroller`가 사용). 더불어 번들 폰트가 마운트 이후 로드될 때(`document.fonts` `loadingdone`)와 글꼴/줌 변경 시 폰트 메트릭을 강제 재측정하도록 보강(CM은 `document.fonts.ready`를 한 번만 구독해 lazy 폰트 swap 후 재측정하지 못하던 것 보완).
+
 ## [0.6.5]
 
 v0.6.4 실사용 후속 개선 — 에디터↔미리보기 동기화 체감 2건. 로컬 검증(`tsc`·`vite build`) + 릴리스 빌드(신규 경고 0) + 실사용 확인 통과.
