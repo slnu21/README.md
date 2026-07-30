@@ -34,7 +34,11 @@ export function ShortcutHelp({ onClose }: { onClose: () => void }) {
   const rowsOf = (g: ActionGroup): Row[] => [
     ...editorActions
       .filter((a) => a.group === g && a.key)
-      .map((a) => ({ label: t(a.labelKey), hint: keyHint(a.key!) })),
+      // shift 짝이 있는 키(Tab/Shift+Tab)는 둘 다 보여야 한다 — 한쪽만 적으면 반쪽 안내가 된다.
+      .map((a) => ({
+        label: t(a.labelKey),
+        hint: keyHint(a.shift ? `${a.key} / Shift-${a.key}` : a.key!),
+      })),
     ...inheritedShortcuts
       .filter((s) => s.group === g)
       .map((s) => ({ label: t(s.labelKey), hint: keyHint(s.key) })),

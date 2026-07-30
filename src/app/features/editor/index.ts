@@ -100,7 +100,12 @@ function topVisibleLine(view: EditorView): number {
 const mdKeymap = keymap.of(
   editorActions
     .filter((a) => a.key)
-    .map((a) => ({ key: a.key!, run: a.run, preventDefault: a.key !== "Enter" })),
+    .map((a) => ({
+      key: a.key!,
+      run: a.run,
+      shift: a.shift,
+      preventDefault: a.key !== "Enter",
+    })),
 );
 
 // 괄호/백틱 자동 닫기 — 프로즈 방해를 피해 따옴표는 제외(대명사 축약 등). 마크다운 언어데이터 위에 얹음.
