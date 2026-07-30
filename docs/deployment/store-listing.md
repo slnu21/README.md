@@ -91,6 +91,18 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v0.6.7 — ko-KR
+- **다이어그램 글자가 도형을 벗어나거나 잘리던 문제 수정** — 순서도·시퀀스·상태도 등에서 도형 안 글자가 상자를 넘거나 아래가 잘려 보이던 문제를 고쳤습니다. 특히 한글 라벨과 여러 줄로 접히는 라벨에서 잘 나타났던 증상입니다.
+- **미리보기 확대에 다이어그램도 함께 반응** — 확대하면 본문만 커지고 다이어그램은 그대로여서 작아 보였던 것을, 같은 비율로 확대되게 했습니다.
+- **다이어그램 너비 선택(맞춤 / 원본)** — 화면보다 넓은 다이어그램이 무조건 축소돼 글자가 작아지던 것을, 설정에서 고를 수 있게 했습니다. 원본은 실제 크기로 그리고 가로 스크롤로 넘겨 봅니다.
+- **다이어그램 색이 테마에 맞춰집니다** — Dark·Paper 테마에서 다이어그램만 밝게 겉돌던 것을 테마 색에 어울리게 했습니다.
+
+### v0.6.7 — en-US
+- **Fixed diagram text spilling out of shapes or getting clipped** — in flowcharts, sequence and state diagrams, label text could overflow its box or have its bottom cut off. It showed up most with Korean labels and labels that wrap onto multiple lines.
+- **Diagrams now scale with preview zoom** — zooming used to enlarge only the body text, leaving diagrams looking small; they now scale by the same factor.
+- **Diagram width choice (Fit / Natural)** — diagrams wider than the column were always shrunk, making text tiny. You can now pick: Fit keeps the old behaviour, Natural draws them at full size with horizontal scrolling.
+- **Diagrams follow the theme** — diagrams used to stay bright and clash with the Dark and Paper themes; they now match the theme colours.
+
 ### v0.6.6 — ko-KR
 - **줄바꿈된 줄에서 커서·화면 어긋남 수정** — 너비 때문에 여러 줄로 접힌 행을 스크롤할 때 커서가 사라지거나 화면이 일부만 그려지고, 클릭·위아래 이동·Home/End가 엉뚱한 줄로 가던 문제를 고쳤습니다. 커서가 놓인 줄과 왼쪽 줄번호 강조가 다시 정확히 맞습니다.
 
@@ -190,3 +202,4 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.6.4 업데이트 제출** — `release/v0.6.4/README_0.6.4_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.4** 문구 — **제출 완료(2026-07-21) · 게시 완료**(2026-07-23 확인: `Get-AppxPackage SlnU.README.md` → `0.6.4.0` · `SignatureKind=Store`)
 - [x] **v0.6.5 업데이트 제출** — `release/v0.6.5/README_0.6.5_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.5** 문구 — **제출 완료(2026-07-23), 인증·게시 대기**
 - [ ] **v0.6.6 업데이트 제출** — `release/v0.6.6/README_0.6.6_x64.msix`(동일 실신원) **배포 준비 완료(2026-07-26)**. Partner Center 업로드 → 인증 → 재서명 대기. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.6** 문구
+- [ ] **v0.6.7 업데이트 제출** — `release/v0.6.7/README_0.6.7_x64.msix`(동일 실신원) **배포 준비 완료(2026-07-30)**. Partner Center 업로드 → 인증 → 재서명 대기. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.7** 문구

@@ -3,9 +3,9 @@
 이 프로젝트의 모든 주요 변경을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/),
 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
-## [Unreleased]
+## [0.6.7]
 
-v0.6.6 실사용 후속 — mermaid 다이어그램 라벨이 도형을 넘거나 잘리던 문제 수정 + 다이어그램 표시 3건 개선.
+v0.6.6 실사용 후속 — mermaid 다이어그램 라벨이 도형을 넘거나 잘리던 문제 수정 + 다이어그램 표시 3건 개선. 로컬 검증(`tsc`·`vite build`) + 릴리스 빌드(신규 경고 0) + Chromium 프로브 실측 + 실사용 확인 통과.
 
 ### Fixed
 - **다이어그램 글자가 도형을 벗어나거나 잘리던 문제** — 미리보기 iframe은 스크립트가 차단돼(`sandbox="allow-same-origin"`) mermaid를 안에서 돌릴 수 없어 **앱 문서에서 재고 미리보기 문서에서 보여주는** 구조인데, 두 문서에서 다르게 해석되는 상속 CSS만큼 라벨 상자가 어긋나던 것(v0.6.6 편집기 버그와 같은 "측정=실제" 붕괴 계열). 원인 4겹:
