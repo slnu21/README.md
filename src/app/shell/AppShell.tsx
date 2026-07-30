@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, type TreeNode } from "../store";
 import { themes } from "../themes";
-import { pickFile, pickFolder, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
+import { pickFile, pickFolder, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, openExternal, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
@@ -23,7 +23,7 @@ import { ShortcutHelp } from "./ShortcutHelp";
 import { editorActions, keyHint } from "../features/editor/actions";
 import { exportHtml, exportToPdf, copyHtml, type ExportParams } from "../features/export";
 import { READABLE_RE, isReadable } from "../lib/fileTypes";
-import { dirOf } from "../lib/previewImages";
+import { dirOf } from "../lib/paths";
 import { bytesToBase64 } from "../lib/bytes";
 import { showFullNameOnClip } from "../lib/hoverName";
 import type { TocItem } from "../lib/markdown";
@@ -1036,6 +1036,11 @@ export function AppShell() {
                     if (Date.now() < previewLockUntil.current) return; // 에디터가 방금 구동 → 에코 무시
                     editorLockUntil.current = Date.now() + 90; // 에디터 에코 억제
                     editorRef.current?.scrollToLine(line);
+                  }}
+                  // 미리보기 링크: 열 수 있는 문서면 앱에서, 그 외(pdf·이미지 등)는 OS 기본 앱으로.
+                  onOpenPath={(p) => {
+                    if (OPENABLE.test(p)) void openIncoming([p]);
+                    else void openExternal(p).catch(() => {});
                   }}
                 />
                 <OutlineOverlay items={outline} onSelect={(id) => previewRef.current?.scrollToHeading(id)} />

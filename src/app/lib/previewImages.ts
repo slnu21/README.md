@@ -2,18 +2,14 @@
 // asset 프로토콜(scope·CSP·경로 정규화) 문제를 피해 Rust(read_file_base64)로 바이트를 직접 읽는다.
 // 문서 폴더 기준 상대경로 해석. 원격/데이터/blob URL은 그대로. 절대경로 해석은 abs 경로를 캐시.
 import { readFileBase64 } from "./tauri";
+import { dirOf, resolvePath } from "./paths";
 
-export function dirOf(path: string): string {
-  const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return i >= 0 ? path.slice(0, i) : "";
-}
+// dirOf 는 lib/paths 로 옮겼다(문서 링크 해석과 공유). 기존 import 경로를 깨지 않도록 재수출.
+export { dirOf };
 
-function joinPath(dir: string, rel: string): string {
-  // 절대 경로(드라이브/슬래시 시작)는 그대로, 상대 경로는 문서 폴더 기준.
-  if (/^[a-zA-Z]:[\\/]/.test(rel) || rel.startsWith("/") || rel.startsWith("\\")) return rel;
-  const clean = rel.replace(/^\.[\\/]/, "");
-  return dir ? `${dir}/${clean}` : clean;
-}
+// 경로 해석도 공용 resolvePath 로 — 이전 지역 구현은 `./`만 떼고 `..`를 남겨
+// 상위 폴더를 가리키는 상대경로 이미지가 로드되지 않았다.
+const joinPath = resolvePath;
 
 function mimeOf(path: string): string {
   const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
