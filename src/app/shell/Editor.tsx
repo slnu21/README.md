@@ -10,6 +10,7 @@ import {
   contentSync,
   type SelState,
   type CompletionSources,
+  type SaveImage,
 } from "../features/editor";
 import { editorActions, keyHint } from "../features/editor/actions";
 import { useAppStore } from "../store";
@@ -41,7 +42,9 @@ export const Editor = forwardRef<EditorHandle, {
   onSelState?: (s: SelState) => void;
   /** 자동완성 데이터 조회자(경로·헤딩). 값이 아니라 함수라 워크스페이스·아웃라인 변화를 즉시 반영한다. */
   complete?: CompletionSources;
-}>(function Editor({ content, onChange, onSyncLine, onSelState, complete }, ref) {
+  /** 클립보드 이미지 저장자. 저장 후 문서에 넣을 상대경로를 돌려준다(null이면 삽입 안 함). */
+  saveImage?: SaveImage;
+}>(function Editor({ content, onChange, onSyncLine, onSelState, complete, saveImage }, ref) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -54,6 +57,8 @@ export const Editor = forwardRef<EditorHandle, {
   // 확장은 마운트 때 한 번만 만들어지므로 최신 조회자를 ref로 들고 간접 호출한다.
   const completeRef = useRef(complete);
   completeRef.current = complete;
+  const saveImageRef = useRef(saveImage);
+  saveImageRef.current = saveImage;
   // 글꼴/줌은 :root CSS 변수로 적용(App.tsx) → CM 높이 캐시 재측정 필요(커서/거터 정렬 유지).
   const fontMono = useAppStore((s) => s.fontMono);
   const editorZoom = useAppStore((s) => s.editorZoom);
@@ -74,6 +79,7 @@ export const Editor = forwardRef<EditorHandle, {
             files: () => completeRef.current?.files() ?? [],
             headings: () => completeRef.current?.headings() ?? [],
           },
+          (data, ext) => saveImageRef.current?.(data, ext) ?? Promise.resolve(null),
         ),
       }),
       parent: host.current,

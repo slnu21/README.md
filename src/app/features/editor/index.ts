@@ -11,9 +11,11 @@ import { tags as t } from "@lezer/highlight";
 import { smartPaste, selStateOf, type SelState } from "./commands";
 import { editorActions } from "./actions";
 import { markdownCompletions, type CompletionSources } from "./complete";
+import { imagePaste, type SaveImage } from "./imagePaste";
 import { FENCE_LANGS } from "../../lib/markdown";
 
 export type { CompletionSources } from "./complete";
+export type { SaveImage } from "./imagePaste";
 
 export { selStateOf } from "./commands";
 export type { SelState } from "./commands";
@@ -150,6 +152,7 @@ export function editorExtensions(
   onSyncLine?: (line: number) => void,
   onSelState?: (s: SelState) => void,
   complete?: CompletionSources,
+  saveImage?: SaveImage,
 ): Extension[] {
   let raf = 0;
   const emit = (view: EditorView) => {
@@ -169,6 +172,9 @@ export function editorExtensions(
     // 중첩 배열도 유효한 Extension이라 스프레드 없이 그대로 넣는다.
     complete ? markdownCompletions(complete, FENCE_LANGS) : [],
     indentOnInput(),
+    // 이미지 붙여넣기를 smartPaste(URL→링크)보다 먼저 — 이미지 전용 클립보드일 때만 가로채므로
+    // 텍스트/URL 붙여넣기와 겹치지 않는다.
+    saveImage ? imagePaste(saveImage) : [],
     smartPaste,
     // 서식·목록 키를 기본 키맵보다 먼저(Enter 목록 이어쓰기 우선).
     Prec.high(mdKeymap),
