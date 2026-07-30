@@ -9,10 +9,32 @@
 //   · inheritedShortcuts = 상류 CodeMirror·앱 전역이 제공해 **우리가 바인딩하지 않는** 키(도움말 표기 전용)
 // inheritedShortcuts는 실제 동작을 소스에서 대조해 넣는다(근거는 각 항목 주석) — 추측 금지.
 import type { Command } from "@codemirror/view";
-import { toggleWrap, insertLink, continueList } from "./commands";
+import { indentMore, indentLess } from "@codemirror/commands";
+import {
+  toggleWrap,
+  insertLink,
+  continueList,
+  toggleHeading,
+  toggleQuote,
+  toggleList,
+  toggleCheckbox,
+  toggleCodeBlock,
+  renumberList,
+  insertHorizontalRule,
+  insertHardBreak,
+} from "./commands";
 
 /** 도움말 그룹. 표시 순서 = 이 배열 순서. */
-export const actionGroups = ["format", "editing", "lines", "find", "app"] as const;
+export const actionGroups = [
+  "format",
+  "block",
+  "list",
+  "insert",
+  "editing",
+  "lines",
+  "find",
+  "app",
+] as const;
 export type ActionGroup = (typeof actionGroups)[number];
 
 export interface EditorAction {
@@ -22,6 +44,8 @@ export interface EditorAction {
   /** CodeMirror 키 스펙("Mod-b"). 없으면 팔레트/메뉴 전용 액션. */
   key?: string;
   run: Command;
+  /** Shift를 더해 눌렀을 때의 커맨드(Tab/Shift+Tab 처럼 짝을 이루는 키). */
+  shift?: Command;
   group: ActionGroup;
   /** 명령 팔레트(Ctrl+Shift+P)에 노출. */
   inPalette?: boolean;
@@ -66,6 +90,93 @@ export const editorActions: EditorAction[] = [
     group: "format",
     inPalette: true,
     inContextMenu: true,
+  },
+  {
+    id: "fmt.strike",
+    labelKey: "ed.strike",
+    key: "Mod-Shift-x",
+    run: toggleWrap("~~"),
+    group: "format",
+    inPalette: true,
+    inContextMenu: true,
+  },
+  // ── 블록 서식 ── 제목은 Ctrl+1~6(같은 레벨 재입력 = 해제). Ctrl+0은 확대 초기화가 점유.
+  ...([1, 2, 3, 4, 5, 6] as const).map((n) => ({
+    id: `fmt.h${n}`,
+    labelKey: `ed.h${n}`,
+    key: `Mod-${n}`,
+    run: toggleHeading(n),
+    group: "block" as ActionGroup,
+    inPalette: true,
+  })),
+  {
+    id: "fmt.quote",
+    labelKey: "ed.quote",
+    key: "Mod-Shift-q",
+    run: toggleQuote,
+    group: "block",
+    inPalette: true,
+    inContextMenu: true,
+  },
+  {
+    id: "fmt.codeBlock",
+    labelKey: "ed.codeBlock",
+    key: "Mod-Shift-c",
+    run: toggleCodeBlock,
+    group: "block",
+    inPalette: true,
+  },
+  {
+    id: "fmt.bulletList",
+    labelKey: "ed.bulletList",
+    key: "Mod-Shift-8",
+    run: toggleList("bullet"),
+    group: "list",
+    inPalette: true,
+  },
+  {
+    id: "fmt.orderedList",
+    labelKey: "ed.orderedList",
+    key: "Mod-Shift-7",
+    run: toggleList("ordered"),
+    group: "list",
+    inPalette: true,
+  },
+  {
+    id: "fmt.taskList",
+    labelKey: "ed.taskList",
+    key: "Mod-Shift-9",
+    run: toggleList("task"),
+    group: "list",
+    inPalette: true,
+  },
+  {
+    // Ctrl+Enter는 상류 insertBlankLine이 점유 → Ctrl+Shift+Enter.
+    id: "fmt.checkbox",
+    labelKey: "ed.checkbox",
+    key: "Mod-Shift-Enter",
+    run: toggleCheckbox,
+    group: "list",
+    inPalette: true,
+  },
+  { id: "fmt.renumber", labelKey: "ed.renumber", run: renumberList, group: "list", inPalette: true },
+  { id: "ins.hr", labelKey: "ed.hr", run: insertHorizontalRule, group: "insert", inPalette: true },
+  {
+    id: "ins.hardBreak",
+    labelKey: "ed.hardBreak",
+    key: "Shift-Enter",
+    run: insertHardBreak,
+    group: "insert",
+  },
+  {
+    // 사용자 결정: Tab은 항상 들여쓰기. CodeMirror 기본값(Tab=포커스 이동, 접근성)을 덮으므로
+    // 키보드만으로 편집기를 빠져나가려면 Ctrl+M(탭 포커스 모드)을 써야 한다 → 도움말 하단에 안내.
+    id: "edit.indentTab",
+    labelKey: "ed.indentTab",
+    key: "Tab",
+    run: indentMore,
+    shift: indentLess,
+    group: "lines",
   },
   // 목록 이어쓰기는 메뉴로 부를 성질이 아니라 키 전용(도움말엔 표기된다).
   // 목록이 아니면 false를 반환해 상류 insertNewlineContinueMarkup(인용문·중첩목록)으로 넘어간다.
