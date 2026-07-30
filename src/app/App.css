@@ -540,6 +540,9 @@ body {
   animation: riseIn 0.14s ease both;
 }
 .ctx-item {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
   text-align: left;
   padding: 7px 10px;
   border: 0;
@@ -552,6 +555,17 @@ body {
 }
 .ctx-item:hover {
   background: var(--hover);
+}
+.ctx-label {
+  white-space: nowrap;
+}
+/* 단축키 힌트 — 우측 정렬, 라벨보다 흐리게(팔레트 .palette-sub와 같은 톤) */
+.ctx-hint {
+  flex: 1;
+  text-align: right;
+  color: var(--faint);
+  font-size: 11px;
+  white-space: nowrap;
 }
 .ctx-item.danger {
   color: #c0392b;
@@ -1987,6 +2001,69 @@ body {
   width: 42px;
   height: 42px;
   color: var(--accent);
+}
+
+/* ── 단축키 도움말(F1) ── 목록은 features/editor/actions.ts 레지스트리 파생 */
+.keys-modal {
+  width: 720px;
+  max-width: 92vw;
+  max-height: 84vh;
+}
+.keys-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 28px;
+  overflow-y: auto;
+  /* 그룹이 열 경계에서 쪼개지지 않게 — 읽는 단위가 그룹이다 */
+  align-content: start;
+}
+.keys-group {
+  break-inside: avoid;
+  margin: 0 0 6px;
+}
+.keys-group-title {
+  margin: 6px 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.keys-list {
+  margin: 0;
+}
+.keys-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 3px 0;
+}
+.keys-label {
+  color: var(--fg);
+  font-size: 12.5px;
+}
+.keys-hint {
+  flex: 1;
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.keys-hint kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--muted);
+  font-family: var(--mono-font);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+.keys-or {
+  margin: 0 4px;
+  color: var(--faint);
+  font-size: 10.5px;
 }
 
 /* ── 접근성 & 포커스 ── */

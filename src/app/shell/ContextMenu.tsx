@@ -5,6 +5,8 @@ export interface MenuItem {
   label: string;
   onClick: () => void;
   danger?: boolean;
+  /** 우측에 흐리게 표시하는 단축키(예: "Ctrl+B"). features/editor/actions.ts keyHint 결과. */
+  hint?: string;
 }
 
 export function ContextMenu({
@@ -51,7 +53,8 @@ export function ContextMenu({
             onClose();
           }}
         >
-          {it.label}
+          <span className="ctx-label">{it.label}</span>
+          {it.hint && <span className="ctx-hint">{it.hint}</span>}
         </button>
       ))}
     </div>
