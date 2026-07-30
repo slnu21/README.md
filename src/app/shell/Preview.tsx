@@ -9,7 +9,9 @@ import { renderMermaid } from "../lib/mermaid";
 import { useAppStore } from "../store";
 import { readStack, BASE_READER_PX } from "../lib/fonts";
 import { buildDoc, type BuildDocOpts, type FontOpts } from "../lib/renderDoc";
-import { dirOf, inlineImages } from "../lib/previewImages";
+import { inlineImages } from "../lib/previewImages";
+import { dirOf, resolvePath } from "../lib/paths";
+import { openExternal } from "../lib/tauri";
 
 // 미리보기 스크롤 위치 → 상단에 보이는 소스 줄(0-based). scrollToLine의 역보간.
 function topSourceLine(doc: Document): number | null {
@@ -73,10 +75,13 @@ interface PreviewProps {
   themeId: string;
   onToc?: (toc: TocItem[]) => void;
   onSourceLine?: (line: number) => void; // 미리보기 스크롤 → 상단 소스 줄(양방향 동기화)
+  /** 미리보기에서 로컬 문서 링크를 눌렀을 때(문서 폴더 기준으로 해석한 경로).
+   *  앱에서 열지/OS에 넘길지는 호스트가 결정한다. */
+  onOpenPath?: (path: string) => void;
 }
 
 export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
-  { content, path, themeId, onToc, onSourceLine },
+  { content, path, themeId, onToc, onSourceLine, onOpenPath },
   ref,
 ) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -90,6 +95,8 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   onTocRef.current = onToc;
   const onSourceLineRef = useRef(onSourceLine);
   onSourceLineRef.current = onSourceLine;
+  const onOpenPathRef = useRef(onOpenPath);
+  onOpenPathRef.current = onOpenPath;
   const [bodyHtml, setBodyHtml] = useState("");
   const [lightbox, setLightbox] = useState<string | null>(null); // 확대할 이미지 src(라이트박스)
   // 읽기 글꼴/줌(기능 3·5) — iframe은 격리돼 있어 buildDoc에 직접 주입한다.
@@ -232,7 +239,43 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
       if (el?.tagName === "IMG") {
         const src = (el as HTMLImageElement).currentSrc || el.getAttribute("src") || "";
         if (src) setLightbox(src);
+        return;
       }
+      // ── 링크 클릭은 **반드시** 호스트가 가로챈다 ──────────────────────────────
+      // srcdoc 문서의 URL은 about:srcdoc 인데 base URL은 부모(tauri.localhost)에서 상속된다.
+      // 그래서 "#제목" 조차 tauri.localhost/#제목 으로 해석돼 같은 문서 내 스크롤이 아니라
+      // **전체 내비게이션**이 되고, srcdoc 내용이 사라져 미리보기가 빈 화면이 됐다.
+      const a = el?.closest("a");
+      const href = a?.getAttribute("href");
+      if (!href) return;
+      e.preventDefault();
+      if (href.startsWith("#")) {
+        // markdown-it 이 비ASCII 앵커를 퍼센트 인코딩하므로 디코드해서 id를 찾는다.
+        let id = href.slice(1);
+        try {
+          id = decodeURIComponent(id);
+        } catch {
+          /* 잘못된 인코딩은 원문 그대로 시도 */
+        }
+        doc.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      if (/^(?:https?|mailto|tel):/i.test(href)) {
+        void openExternal(href).catch(() => {});
+        return;
+      }
+      if (/^(?:data|blob|javascript|about):/i.test(href)) return; // 열지 않는다
+      // 로컬 경로 — 프래그먼트를 떼고 문서 폴더 기준으로 해석해 호스트가 연다.
+      // (대상 문서 안의 특정 제목까지 이동하는 것은 지원하지 않는다 — 문서만 열린다.)
+      const raw = href.split("#")[0];
+      if (!raw) return;
+      let rel = raw;
+      try {
+        rel = decodeURI(raw);
+      } catch {
+        /* 원문 그대로 */
+      }
+      onOpenPathRef.current?.(resolvePath(dirOf(pathRef.current), rel));
     });
     // 미리보기 스크롤 → 상단 소스 줄 방출(rAF 스로틀). 새 srcdoc마다 문서 교체 → 옛 리스너 자동 소멸.
     if (win) {
