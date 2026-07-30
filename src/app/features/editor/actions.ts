@@ -170,7 +170,9 @@ export const editorActions: EditorAction[] = [
   },
   {
     // 사용자 결정: Tab은 항상 들여쓰기. CodeMirror 기본값(Tab=포커스 이동, 접근성)을 덮으므로
-    // 키보드만으로 편집기를 빠져나가려면 Ctrl+M(탭 포커스 모드)을 써야 한다 → 도움말 하단에 안내.
+    // 키보드만으로 편집기를 빠져나가려면 Ctrl+M(탭 포커스 모드)을 써야 한다.
+    // ⚠ 이 바인딩을 바꾸거나 없애면 **로케일 `ed.note`(도움말 하단 문구)도 함께 고칠 것.**
+    //   레지스트리는 목록 "행"의 드리프트만 막는다. 자유 서술 문구는 보호받지 못해 실제로 어긋난 적 있다.
     id: "edit.indentTab",
     labelKey: "ed.indentTab",
     key: "Tab",
