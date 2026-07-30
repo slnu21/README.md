@@ -111,12 +111,15 @@ export function markdownCompletionSource(
 }
 
 export function markdownCompletions(src: CompletionSources, langs: string[]): Extension {
+  // ⚠ 소스 함수는 **여기서 한 번만** 만든다. languageData 제공 함수 안에서 만들면 상태를 읽을 때마다
+  //   새 함수 객체가 나오고, CodeMirror 자동완성은 활성 소스를 **identity로 비교**하므로
+  //   (Active.update 의 `this.source != source` → 비활성 리셋) 결과가 표시되기 전에 버려진다.
+  //   실제로 이 실수로 우리 소스 3종이 전부 안 뜨고, identity가 고정인 상류 HTML 태그 완성만 됐다.
+  const source = markdownCompletionSource(src, langs);
   return [
     autocompletion(),
     // languageData 로 등록해야 lang-markdown 이 넣어 둔 HTML 태그 완성 소스와 **함께** 동작한다
     // (autocompletion({override}) 를 쓰면 그 소스를 덮어써 버린다).
-    Prec.highest(
-      EditorState.languageData.of(() => [{ autocomplete: markdownCompletionSource(src, langs) }]),
-    ),
+    Prec.highest(EditorState.languageData.of(() => [{ autocomplete: source }])),
   ];
 }
