@@ -51,7 +51,7 @@
   "ed": {
     "title": "Keyboard shortcuts",
     "close": "Close",
-    "note": "Tab moves focus to the next element. To leave the editor using only the keyboard, press Ctrl+M (tab-focus mode).",
+    "note": "Tab indents. To leave the editor using only the keyboard, press Ctrl+M (tab-focus mode), then Tab.",
     "group": {
       "format": "Text formatting",
       "block": "Block formatting",
