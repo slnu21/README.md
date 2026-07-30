@@ -41,6 +41,10 @@ const LANGS: Record<string, LanguageFn> = {
   typescript, javascript, python, rust, bash, json, xml, css: cssLang,
   go, java, c, cpp, yaml, sql, markdown: markdownLang, diff,
 };
+/** 코드펜스 언어 자동완성 후보 — 하이라이트가 실제로 되는 언어만 제안한다(별도 목록을 만들지 않는다).
+ *  별칭(ts/js/sh/html…)은 hljs가 각 언어 정의에서 등록하므로 여기엔 정식 이름만 있다. */
+export const FENCE_LANGS: string[] = Object.keys(LANGS).sort();
+
 let registered = false;
 function registerLanguages(): void {
   if (registered) return;

@@ -4,7 +4,13 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { useTranslation } from "react-i18next";
 import { EditorState } from "@codemirror/state";
 import { EditorView, type Command } from "@codemirror/view";
-import { editorExtensions, selStateOf, contentSync, type SelState } from "../features/editor";
+import {
+  editorExtensions,
+  selStateOf,
+  contentSync,
+  type SelState,
+  type CompletionSources,
+} from "../features/editor";
 import { editorActions, keyHint } from "../features/editor/actions";
 import { useAppStore } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
@@ -33,7 +39,9 @@ export const Editor = forwardRef<EditorHandle, {
   onChange: (doc: string) => void;
   onSyncLine?: (line: number) => void;
   onSelState?: (s: SelState) => void;
-}>(function Editor({ content, onChange, onSyncLine, onSelState }, ref) {
+  /** 자동완성 데이터 조회자(경로·헤딩). 값이 아니라 함수라 워크스페이스·아웃라인 변화를 즉시 반영한다. */
+  complete?: CompletionSources;
+}>(function Editor({ content, onChange, onSyncLine, onSelState, complete }, ref) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -43,6 +51,9 @@ export const Editor = forwardRef<EditorHandle, {
   const onSelStateRef = useRef(onSelState);
   onSelStateRef.current = onSelState;
   const initial = useRef(content); // 마운트 시 초기 문서
+  // 확장은 마운트 때 한 번만 만들어지므로 최신 조회자를 ref로 들고 간접 호출한다.
+  const completeRef = useRef(complete);
+  completeRef.current = complete;
   // 글꼴/줌은 :root CSS 변수로 적용(App.tsx) → CM 높이 캐시 재측정 필요(커서/거터 정렬 유지).
   const fontMono = useAppStore((s) => s.fontMono);
   const editorZoom = useAppStore((s) => s.editorZoom);
@@ -58,6 +69,11 @@ export const Editor = forwardRef<EditorHandle, {
           (doc) => onChangeRef.current(doc),
           (line) => onSyncLineRef.current?.(line),
           (s) => onSelStateRef.current?.(s),
+          {
+            docPath: () => completeRef.current?.docPath() ?? null,
+            files: () => completeRef.current?.files() ?? [],
+            headings: () => completeRef.current?.headings() ?? [],
+          },
         ),
       }),
       parent: host.current,
