@@ -91,6 +91,22 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v0.6.8 — ko-KR
+- **단축키 도움말(F1)** — 어떤 단축키가 있는지 알 방법이 없던 것을, `F1`로 여는 전체 목록으로 정리했습니다. 명령 팔레트와 우클릭 메뉴에도 단축키를 표시합니다.
+- **문단 서식 단축키** — 제목(`Ctrl+1~6`)·인용문·코드 블록·취소선·목록(글머리/번호/체크박스)·`Tab` 들여쓰기·`Shift+Enter` 줄바꿈.
+- **표 도구** — `Ctrl+Shift+T`로 표를 넣고 `Tab`으로 셀을 옮기면 파이프가 자동으로 맞춰집니다. 한글 폭을 반영해 한글 표도 반듯하게 정렬됩니다. 스프레드시트에서 복사한 표도 붙여넣을 수 있습니다.
+- **자동완성** — 링크 경로, 문서 안 제목, 코드 언어를 제안합니다.
+- **이미지 붙여넣기** — 캡처한 그림을 붙여넣으면 문서 옆 `assets/` 폴더에 저장하고 링크를 넣어 줍니다.
+- **링크를 누르면 미리보기가 비던 문제 수정** — `#제목` 링크는 해당 위치로 이동하고, 다른 문서는 새 탭으로, 외부 주소는 브라우저로 열립니다.
+
+### v0.6.8 — en-US
+- **Keyboard shortcut help (F1)** — there was no way to discover shortcuts in the app; now `F1` opens the full list. Shortcuts are also shown in the command palette and the right-click menu.
+- **Block formatting shortcuts** — headings (`Ctrl+1`–`6`), blockquote, code block, strikethrough, lists (bulleted / numbered / task), `Tab` indent, `Shift+Enter` line break.
+- **Table tools** — `Ctrl+Shift+T` inserts a table and `Tab` moves between cells while the pipes align themselves. Korean text is measured at double width, so Korean tables line up properly. Tables copied from a spreadsheet can be pasted in.
+- **Autocomplete** — suggests link paths, headings within the document, and code languages.
+- **Paste images** — paste a screenshot and it is saved next to your document in `assets/` with the link inserted for you.
+- **Fixed blank preview on link clicks** — `#heading` links now scroll to the heading, other documents open in a new tab, and external addresses open in your browser.
+
 ### v0.6.7 — ko-KR
 - **다이어그램 글자가 도형을 벗어나거나 잘리던 문제 수정** — 순서도·시퀀스·상태도 등에서 도형 안 글자가 상자를 넘거나 아래가 잘려 보이던 문제를 고쳤습니다. 특히 한글 라벨과 여러 줄로 접히는 라벨에서 잘 나타났던 증상입니다.
 - **미리보기 확대에 다이어그램도 함께 반응** — 확대하면 본문만 커지고 다이어그램은 그대로여서 작아 보였던 것을, 같은 비율로 확대되게 했습니다.
@@ -202,4 +218,5 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.6.4 업데이트 제출** — `release/v0.6.4/README_0.6.4_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.4** 문구 — **제출 완료(2026-07-21) · 게시 완료**(2026-07-23 확인: `Get-AppxPackage SlnU.README.md` → `0.6.4.0` · `SignatureKind=Store`)
 - [x] **v0.6.5 업데이트 제출** — `release/v0.6.5/README_0.6.5_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.5** 문구 — **게시 완료**
 - [x] **v0.6.6 업데이트 제출** — `release/v0.6.6/README_0.6.6_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.6** 문구 — **게시 완료**(2026-07-30 확인: `Get-AppxPackage SlnU.README.md` → `0.6.6.0` · `SignatureKind=Store`)
-- [ ] **v0.6.7 업데이트 제출** — `release/v0.6.7/README_0.6.7_x64.msix`(동일 실신원) **배포 준비 완료(2026-07-30)**. Partner Center 업로드 → 인증 → 재서명 대기. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.7** 문구
+- [ ] **v0.6.7 업데이트 제출** — `release/v0.6.7/README_0.6.7_x64.msix`(동일 실신원) 배포 준비 완료(2026-07-30). **미제출 — v0.6.8이 상위 버전이라 건너뛰어도 무방**
+- [ ] **v0.6.8 업데이트 제출** — `release/v0.6.8/README_0.6.8_x64.msix`(동일 실신원) **배포 준비 완료(2026-07-30)**. Partner Center 업로드 → 인증 → 재서명 대기. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.8** 문구
