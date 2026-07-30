@@ -12,6 +12,7 @@ import { smartPaste, selStateOf, type SelState } from "./commands";
 import { editorActions } from "./actions";
 import { markdownCompletions, type CompletionSources } from "./complete";
 import { imagePaste, type SaveImage } from "./imagePaste";
+import { tablePaste } from "./tables";
 import { FENCE_LANGS } from "../../lib/markdown";
 
 export type { CompletionSources } from "./complete";
@@ -175,6 +176,8 @@ export function editorExtensions(
     // 이미지 붙여넣기를 smartPaste(URL→링크)보다 먼저 — 이미지 전용 클립보드일 때만 가로채므로
     // 텍스트/URL 붙여넣기와 겹치지 않는다.
     saveImage ? imagePaste(saveImage) : [],
+    // TSV(스프레드시트) 붙여넣기 → 표. 탭이 든 여러 줄일 때만 가로채므로 위/아래 핸들러와 겹치지 않는다.
+    tablePaste,
     smartPaste,
     // 서식·목록 키를 기본 키맵보다 먼저(Enter 목록 이어쓰기 우선).
     Prec.high(mdKeymap),

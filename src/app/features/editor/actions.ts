@@ -23,12 +23,24 @@ import {
   insertHorizontalRule,
   insertHardBreak,
 } from "./commands";
+import {
+  insertTable,
+  formatTable,
+  nextTableCell,
+  prevTableCell,
+  addRowBelow,
+  deleteRow,
+  addColumnRight,
+  deleteColumn,
+  setColumnAlign,
+} from "./tables";
 
 /** 도움말 그룹. 표시 순서 = 이 배열 순서. */
 export const actionGroups = [
   "format",
   "block",
   "list",
+  "table",
   "insert",
   "editing",
   "lines",
@@ -161,6 +173,41 @@ export const editorActions: EditorAction[] = [
   },
   { id: "fmt.renumber", labelKey: "ed.renumber", run: renumberList, group: "list", inPalette: true },
   { id: "ins.hr", labelKey: "ed.hr", run: insertHorizontalRule, group: "insert", inPalette: true },
+  // ── 표 ── 삽입만 키를 주고 나머지는 팔레트로(키를 늘리면 외울 수 없다).
+  {
+    id: "tbl.insert",
+    labelKey: "ed.tableInsert",
+    key: "Mod-Shift-t",
+    run: insertTable,
+    group: "table",
+    inPalette: true,
+  },
+  { id: "tbl.format", labelKey: "ed.tableFormat", run: formatTable, group: "table", inPalette: true },
+  { id: "tbl.rowAdd", labelKey: "ed.tableRowAdd", run: addRowBelow, group: "table", inPalette: true },
+  { id: "tbl.rowDel", labelKey: "ed.tableRowDel", run: deleteRow, group: "table", inPalette: true },
+  { id: "tbl.colAdd", labelKey: "ed.tableColAdd", run: addColumnRight, group: "table", inPalette: true },
+  { id: "tbl.colDel", labelKey: "ed.tableColDel", run: deleteColumn, group: "table", inPalette: true },
+  {
+    id: "tbl.alignLeft",
+    labelKey: "ed.tableAlignLeft",
+    run: setColumnAlign("left"),
+    group: "table",
+    inPalette: true,
+  },
+  {
+    id: "tbl.alignCenter",
+    labelKey: "ed.tableAlignCenter",
+    run: setColumnAlign("center"),
+    group: "table",
+    inPalette: true,
+  },
+  {
+    id: "tbl.alignRight",
+    labelKey: "ed.tableAlignRight",
+    run: setColumnAlign("right"),
+    group: "table",
+    inPalette: true,
+  },
   {
     id: "ins.hardBreak",
     labelKey: "ed.hardBreak",
@@ -173,11 +220,12 @@ export const editorActions: EditorAction[] = [
     // 키보드만으로 편집기를 빠져나가려면 Ctrl+M(탭 포커스 모드)을 써야 한다.
     // ⚠ 이 바인딩을 바꾸거나 없애면 **로케일 `ed.note`(도움말 하단 문구)도 함께 고칠 것.**
     //   레지스트리는 목록 "행"의 드리프트만 막는다. 자유 서술 문구는 보호받지 못해 실제로 어긋난 적 있다.
+    // 표 안에서는 셀 이동이 먼저다 — nextTableCell 이 표를 못 찾으면 false를 반환해 들여쓰기로 넘어간다.
     id: "edit.indentTab",
     labelKey: "ed.indentTab",
     key: "Tab",
-    run: indentMore,
-    shift: indentLess,
+    run: (v) => nextTableCell(v) || indentMore(v),
+    shift: (v) => prevTableCell(v) || indentLess(v),
     group: "lines",
   },
   // 목록 이어쓰기는 메뉴로 부를 성질이 아니라 키 전용(도움말엔 표기된다).
