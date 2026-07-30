@@ -8,7 +8,8 @@ import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle, indentOnInput } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
-import { toggleWrap, insertLink, continueList, smartPaste, selStateOf, type SelState } from "./commands";
+import { smartPaste, selStateOf, type SelState } from "./commands";
+import { editorActions } from "./actions";
 
 export { selStateOf } from "./commands";
 export type { SelState } from "./commands";
@@ -92,15 +93,15 @@ function topVisibleLine(view: EditorView): number {
   return view.state.doc.lineAt(pos).number - 1;
 }
 
-// 마크다운 서식 단축키(T1). Mod=Ctrl(Win)/Cmd(mac). Enter=목록 이어쓰기(우선).
+// 마크다운 편집 단축키 — actions.ts 레지스트리에서 생성(키맵·팔레트·우클릭·도움말 단일 진실원).
 // defaultKeymap보다 앞에 둬야 Enter/Mod-* 가 먼저 잡힌다.
-const mdKeymap = keymap.of([
-  { key: "Mod-b", run: toggleWrap("**"), preventDefault: true },
-  { key: "Mod-i", run: toggleWrap("*"), preventDefault: true },
-  { key: "Mod-e", run: toggleWrap("`"), preventDefault: true }, // 인라인 코드
-  { key: "Mod-k", run: insertLink, preventDefault: true },
-  { key: "Enter", run: continueList },
-]);
+// Enter는 preventDefault를 걸지 않는다: continueList가 false를 반환하면 상류
+// insertNewlineContinueMarkup(인용문·중첩 목록 이어쓰기)으로 넘어가야 한다.
+const mdKeymap = keymap.of(
+  editorActions
+    .filter((a) => a.key)
+    .map((a) => ({ key: a.key!, run: a.run, preventDefault: a.key !== "Enter" })),
+);
 
 // 괄호/백틱 자동 닫기 — 프로즈 방해를 피해 따옴표는 제외(대명사 축약 등). 마크다운 언어데이터 위에 얹음.
 const bracketConfig = Prec.highest(

@@ -19,6 +19,8 @@ import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
 import { CommandPalette, type PaletteItem } from "./CommandPalette";
 import { FindReplace } from "./FindReplace";
+import { ShortcutHelp } from "./ShortcutHelp";
+import { editorActions, keyHint } from "../features/editor/actions";
 import { exportHtml, exportToPdf, copyHtml, type ExportParams } from "../features/export";
 import { READABLE_RE, isReadable } from "../lib/fileTypes";
 import { showFullNameOnClip } from "../lib/hoverName";
@@ -103,6 +105,7 @@ export function AppShell() {
   const [presenting, setPresenting] = useState(false); // 프레젠테이션(전체화면 슬라이드)
   const [paletteMode, setPaletteMode] = useState<"command" | "file" | null>(null); // 명령 팔레트/퀵오픈
   const [findOpen, setFindOpen] = useState(false); // 워크스페이스 전역 찾기·바꾸기
+  const [keysOpen, setKeysOpen] = useState(false); // 단축키 도움말(F1)
   // ≤900px에서는 편집/미리보기가 세로 스택 → 리사이저 축 전환.
   const [vertical, setVertical] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches,
@@ -154,8 +157,14 @@ export function AppShell() {
   }, []);
 
   // 명령 팔레트(Ctrl+Shift+P)·파일 퀵오픈(Ctrl+P)·전역 찾기바꾸기(Ctrl+Shift+H). 같은 키 재입력 토글.
+  // F1 = 단축키 도움말(수식어 없는 키라 Ctrl 검사보다 앞에서 처리. 닫기는 도움말 자체가 담당).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (e.key === "F1") {
+        e.preventDefault();
+        setKeysOpen(true);
+        return;
+      }
       if (!(e.ctrlKey || e.metaKey)) return;
       if (e.key === "p" || e.key === "P") {
         e.preventDefault(); // 웹뷰 인쇄 대화상자 방지
@@ -361,6 +370,18 @@ export function AppShell() {
       const s = useAppStore.getState();
       s.setAutosave(!s.autosave);
     });
+    add("shortcuts", t("ed.title"), () => setKeysOpen(true));
+    // 편집 서식 명령 — actions.ts 레지스트리 파생. 단축키는 sub(우측 흐린 칸)에 표기.
+    // 리딩 모드에선 에디터가 언마운트되므로 실행 대상이 없다 → 목록에서 제외.
+    for (const a of editorActions) {
+      if (!a.inPalette || !active || readerMode) continue;
+      cmds.push({
+        id: a.id,
+        label: t(a.labelKey),
+        sub: a.key ? keyHint(a.key) : undefined,
+        run: () => editorRef.current?.runCommand(a.run),
+      });
+    }
     return cmds;
   }
 
@@ -625,6 +646,7 @@ export function AppShell() {
     <>
       <IconSprite />
       {confirm && <ConfirmDialog spec={confirm} onClose={() => setConfirm(null)} />}
+      {keysOpen && <ShortcutHelp onClose={() => setKeysOpen(false)} />}
       {tabMenu && (
         <ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems(tabMenu.path)} onClose={() => setTabMenu(null)} />
       )}

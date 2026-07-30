@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { EditorState } from "@codemirror/state";
 import { EditorView, type Command } from "@codemirror/view";
 import { editorExtensions, selStateOf, contentSync, type SelState } from "../features/editor";
-import { toggleWrap, insertLink } from "../features/editor/commands";
+import { editorActions, keyHint } from "../features/editor/actions";
 import { useAppStore } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
@@ -24,6 +24,8 @@ function remeasureFont(view: EditorView) {
 export interface EditorHandle {
   /** 소스 줄(0-based, onSyncLine과 동일 규약)을 에디터 상단으로 스크롤(양방향 동기화). */
   scrollToLine(line: number): void;
+  /** 편집 커맨드를 현재 뷰에 실행(명령 팔레트에서 서식 명령 호출). 실행 후 포커스를 에디터로 되돌린다. */
+  runCommand(cmd: Command): void;
 }
 
 export const Editor = forwardRef<EditorHandle, {
@@ -121,6 +123,9 @@ export const Editor = forwardRef<EditorHandle, {
       const info = view.state.doc.line(n);
       view.dispatch({ effects: EditorView.scrollIntoView(info.from, { y: "start", yMargin: 0 }) });
     },
+    runCommand(cmd: Command) {
+      runCmd(cmd);
+    },
   }), []);
 
   // ── 커스텀 우클릭 메뉴(서식 + 클립보드) ──
@@ -174,14 +179,18 @@ export const Editor = forwardRef<EditorHandle, {
     v.focus();
   }
 
+  // 서식 항목은 actions.ts 레지스트리에서 파생 → 액션을 추가하면 우클릭 메뉴에도 자동으로 나타난다.
   const menuItems: MenuItem[] = [
     { label: t("ctx.cut"), onClick: () => void cutSel() },
     { label: t("ctx.copy"), onClick: () => void copySel() },
     { label: t("ctx.paste"), onClick: () => void pasteAt() },
-    { label: t("ctx.bold"), onClick: () => runCmd(toggleWrap("**")) },
-    { label: t("ctx.italic"), onClick: () => runCmd(toggleWrap("*")) },
-    { label: t("ctx.code"), onClick: () => runCmd(toggleWrap("`")) },
-    { label: t("ctx.link"), onClick: () => runCmd(insertLink) },
+    ...editorActions
+      .filter((a) => a.inContextMenu)
+      .map((a) => ({
+        label: t(a.labelKey),
+        hint: a.key ? keyHint(a.key) : undefined,
+        onClick: () => runCmd(a.run),
+      })),
     { label: t("ctx.selectAll"), onClick: () => selectAll() },
   ];
 
