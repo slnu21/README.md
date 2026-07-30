@@ -4,7 +4,20 @@
 //   · 미리보기 = 앱오리진 url() (FONT_FACE_CSS 기본)
 //   · 내보내기 = 이식형(data URI 임베드 또는 빈 문자열)
 import { themes, defaultThemeId } from "../themes";
-import { FONT_FACE_CSS } from "./fonts";
+import { FONT_FACE_CSS, BASE_READER_PX } from "./fonts";
+
+/** mermaid 측정(앱 문서)↔표시(이 문서)에서 **상속되는** 속성을 양쪽 동일하게 고정한다.
+ *
+ *  mermaid는 sandbox iframe 안에서 실행될 수 없어(스크립트 차단) 앱 문서에서 재고 여기서 보여준다.
+ *  그런데 mermaid가 SVG에 심는 <style>은 font-family/font-size/fill/p{margin:0}까지만 고정하고
+ *  line-height 등은 고정하지 않는다 → 앱 문서(line-height 없음 = normal)와 미리보기 문서
+ *  (body{line-height:1.75})의 차이가 그대로 라벨 상자 오차가 되어 foreignObject 경계에서 잘렸다.
+ *  text-rendering도 앱은 optimizeLegibility, 여기 기본은 auto라 글자 폭이 계통적으로 어긋났다.
+ *
+ *  **한쪽만 바뀌면 버그가 재발하므로 lib/mermaid.ts 측정 스테이지와 이 상수를 반드시 공유한다.** */
+export const DIAGRAM_CTX_CSS =
+  "line-height:normal;text-rendering:auto;letter-spacing:normal;word-spacing:normal;" +
+  "font-kerning:auto;font-variant-ligatures:normal;-webkit-font-smoothing:antialiased";
 
 // iframe/문서 내부(리더) 스타일. 색은 주입된 5토큰 사용, 폰트는 --read-font(주입) + 시스템 폴백.
 export const PREVIEW_CSS = `
@@ -67,8 +80,17 @@ dl dd{margin:0 0 .4em 1.3em}
 math{font-size:1.02em}
 math[display="block"],eqn{display:block;margin:1em 0;text-align:center;overflow-x:auto}
 eq{padding:0 .1em}
-.mermaid-rendered{display:flex;justify-content:center;margin:1em 0}
-.mermaid-rendered svg{max-width:100%;height:auto}
+/* 다이어그램: 측정 문맥과 동일한 상속 속성(DIAGRAM_CTX_CSS)을 걸어 라벨 상자 오차를 없앤다.
+   맞춤(기본) = flex 축소 + max-width:100% 로 카드 폭에 들어오고, --reader-zoom 은 여유가 있는
+   작은 차트만 키운다(카드에 꽉 찬 차트는 이미 최대라 확대 여지가 없다 → 원본 모드를 쓴다). */
+.mermaid-rendered{display:flex;justify-content:center;margin:1em 0;overflow-x:auto;${DIAGRAM_CTX_CSS}}
+.mermaid-rendered svg{max-width:100%;height:auto;zoom:var(--reader-zoom,1)}
+/* 원본 모드: flex 축소를 끊고(flex:none) **명시적 width**를 줘야 실제 크기가 나온다.
+   max-width:none 만으로는 flex-shrink가 그대로 카드 폭으로 눌러버리고, width:auto·max-content 도
+   viewBox 뿐인 인라인 SVG에선 100%로 되돌아간다(Chromium 실측). --diagram-w = lib/mermaid.ts가
+   viewBox에서 읽어 래퍼에 박아 준 원본 폭. flex-start = 중앙정렬+스크롤 시 왼쪽이 잘리는 함정 회피. */
+.diagram-natural .mermaid-rendered{justify-content:flex-start}
+.diagram-natural .mermaid-rendered svg{flex:none;max-width:none;width:var(--diagram-w,auto)}
 .mermaid-error{color:#c0392b}
 `;
 
@@ -82,6 +104,9 @@ export interface BuildDocOpts {
   fontFaceCss?: string;
   /** 추가 CSS(예: 인쇄용 @page 여백). PREVIEW_CSS 뒤에 붙는다. */
   extraCss?: string;
+  /** 다이어그램 너비. fit=카드 폭에 축소 맞춤(기본), natural=원본 크기 + 블록 내 가로 스크롤.
+   *  슬라이드·인쇄는 기본(fit)이 안전하므로 미리보기만 설정값을 넘긴다. */
+  diagramWidth?: "fit" | "natural";
 }
 
 /** 본문 HTML을 자기완결 HTML 문서 문자열로 감싼다(테마·폰트·PREVIEW_CSS 인라인). */
@@ -96,13 +121,25 @@ export function buildDoc(
     .map(([k, v]) => `${k}:${v};`)
     .join("");
   // 격리 문서 → 읽기 글꼴/줌을 CSS 변수로 직접 주입(기능 3·5).
-  const fontVars = `--read-font:${font.readStack};--reader-font-size:${font.readerPx.toFixed(1)}px;`;
+  // --reader-zoom: 다이어그램(SVG)은 절대 px 지오메트리라 font-size 확대를 못 따라간다 → 배율을 따로
+  // 넘겨 .mermaid-rendered svg 가 zoom 으로 비례 확대한다. readerPx 에서 파생하므로 호출부 수정 불필요
+  // (미리보기=previewZoom, 프레젠테이션=1.35, 내보내기=previewZoom 이 자동으로 맞는 값이 된다).
+  const zoom = font.readerPx / BASE_READER_PX;
+  const fontVars =
+    `--read-font:${font.readStack};--reader-font-size:${font.readerPx.toFixed(1)}px;` +
+    `--reader-zoom:${zoom.toFixed(3)};`;
+  // 원본 모드는 body 클래스로 켠다(CSS 변수로는 안 된다: 원본 폭 --diagram-w 는 래퍼마다 다른데
+  // :root에서 var(--diagram-w)를 참조하면 선언 위치인 :root에서 해석돼 빈 값이 된다).
+  const bodyClass = opts.diagramWidth === "natural" ? ` class="diagram-natural"` : "";
   const fontFace = opts.fontFaceCss ?? FONT_FACE_CSS;
   const extra = opts.extraCss ?? "";
+  // lang: mermaid 기본 글꼴 스택에 한글 글리프가 없어 한글은 문서별 폴백으로 해결된다. 앱 문서는
+  // <html lang>이 있는데 srcdoc에 없으면 폴백 face가 갈려 측정↔표시 폭이 어긋난다(a11y 겸).
+  const lang = document.documentElement.lang || "ko";
   return (
-    `<!doctype html><html><head><meta charset="utf-8">` +
+    `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">` +
     `<meta name="color-scheme" content="${theme.type}">` +
     `<style>:root{${vars}${fontVars}}${fontFace}${PREVIEW_CSS}${extra}</style></head>` +
-    `<body><div class="md">${bodyHtml}</div></body></html>`
+    `<body${bodyClass}><div class="md">${bodyHtml}</div></body></html>`
   );
 }

@@ -8,7 +8,7 @@ import { sanitizeHtml } from "../lib/sanitize";
 import { renderMermaid } from "../lib/mermaid";
 import { useAppStore } from "../store";
 import { readStack, BASE_READER_PX } from "../lib/fonts";
-import { buildDoc, type FontOpts } from "../lib/renderDoc";
+import { buildDoc, type BuildDocOpts, type FontOpts } from "../lib/renderDoc";
 import { dirOf, inlineImages } from "../lib/previewImages";
 
 // 미리보기 스크롤 위치 → 상단에 보이는 소스 줄(0-based). scrollToLine의 역보간.
@@ -96,6 +96,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   const fontRead = useAppStore((s) => s.fontRead);
   const previewZoom = useAppStore((s) => s.previewZoom);
   const readingWidth = useAppStore((s) => s.readingWidth);
+  const diagramWidth = useAppStore((s) => s.diagramWidth); // mermaid 너비 — 맞춤(축소) | 원본(가로 스크롤)
   const previewDelay = useAppStore((s) => s.previewDelay); // 재렌더 디바운스(ms) — 설정에서 조절
 
   const font: FontOpts = { readStack: readStack(fontRead), readerPx: BASE_READER_PX * previewZoom };
@@ -104,6 +105,8 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   const previewExtra =
     "img{cursor:zoom-in}" +
     (widthPx === "none" ? "" : `.md{max-width:${widthPx};margin-left:auto;margin-right:auto}`);
+  // 세 buildDoc 호출(데모 2 + 정규 1)이 같은 옵션을 쓰도록 한 곳에 모은다.
+  const docOpts: BuildDocOpts = { extraCss: previewExtra, diagramWidth };
   // 데모/스크린샷(?demo)에서는 헤드리스 캡처 타이밍 때문에 워커 대신 메인 스레드로 즉시 렌더.
   const isDemo = new URLSearchParams(window.location.search).has("demo");
 
@@ -156,12 +159,15 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
           const md = createMarkdown();
           onTocRef.current?.(extractToc(md, content));
           const body = await inlineImages(sanitizeHtml(md.render(content)), dirOf(pathRef.current));
-          if (iframe) iframe.srcdoc = buildDoc(body, themeId, font, { extraCss: previewExtra });
+          if (iframe) iframe.srcdoc = buildDoc(body, themeId, font, docOpts);
         } catch (err) {
           if (iframe)
-            iframe.srcdoc = buildDoc("<pre>DEMO ERROR: " + String(err) + "</pre>", themeId, font, {
-              extraCss: previewExtra,
-            });
+            iframe.srcdoc = buildDoc(
+              "<pre>DEMO ERROR: " + String(err) + "</pre>",
+              themeId,
+              font,
+              docOpts,
+            );
         }
       })();
       return;
@@ -187,14 +193,15 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
       // srcdoc 재대입은 iframe 문서를 통째로 리로드 → scrollTop 0 초기화. 직전 상단 소스 줄을
       // 저장했다가 onIframeLoad에서 복원해 "맨 위로 튐"을 막는다(테마/글꼴/줌 변경 시에도 위치 보존).
       restoreLineRef.current = iframe.contentDocument ? topSourceLine(iframe.contentDocument) : null;
-      iframe.srcdoc = buildDoc(finalBody, themeId, font, { extraCss: previewExtra });
+      iframe.srcdoc = buildDoc(finalBody, themeId, font, docOpts);
     })();
     return () => {
       cancelled = true;
     };
     // font(readStack/readerPx)는 fontRead·previewZoom 파생 → 이들 변경 시 재빌드. readingWidth도 CSS 파생.
+    // diagramWidth는 docOpts 파생(문서 body 클래스) — 수동 관리 배열이라 빠뜨리면 즉시 반영되지 않는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bodyHtml, themeId, isDemo, fontRead, previewZoom, readingWidth]);
+  }, [bodyHtml, themeId, isDemo, fontRead, previewZoom, readingWidth, diagramWidth]);
 
   // Esc로 라이트박스 닫기.
   useEffect(() => {
