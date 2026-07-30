@@ -8,6 +8,7 @@ import { renderMermaid } from "../../lib/mermaid";
 import { buildDoc } from "../../lib/renderDoc";
 import { readStack, BASE_READER_PX, bundledWoff2For } from "../../lib/fonts";
 import { dirOf, inlineImages } from "../../lib/previewImages";
+import { bytesToBase64 } from "../../lib/bytes";
 
 export interface ExportParams {
   content: string;
@@ -21,13 +22,7 @@ export interface ExportParams {
 async function fetchAsBase64(url: string): Promise<string> {
   const abs = new URL(url, window.location.href).href;
   const buf = await (await fetch(abs)).arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  let bin = "";
-  const CHUNK = 0x8000;
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  }
-  return btoa(bin);
+  return bytesToBase64(new Uint8Array(buf));
 }
 
 // 선택 읽기 폰트를 data URI @font-face로. 시스템 폰트면 빈 문자열(스택 폴백).

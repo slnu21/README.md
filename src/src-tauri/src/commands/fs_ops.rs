@@ -24,6 +24,24 @@ pub fn write_file(path: String, contents: String) -> Result<(), String> {
     fs::write(&path, contents).map_err(|e| e.to_string())
 }
 
+/// base64 바이트를 파일로 저장(클립보드 이미지 붙여넣기). read_file_base64 의 대칭.
+/// write_file 은 String 만 받아 바이너리를 쓸 수 없다(무손실 왕복 불가).
+/// 부모 폴더가 없으면 만든다 — 문서 옆 `assets/` 는 대개 처음엔 존재하지 않는다.
+#[tauri::command]
+pub fn write_file_base64(path: String, b64: String) -> Result<(), String> {
+    let bytes = STANDARD.decode(b64).map_err(|e| e.to_string())?;
+    if let Some(dir) = Path::new(&path).parent() {
+        fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    fs::write(&path, bytes).map_err(|e| e.to_string())
+}
+
+/// 경로 존재 여부 — 이미지 저장 시 파일명 충돌을 피해 뒤 번호를 올리는 데 쓴다.
+#[tauri::command]
+pub fn path_exists(path: String) -> bool {
+    Path::new(&path).exists()
+}
+
 /// 드롭된 경로가 폴더인지 판별(파일 열기 vs 폴더 가져오기 분기용).
 #[tauri::command]
 pub fn path_is_dir(path: String) -> bool {

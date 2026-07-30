@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, type TreeNode } from "../store";
 import { themes } from "../themes";
-import { pickFile, pickFolder, readFile, writeFile, watchFiles, onFileChanged, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
+import { pickFile, pickFolder, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
@@ -23,6 +23,8 @@ import { ShortcutHelp } from "./ShortcutHelp";
 import { editorActions, keyHint } from "../features/editor/actions";
 import { exportHtml, exportToPdf, copyHtml, type ExportParams } from "../features/export";
 import { READABLE_RE, isReadable } from "../lib/fileTypes";
+import { dirOf } from "../lib/previewImages";
+import { bytesToBase64 } from "../lib/bytes";
 import { showFullNameOnClip } from "../lib/hoverName";
 import type { TocItem } from "../lib/markdown";
 
@@ -54,6 +56,24 @@ function collectFiles(nodes: TreeNode[], out: Map<string, string>): void {
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
   return parts[parts.length - 1] || path;
+}
+
+/** 붙여넣은 이미지를 문서 옆 `assets/`에 저장하고, 문서에 넣을 상대경로를 돌려준다.
+ *  미저장 문서(경로 없음)면 기준 폴더가 없어 저장하지 않는다(null → 삽입 안 함).
+ *  파일명은 `<문서이름>-<n>.<ext>`로, 이미 있으면 번호를 올려 기존 이미지를 덮어쓰지 않는다. */
+async function savePastedImage(docPath: string, data: Uint8Array, ext: string): Promise<string | null> {
+  if (!docPath) return null;
+  const dir = dirOf(docPath);
+  if (!dir) return null;
+  const stem = baseName(docPath).replace(/\.[^.]+$/, "");
+  for (let n = 1; n < 1000; n++) {
+    const name = `${stem}-${n}.${ext}`;
+    const abs = `${dir}/assets/${name}`;
+    if (await pathExists(abs)) continue;
+    await writeFileBase64(abs, bytesToBase64(data));
+    return `assets/${name}`;
+  }
+  return null; // 1000장까지 이름이 다 차면 포기(현실적으로 도달하지 않는다)
 }
 
 export function AppShell() {
@@ -997,6 +1017,7 @@ export function AppShell() {
                     },
                     headings: () => outline,
                   }}
+                  saveImage={(data, ext) => savePastedImage(active.path, data, ext)}
                 />
               </section>
 

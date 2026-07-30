@@ -30,6 +30,17 @@ export function readFileBase64(path: string): Promise<string> {
   return invoke<string>("read_file_base64", { path });
 }
 
+/** base64 바이트를 파일로 저장(클립보드 이미지 붙여넣기). 부모 폴더가 없으면 만든다.
+ *  writeFile은 문자열 전용이라 바이너리를 무손실로 쓸 수 없다. */
+export function writeFileBase64(path: string, b64: string): Promise<void> {
+  return invoke<void>("write_file_base64", { path, b64 });
+}
+
+/** 경로 존재 여부(이미지 파일명 충돌 회피용). */
+export function pathExists(path: string): Promise<boolean> {
+  return invoke<boolean>("path_exists", { path });
+}
+
 /** 폴더를 재귀 스캔한 트리를 반환. */
 export function readDirTree(path: string): Promise<DirEntryNode> {
   return invoke<DirEntryNode>("read_dir_tree", { path });
