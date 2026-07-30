@@ -10,6 +10,10 @@ import { syntaxHighlighting, HighlightStyle, indentOnInput } from "@codemirror/l
 import { tags as t } from "@lezer/highlight";
 import { smartPaste, selStateOf, type SelState } from "./commands";
 import { editorActions } from "./actions";
+import { markdownCompletions, type CompletionSources } from "./complete";
+import { FENCE_LANGS } from "../../lib/markdown";
+
+export type { CompletionSources } from "./complete";
 
 export { selStateOf } from "./commands";
 export type { SelState } from "./commands";
@@ -79,6 +83,32 @@ const cmTheme = EditorView.theme({
   },
   ".cm-searchMatch": { backgroundColor: "color-mix(in srgb, var(--accent) 26%, transparent)" },
   ".cm-searchMatch-selected": { backgroundColor: "color-mix(in srgb, var(--accent) 48%, transparent)" },
+  // 자동완성 팝업 — 기본 테마는 밝은 색 고정이라 dark/paper에서 튄다. 토큰으로 3테마 대응.
+  ".cm-tooltip.cm-tooltip-autocomplete": {
+    backgroundColor: "var(--surface)",
+    border: "1px solid var(--border)",
+    borderRadius: "6px",
+    boxShadow: "0 6px 20px rgba(0,0,0,.14)",
+    fontFamily: "var(--ui-font)",
+  },
+  ".cm-tooltip-autocomplete ul li": { color: "var(--fg)", padding: "3px 8px" },
+  ".cm-tooltip-autocomplete ul li[aria-selected]": {
+    backgroundColor: "color-mix(in srgb, var(--accent) 20%, transparent)",
+    color: "var(--fg)",
+  },
+  ".cm-completionLabel": { fontSize: "12.5px" },
+  ".cm-completionMatchedText": {
+    textDecoration: "none",
+    color: "var(--accent)",
+    fontWeight: "700",
+  },
+  ".cm-completionDetail": {
+    marginLeft: "10px",
+    color: "var(--faint)",
+    fontStyle: "normal",
+    fontSize: "11px",
+  },
+  ".cm-completionIcon": { color: "var(--muted)", opacity: "0.8" },
 });
 
 /** 에디터 상단에 보이는 소스 줄(0-based, data-line과 일치) — 미리보기 스크롤 동기화용(기능 8).
@@ -114,11 +144,12 @@ const bracketConfig = Prec.highest(
 );
 
 /** 마크다운 에디터 확장 세트. 문서 변경 시 onChange(doc) 호출. onSyncLine=상단 가시줄(스크롤/편집 시).
- *  onSelState=커서/선택 상태(상태바). */
+ *  onSelState=커서/선택 상태(상태바). complete=자동완성에 필요한 앱 상태 조회자(생략 시 자동완성 없음). */
 export function editorExtensions(
   onChange: (doc: string) => void,
   onSyncLine?: (line: number) => void,
   onSelState?: (s: SelState) => void,
+  complete?: CompletionSources,
 ): Extension[] {
   let raf = 0;
   const emit = (view: EditorView) => {
@@ -135,6 +166,8 @@ export function editorExtensions(
     search({ top: true }),
     bracketConfig,
     closeBrackets(),
+    // 중첩 배열도 유효한 Extension이라 스프레드 없이 그대로 넣는다.
+    complete ? markdownCompletions(complete, FENCE_LANGS) : [],
     indentOnInput(),
     smartPaste,
     // 서식·목록 키를 기본 키맵보다 먼저(Enter 목록 이어쓰기 우선).

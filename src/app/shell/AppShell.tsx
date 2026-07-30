@@ -986,6 +986,17 @@ export function AppShell() {
                     previewRef.current?.scrollToLine(line);
                   }}
                   onSelState={setSel}
+                  // 자동완성 데이터 — 호출 시점에 읽어야 워크스페이스·아웃라인 변화가 반영된다.
+                  // headings는 미리보기가 만든 TOC라 앵커 id가 렌더 결과와 정확히 일치한다.
+                  complete={{
+                    docPath: () => active.path || null,
+                    files: () => {
+                      const map = new Map<string, string>();
+                      collectFiles(useAppStore.getState().roots, map);
+                      return Array.from(map, ([path, name]) => ({ path, name }));
+                    },
+                    headings: () => outline,
+                  }}
                 />
               </section>
 
