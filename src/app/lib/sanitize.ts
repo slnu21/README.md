@@ -38,7 +38,12 @@ export function sanitizeSvg(svg: string): string {
     // svg + html 프로파일을 **함께** → <foreignObject> 안 HTML 라벨(div/span/텍스트) 태그를 허용.
     USE_PROFILES: { svg: true, svgFilters: true, html: true },
     ADD_TAGS: ["foreignObject"],
-    ADD_ATTR: ["style", "class", "xmlns"],
+    // dominant-baseline: DOMPurify svg 허용목록에 이것만 빠져 있다(alignment-baseline은 있는데,
+    // 그건 <text>에 적용되지 않아 대체가 안 된다). mermaid도 자체 정화에 DOMPURIFY_ATTR=
+    // ["dominant-baseline"]로 예외를 두는데, 우리 2차 정화가 그걸 다시 지워 sequence·quadrant·
+    // xychart·ER·class/state 노트 텍스트가 수직 중앙정렬을 잃고 baseline으로 내려앉아 도형 밖으로
+    // 밀리거나 잘렸다. 표현용 속성(URL·스크립트 표면 없음)이라 허용해도 안전.
+    ADD_ATTR: ["style", "class", "xmlns", "dominant-baseline"],
     // 핵심: DOMPurify 기본 HTML 통합지점은 annotation-xml 뿐이라, SVG 네임스페이스인 <foreignObject>
     // 안의 HTML(div 등)이 네임스페이스 검사에 걸려 **서브트리째 제거**된다(라벨 글자 사라짐).
     // foreignobject를 통합지점으로 등록해야 flowchart·mindmap·class·state·journey 라벨이 보존된다.

@@ -143,6 +143,7 @@ interface AppState {
   fontMono: string;
   fontUi: string;
   readingWidth: "narrow" | "normal" | "wide"; // 미리보기 본문 최대 폭(긴 줄 방지)
+  diagramWidth: "fit" | "natural"; // mermaid 너비 — fit=카드 폭 축소맞춤 / natural=원본+가로 스크롤
   previewDelay: number; // 미리보기 재렌더 디바운스(ms) — 빠름 200/보통 500/느긋 1000
   syncScroll: boolean;
   outlinePinned: boolean;
@@ -168,6 +169,7 @@ interface AppState {
   setFontMono: (id: string) => void;
   setFontUi: (id: string) => void;
   setReadingWidth: (w: "narrow" | "normal" | "wide") => void;
+  setDiagramWidth: (w: "fit" | "natural") => void;
   setPreviewDelay: (ms: number) => void;
   setSyncScroll: (on: boolean) => void;
   setOutlinePinned: (on: boolean) => void;
@@ -216,6 +218,7 @@ export const useAppStore = create<AppState>()(
       fontMono: "default",
       fontUi: "pretendard",
       readingWidth: "normal",
+      diagramWidth: "fit",
       previewDelay: 500,
       syncScroll: true,
       outlinePinned: false,
@@ -241,6 +244,7 @@ export const useAppStore = create<AppState>()(
       setFontMono: (id) => set({ fontMono: id }),
       setFontUi: (id) => set({ fontUi: id }),
       setReadingWidth: (w) => set({ readingWidth: w }),
+      setDiagramWidth: (w) => set({ diagramWidth: w }),
       setPreviewDelay: (ms) => set({ previewDelay: ms }),
       setSyncScroll: (on) => set({ syncScroll: on }),
       setOutlinePinned: (on) => set({ outlinePinned: on }),
@@ -458,6 +462,7 @@ export const useAppStore = create<AppState>()(
         fontMono: s.fontMono,
         fontUi: s.fontUi,
         readingWidth: s.readingWidth,
+        diagramWidth: s.diagramWidth,
         previewDelay: s.previewDelay,
         syncScroll: s.syncScroll,
         outlinePinned: s.outlinePinned,

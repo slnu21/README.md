@@ -19,6 +19,8 @@ export function SettingsPopover() {
   const syncScroll = useAppStore((s) => s.syncScroll);
   const readingWidth = useAppStore((s) => s.readingWidth);
   const setReadingWidth = useAppStore((s) => s.setReadingWidth);
+  const diagramWidth = useAppStore((s) => s.diagramWidth);
+  const setDiagramWidth = useAppStore((s) => s.setDiagramWidth);
   const previewDelay = useAppStore((s) => s.previewDelay);
   const setPreviewDelay = useAppStore((s) => s.setPreviewDelay);
   const autosave = useAppStore((s) => s.autosave);
@@ -150,6 +152,22 @@ export function SettingsPopover() {
                   onClick={() => setReadingWidth(w)}
                 >
                   {t(w === "narrow" ? "view.widthNarrow" : w === "wide" ? "view.widthWide" : "view.widthNormal")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="set-row">
+            <span>{t("settings.diagramWidth")}</span>
+            <div className="seg width" role="group" aria-label={t("settings.diagramWidth")}>
+              {(["fit", "natural"] as const).map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  aria-pressed={diagramWidth === w}
+                  onClick={() => setDiagramWidth(w)}
+                >
+                  {t(w === "fit" ? "settings.diagramFit" : "settings.diagramNatural")}
                 </button>
               ))}
             </div>

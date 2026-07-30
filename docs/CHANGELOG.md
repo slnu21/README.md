@@ -3,6 +3,23 @@
 이 프로젝트의 모든 주요 변경을 기록한다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/),
 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다.
 
+## [Unreleased]
+
+v0.6.6 실사용 후속 — mermaid 다이어그램 라벨이 도형을 넘거나 잘리던 문제 수정 + 다이어그램 표시 3건 개선.
+
+### Fixed
+- **다이어그램 글자가 도형을 벗어나거나 잘리던 문제** — 미리보기 iframe은 스크립트가 차단돼(`sandbox="allow-same-origin"`) mermaid를 안에서 돌릴 수 없어 **앱 문서에서 재고 미리보기 문서에서 보여주는** 구조인데, 두 문서에서 다르게 해석되는 상속 CSS만큼 라벨 상자가 어긋나던 것(v0.6.6 편집기 버그와 같은 "측정=실제" 붕괴 계열). 원인 4겹:
+  (1) **`dominant-baseline`이 정화에서 제거됨** — DOMPurify svg 허용목록에 이 속성만 빠져 있어(`alignment-baseline`은 있으나 `<text>`엔 적용 안 됨) mermaid가 자체 정화에 예외를 두는데, 우리 2차 정화가 그걸 다시 지워 sequence·quadrant·xychart·ER·class/state 노트 텍스트가 수직 중앙정렬을 잃고 baseline으로 내려앉았다 → `sanitizeSvg` 허용목록에 추가(표현용 속성, 보안 표면 변화 없음).
+  (2) **줄높이 비대칭** — mermaid가 SVG에 심는 `<style>`은 글꼴·크기까지만 고정하고 `line-height`는 고정하지 않아, 측정(앱 문서 = `normal`)과 표시(미리보기 = `1.75`)가 어긋나 `foreignObject` 라벨이 상자보다 높아져 잘렸다(같은 라벨 실측 19.1px ↔ 25.5px, 줄당 6.4px 초과) → 양쪽이 **한 상수(`DIAGRAM_CTX_CSS`)를 공유**하도록 하고, mermaid를 화면 밖 측정 스테이지에 렌더(`mermaid.render`의 3번째 인자)해 문맥을 일치시켰다. `text-rendering`(앱 `optimizeLegibility` ↔ 미리보기 `auto`) 등 나머지 상속 속성도 같은 상수로 고정.
+  (3) **한글 폴백 글꼴 비결정성** — mermaid 기본 스택에 한글 글리프가 없어 한글이 전부 문서별 폴백으로 해결되던 것 → 다이어그램 전용 글꼴에 한글 face를 명시하고(`"Trebuchet MS","Malgun Gothic",…`) 렌더 문서에 `lang`을 부여했다.
+  (4) 위 (1)~(3)이 겹쳐 특히 **한글·다행 라벨**에서 증상이 두드러졌다.
+
+### Added
+- **미리보기 확대에 다이어그램 연동** — 본문은 확대되는데 다이어그램만 절대 px에 고정돼 상대적으로 작아 보이던 것을, 확대 배율(`--reader-zoom`)을 렌더 문서에 넘겨 SVG가 비례 확대되게 했다. 프레젠테이션·내보내기도 같은 경로라 함께 적용된다.
+- **다이어그램 너비 설정(맞춤 / 원본)** — 컬럼보다 넓은 차트가 축소만 되어 글자가 작아지던 것을, 설정 팝오버에서 고를 수 있게 했다(기본 **맞춤**). `원본`은 실제 크기로 그리고 블록 안에서 가로 스크롤한다. `display:flex`의 flex-shrink가 실제 제약이어서 `max-width:none`만으로는 안 되고 `flex:none` + 명시적 `width`(viewBox에서 읽은 `--diagram-w`)가 필요했다(Chromium 실측).
+- **앱 테마 연동** — mermaid 기본 팔레트(흰 배경·노란 노트)가 dark/paper에서 문서와 튀던 것을, 앱 5토큰에서 파생한 `themeVariables`로 `base` 테마를 구성해 맞췄다.
+- **회귀 픽스처 5종** — `docs/samples/mermaid-gallery.md`에 긴 한글 라벨·다행 라벨+노트·와이드 서브그래프·xychart(수직정렬)·고의 문법 오류 블록 추가.
+
 ## [0.6.6]
 
 v0.6.5 실사용 후속 수정 — 편집기 커서/렌더 오작동 1건. 로컬 검증(`tsc`·`vite build`) + 릴리스 빌드(신규 경고 0) + dev 빌드 실사용 확인 통과.
