@@ -22,6 +22,7 @@
 - [개발 노트·주의사항](notes/development.md)
 - [변경 로그](CHANGELOG.md)
 - [HTML 시안 모음](mockups/README.md)
+- [소개 영상 — 스토리보드·카피·촬영 재현](video/copy.md)
 
 ## 폴더 규약
 - `design/` 설계 문서(md) · `deployment/` 배포 절차 · `legal/` 법무 · `mockups/` html 시안 · `notes/` 메모/주의사항 · `assets/` 공용 이미지·다이어그램.
