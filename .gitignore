@@ -25,6 +25,12 @@ release/**/*.pfx
 release/**/*.cer
 release/**/*_portable/
 
+# 소개 영상(Remotion) — 로컬 전용. 스크린샷·mp4·node_modules 때문에 저장소에 넣지 않는다.
+# Atlas(start/video)·Clowder(deck/video)와 같은 방침 — 워킹트리 사본이 유일 원본이다.
+# 스토리보드·카피는 docs/video/copy.md 로 추적한다.
+# 앞의 슬래시가 없으면 docs/video/ 까지 같이 무시된다 — 루트에 고정한다.
+/video/
+
 # Logs / temp
 *.log
 
