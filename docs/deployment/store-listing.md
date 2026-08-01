@@ -91,6 +91,16 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v0.6.9 — ko-KR
+- **다이어그램 도형 안 글자가 가로로 잘리던 문제 수정** — 순서도와 ER 다이어그램에서 도형 안 글자가 마지막 글자에 못 미쳐 중간에서 끊겨 보이던 문제를 고쳤습니다. 한글과 영문 모두 해당됐고, 확대율이나 글꼴을 바꿔도 그대로였습니다.
+- 언어를 바꾼 뒤 다이어그램의 한글 글꼴이 달라지던 것도 함께 고쳤습니다.
+- 참고: 도형 안 글자를 그리는 방식이 바뀌면서 **노드 라벨 안의 아이콘·이미지·수식은 렌더되지 않습니다**(본문 수식은 그대로).
+
+### v0.6.9 — en-US
+- **Fixed diagram labels being cut off horizontally** — in flowcharts and ER diagrams, text inside shapes stopped short of the last character. It affected Korean and Latin alike and did not change with zoom or font.
+- Also fixed the diagram's Korean font changing after you switch the app language.
+- Note: because text inside shapes is now drawn differently, **icons, images and math inside node labels no longer render** (body math is unaffected).
+
 ### v0.6.8 — ko-KR
 - **단축키 도움말(F1)** — 어떤 단축키가 있는지 알 방법이 없던 것을, `F1`로 여는 전체 목록으로 정리했습니다. 명령 팔레트와 우클릭 메뉴에도 단축키를 표시합니다.
 - **문단 서식 단축키** — 제목(`Ctrl+1~6`)·인용문·코드 블록·취소선·목록(글머리/번호/체크박스)·`Tab` 들여쓰기·`Shift+Enter` 줄바꿈.
@@ -220,3 +230,5 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.6.6 업데이트 제출** — `release/v0.6.6/README_0.6.6_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.6** 문구 — **게시 완료**(2026-07-30 확인: `Get-AppxPackage SlnU.README.md` → `0.6.6.0` · `SignatureKind=Store`)
 - [ ] **v0.6.7 업데이트 제출** — `release/v0.6.7/README_0.6.7_x64.msix`(동일 실신원) 배포 준비 완료(2026-07-30). **미제출 — v0.6.8이 상위 버전이라 건너뛰어도 무방**
 - [x] **v0.6.8 업데이트 제출** — `release/v0.6.8/README_0.6.8_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.8** 문구 — **제출 완료(2026-07-30), 인증·게시 대기**
+- [ ] **v0.6.9 업데이트 제출** — `release/v0.6.9/README_0.6.9_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.9** 문구.
+  ⚠️ **v0.6.8 인증이 끝난 뒤에 올린다** — Partner Center 는 제출이 진행 중이면 새 제출을 받지 않는다. 취소하고 v0.6.9 로 대체하면 인증 큐가 리셋되므로, v0.6.8 게시를 기다렸다가 다음 업데이트로 올리는 쪽을 권한다(v0.6.7 을 건너뛴 선례 있음).
