@@ -16,7 +16,9 @@ export interface FontPreset {
 }
 
 // 번들 폰트 @font-face — 메인 문서 head + 미리보기 iframe 양쪽에 주입한다.
-const abs = (u: string) => new URL(u, window.location.href).href;
+// window 가드: 이 모듈은 renderDoc.ts 를 거쳐 vitest(node 환경)에서도 로드된다. 브라우저에서는
+// 동작이 그대로고, node 에서는 상대 URL 그대로 둔다(테스트는 @font-face 를 보지 않는다).
+const abs = (u: string) => (typeof window === "undefined" ? u : new URL(u, window.location.href).href);
 export const FONT_FACE_CSS = [
   `@font-face{font-family:'Lora';font-style:normal;font-weight:400;font-display:swap;src:url('${abs(loraR)}') format('woff2')}`,
   `@font-face{font-family:'Lora';font-style:italic;font-weight:400;font-display:swap;src:url('${abs(loraI)}') format('woff2')}`,

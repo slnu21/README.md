@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>mermaid probe</title>
+    <!-- 개발 전용 하네스. 프로덕션 번들에 들어가지 않는다 — Vite 진입점은 src/index.html 하나뿐이고
+         그 그래프는 app/dev/ 를 import 하지 않는다. tools/mermaid-probe.mjs 가 이 페이지를 띄운다. -->
+    <!-- 스타일을 여기에 두지 않는다. 측정 스테이지가 이 문서에 붙으므로, 문맥은 오직
+         app/App.css(하네스가 import)에서만 와야 앱 문서와 같아진다. -->
+  </head>
+  <body>
+    <p>mermaid probe — running…</p>
+    <script type="module" src="./mermaidProbe.ts"></script>
+  </body>
+</html>

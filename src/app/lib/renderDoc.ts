@@ -6,6 +6,16 @@
 import { themes, defaultThemeId } from "../themes";
 import { FONT_FACE_CSS, BASE_READER_PX } from "./fonts";
 
+/** 다이어그램 전용 글꼴. mermaid 기본 스택("trebuchet ms",verdana,arial,sans-serif)에는 **한글
+ *  글리프가 없어** 한글이 전부 문서별 폴백으로 해결됐다 → 측정 문서와 표시 문서가 서로 다른 face를
+ *  고를 수 있어 라벨 폭이 어긋났다. 한글 face를 명시해 양쪽을 못박는다.
+ *  본문 읽기 글꼴을 따라가지 않는 이유: 번들 웹폰트는 로드 대기·font-display:swap 타이밍에 따라
+ *  측정 후 글꼴이 바뀔 수 있고, 그러면 지오메트리가 다시 어긋난다(v0.6.6 편집기 버그와 같은 함정).
+ *  lib/mermaid.ts 의 `fontFamily`·`themeVariables` 와 아래 DIAGRAM_CTX_CSS 가 **같은 리터럴**을
+ *  써야 하므로 여기(공유 상수 자리)에 둔다. */
+export const DIAGRAM_FONT = `"Trebuchet MS","Malgun Gothic",Verdana,Arial,sans-serif`;
+export const DIAGRAM_FONT_PX = 16;
+
 /** mermaid 측정(앱 문서)↔표시(이 문서)에서 **상속되는** 속성을 양쪽 동일하게 고정한다.
  *
  *  mermaid는 sandbox iframe 안에서 실행될 수 없어(스크립트 차단) 앱 문서에서 재고 여기서 보여준다.
@@ -14,10 +24,16 @@ import { FONT_FACE_CSS, BASE_READER_PX } from "./fonts";
  *  (body{line-height:1.75})의 차이가 그대로 라벨 상자 오차가 되어 foreignObject 경계에서 잘렸다.
  *  text-rendering도 앱은 optimizeLegibility, 여기 기본은 auto라 글자 폭이 계통적으로 어긋났다.
  *
+ *  font-family·font-size 도 함께 고정한다(v0.6.9). 지금은 mermaid가 SVG에 심는
+ *  `#mmd-N{font-family;font-size}` 가 양쪽을 재워 주지만, 그 <style> 이나 svg의 id 가 정화에서
+ *  사라지는 순간 측정은 --ui-font, 표시는 --read-font(세리프!)가 되어 조용히 크게 어긋난다.
+ *  여기서 못박아 두면 그 단일 실패점이 사라진다(#mmd-N 이 살아 있으면 특이도상 그쪽이 이겨 무해).
+ *
  *  **한쪽만 바뀌면 버그가 재발하므로 lib/mermaid.ts 측정 스테이지와 이 상수를 반드시 공유한다.** */
 export const DIAGRAM_CTX_CSS =
   "line-height:normal;text-rendering:auto;letter-spacing:normal;word-spacing:normal;" +
-  "font-kerning:auto;font-variant-ligatures:normal;-webkit-font-smoothing:antialiased";
+  "font-kerning:auto;font-variant-ligatures:normal;-webkit-font-smoothing:antialiased;" +
+  `font-family:${DIAGRAM_FONT};font-size:${DIAGRAM_FONT_PX}px`;
 
 // iframe/문서 내부(리더) 스타일. 색은 주입된 5토큰 사용, 폰트는 --read-font(주입) + 시스템 폴백.
 export const PREVIEW_CSS = `
