@@ -2156,3 +2156,30 @@ body {
     margin: 0 2px;
   }
 }
+
+/* ── mermaid 측정 스테이지 격리 (v0.6.9) ───────────────────────────────────────────
+   미리보기 iframe은 스크립트가 차단돼 mermaid를 안에서 못 돌린다 → **앱 문서에서 재고
+   미리보기 문서에서 보여준다**(lib/mermaid.ts measureStage). 그래서 이 파일의 규칙이
+   다이어그램에 그대로 적용된다.
+
+   mermaid는 모든 노드 그룹에 `class="node"`를 붙이는데, 위 워크스페이스 트리 행도 `.node`다
+   (`font-size:13px`). 그 결과 라벨을 **13px로 재고 미리보기에서 16px로 그려** 폭이 정확히
+   123%(16/13) 어긋났다 — v0.6.8에서 flowchart·ER 라벨이 글자 중간에 잘리던 실제 원인이다.
+
+   revert = author 원점 되돌리기. `#id .class`(1,1,0)가 `.node`(0,1,0)는 이기고 mermaid 자신의
+   `#mmd-N …` 규칙과 인라인 스타일에는 지므로 딱 필요한 만큼만 걷힌다.
+   **새 UI 클래스명이 mermaid와 겹치면(.label/.cluster/.actor/.edgeLabel …) 여기에 추가할 것.**
+   검사: `cd src; npm run probe:mermaid` 의 불변식 (ii-a)/(ii-b). */
+#mermaid-measure-stage .node {
+  display: revert;
+  align-items: revert;
+  gap: revert;
+  height: revert;
+  padding: revert;
+  border-radius: revert;
+  color: revert;
+  font-size: revert;
+  cursor: revert;
+  user-select: revert;
+  transition: revert;
+}

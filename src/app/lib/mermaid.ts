@@ -2,7 +2,7 @@
 // 무거운 라이브러리는 최초 mermaid 블록이 있을 때만 동적 import(코드 스플리팅) → 초기 번들 제외.
 // 렌더된 SVG는 sanitizeSvg 로 정화하며, srcdoc 은 정적 SVG만 담으므로 sandbox 격리가 유지된다.
 import { sanitizeSvg } from "./sanitize";
-import { DIAGRAM_CTX_CSS } from "./renderDoc";
+import { DIAGRAM_CTX_CSS, DIAGRAM_FONT, DIAGRAM_FONT_PX } from "./renderDoc";
 import { themes, defaultThemeId } from "../themes";
 
 let mermaidMod: Promise<typeof import("mermaid")> | null = null;
@@ -10,32 +10,39 @@ const loadMermaid = () => (mermaidMod ??= import("mermaid"));
 
 let seq = 0;
 
-/** 다이어그램 전용 글꼴. mermaid 기본 스택("trebuchet ms",verdana,arial,sans-serif)에는 **한글
- *  글리프가 없어** 한글이 전부 문서별 폴백으로 해결됐다 → 측정 문서와 표시 문서가 서로 다른 face를
- *  고를 수 있어 라벨 폭이 어긋났다. 한글 face를 명시해 양쪽을 못박는다.
- *  본문 읽기 글꼴을 따라가지 않는 이유: 번들 웹폰트는 로드 대기·font-display:swap 타이밍에 따라
- *  측정 후 글꼴이 바뀔 수 있고, 그러면 지오메트리가 다시 어긋난다(v0.6.6 편집기 버그와 같은 함정). */
-const DIAGRAM_FONT = `"Trebuchet MS","Malgun Gothic",Verdana,Arial,sans-serif`;
+/** 측정 스테이지의 id. App.css가 이 안에서 트리 행 규칙(.node)을 되돌리는 데 쓴다 —
+ *  mermaid도 노드 그룹에 class="node"를 붙이기 때문(v0.6.9, 아래 measureStage 주석 참고). */
+export const MEASURE_STAGE_ID = "mermaid-measure-stage";
 
 /** mermaid가 렌더·측정에 쓸 화면 밖 컨테이너(재사용 1개).
  *  mermaid.render(id, src, svgContainingElement)에 넘기면 document.body 대신 여기에 렌더하므로
- *  ① 미리보기와 동일한 상속 문맥(DIAGRAM_CTX_CSS)에서 측정되고 ② 앱 본문에 임시 SVG가 튀지 않는다. */
+ *  ① 미리보기와 동일한 상속 문맥(DIAGRAM_CTX_CSS)에서 측정되고 ② 앱 본문에 임시 SVG가 튀지 않는다.
+ *
+ *  **앱 CSS 오염 주의(v0.6.9).** 이 스테이지는 앱 문서 안에 있으므로 App.css가 그대로 적용된다.
+ *  mermaid는 노드 그룹에 `class="node"`를 붙이는데 워크스페이스 트리 행도 `.node`다 —
+ *  `App.css .node{font-size:13px}`가 다이어그램 라벨에 걸려 **13px로 재고 미리보기에서 16px로
+ *  그리게** 됐다(= 라벨 폭 123%, v0.6.8 잘림의 실제 원인). App.css 끝의 `#mermaid-measure-stage .node`
+ *  규칙이 그 한 겹을 되돌린다. 새 UI 클래스명이 mermaid와 겹치면 같은 방식으로 막을 것. */
 let stage: HTMLDivElement | null = null;
 function measureStage(): HTMLDivElement {
-  if (stage?.isConnected) return stage;
-  stage = document.createElement("div");
-  // display:none 은 금물 — 레이아웃이 죽어 getBBox/getComputedTextLength가 0을 돌려준다.
-  stage.setAttribute(
-    "style",
-    `position:fixed;left:-99999px;top:0;width:1200px;pointer-events:none;${DIAGRAM_CTX_CSS}`,
-  );
-  stage.lang = document.documentElement.lang || "ko"; // 한글 폴백 face를 미리보기와 일치시킨다
-  document.body.appendChild(stage);
+  if (!stage?.isConnected) {
+    stage = document.createElement("div");
+    stage.id = MEASURE_STAGE_ID;
+    // display:none 은 금물 — 레이아웃이 죽어 getBBox/getComputedTextLength가 0을 돌려준다.
+    stage.setAttribute(
+      "style",
+      `position:fixed;left:-99999px;top:0;width:1200px;pointer-events:none;${DIAGRAM_CTX_CSS}`,
+    );
+    document.body.appendChild(stage);
+  }
+  // lang은 매번 갱신한다. 생성 시 한 번만 잡으면 언어 토글(App.tsx가 document.documentElement.lang을
+  // 바꾼다) 이후 측정 문서와 buildDoc(renderDoc.ts)의 lang이 어긋나 한글 폴백 face가 갈린다.
+  stage.lang = document.documentElement.lang || "ko";
   return stage;
 }
 
 /** SVG viewBox("minX minY W H")의 W. 못 읽으면 null → CSS가 width:auto 폴백(=맞춤과 동일 동작). */
-function viewBoxWidth(svg: Element | null): number | null {
+export function viewBoxWidth(svg: Element | null): number | null {
   // HTML 파서가 SVG 속성 대소문자를 교정하지만(viewbox→viewBox) 방어적으로 둘 다 본다.
   const vb = svg?.getAttribute("viewBox") ?? svg?.getAttribute("viewbox");
   const w = vb ? Number(vb.trim().split(/[\s,]+/)[2]) : NaN;
@@ -59,15 +66,35 @@ function mix(a: string, b: string, t: number): string {
   return `#${ch(r1, r2)}${ch(g1, g2)}${ch(b1, b2)}`;
 }
 
-/** 앱 테마 5토큰 → mermaid 테마 설정. themeVariables를 존중하는 mermaid 테마는 "base" 뿐이다.
+/** mermaid.initialize 인자 전체. 순수 함수라 DOM 없이 단위 테스트할 수 있다(lib/mermaid.test.ts).
+ *
+ *  앱 테마 5토큰 → mermaid 테마 설정. themeVariables를 존중하는 mermaid 테마는 "base" 뿐이다.
  *  기본 팔레트(흰 배경·노란 노트)는 dark/paper에서 문서와 심하게 튄다.
- *  회귀 시 되돌림: 이 호출을 `theme: t.type === "dark" ? "dark" : "default"` 한 줄로 교체. */
-function diagramTheme(themeId: string) {
+ *  회귀 시 되돌림: theme/themeVariables를 `theme: t.type === "dark" ? "dark" : "default"`로 교체. */
+export function diagramConfig(themeId: string) {
   const t = themes[themeId] ?? themes[defaultThemeId];
   const bg = t.tokens["--bg"];
   const fg = t.tokens["--fg"];
   const accent = t.tokens["--accent"];
   return {
+    startOnLoad: false,
+    securityLevel: "strict" as const,
+    // 측정 스테이지 div에도 박히는 값(mermaid가 divStyle로 씀) — themeVariables 쪽과 짝을 맞춘다.
+    fontFamily: DIAGRAM_FONT,
+
+    // ── 라벨을 SVG <text>로 (v0.6.9) ─────────────────────────────────────────────
+    // **최상위 키가 진짜다.** mermaid 11.16.0의 labelHelper(모든 노드 셰이프 공용)는
+    // `evaluate(getConfig()?.htmlLabels)` 로 **최상위만** 읽는다(chunk-ZGVPDNZ5.mjs:43).
+    // 기본 설정에 최상위 htmlLabels가 없어 `evaluate(undefined)`는 true → 노드 라벨이
+    // <foreignObject> HTML로 나가고, 그 폭이 앱 문서에서 잰 값으로 얼어붙은 뒤 미리보기 문서에서
+    // 다시 배치돼 overflow:hidden에 잘렸다(v0.6.8).
+    htmlLabels: false,
+    // 아래 flowchart 키는 **중복이 아니다.** 지우지 말 것:
+    //  · getEffectiveHtmlLabels(chunk-WYO6CB5R.mjs:4963)는 `htmlLabels ?? flowchart.htmlLabels ?? true`
+    //    인데 flowchart.htmlLabels 기본값이 null이라, 이 줄이 없으면 간선 라벨·서브그래프 제목이 HTML이 된다.
+    //  · swimlane 클러스터(:329)와 triangle 셰이프(:4136)는 flowchart.htmlLabels를 **직접** 읽는다.
+    flowchart: { htmlLabels: false },
+
     theme: "base" as const,
     themeVariables: {
       darkMode: t.type === "dark",
@@ -86,13 +113,13 @@ function diagramTheme(themeId: string) {
       noteBkgColor: mix(accent, bg, 0.14), // 기본값 #fff5ad(노랑)은 3테마 모두에서 튄다
       noteTextColor: fg,
       fontFamily: DIAGRAM_FONT,
-      fontSize: "16px",
+      fontSize: `${DIAGRAM_FONT_PX}px`,
     },
   };
 }
 
 /** base64(UTF-8) → mermaid 소스. lib/markdown.ts encodeMermaidSrc 와 짝. */
-function decodeMermaidSrc(b64: string): string {
+export function decodeMermaidSrc(b64: string): string {
   if (!b64) return "";
   try {
     const bin = atob(b64);
@@ -110,19 +137,11 @@ export async function renderMermaid(html: string, themeId: string): Promise<stri
   if (nodes.length === 0) return html;
 
   const mermaid = (await loadMermaid()).default;
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: "strict",
-    // 측정 스테이지 div에도 박히는 값(mermaid가 divStyle로 씀) — themeVariables 쪽과 짝을 맞춘다.
-    fontFamily: DIAGRAM_FONT,
-    ...diagramTheme(themeId),
-    // 다이어그램이 안 나오던 두 근본 원인은 아래에서 해결됨:
-    //  1) flowchart/sequence/class/state/quadrant가 통째로 안 나오던 것 → 소스의 `-->` 등 때문에
-    //     data-src가 DOMPurify(mXSS 방지)에 지워지던 문제 → markdown.ts에서 base64로 실어 해결.
-    //  2) foreignObject 라벨 글자가 비던 것 → sanitize.ts에서 foreignobject를 HTML 통합지점으로 등록해 해결.
-    // htmlLabels:false는 이전 설정 유지(라벨은 이제 SVG text·foreignObject 어느 쪽이든 정상 렌더).
-    flowchart: { htmlLabels: false },
-  });
+  // 다이어그램이 통째로 안 나오던 과거 두 원인은 아래에서 해결됨(회귀 시 함께 볼 것):
+  //  1) 소스의 `-->` 등 때문에 data-src가 DOMPurify(mXSS 방지)에 지워지던 문제
+  //     → markdown.ts에서 base64로 실어 해결.
+  //  2) foreignObject 라벨 글자가 비던 것 → sanitize.ts에서 foreignobject를 HTML 통합지점으로 등록.
+  mermaid.initialize(diagramConfig(themeId));
 
   for (const node of nodes) {
     const src = decodeMermaidSrc(node.getAttribute("data-src") ?? "");
