@@ -65,8 +65,13 @@ CREATE TABLE file_meta (          -- 증분 재인덱싱 판단(FTS는 mtime/siz
 ## 갱신 규칙
 - **가져오기**: `ws_import_folder` 로 imported_folder 루트 노드 추가 → 프런트가 `search_index_folder` 로 백그라운드 인덱싱(별도 연결).
 - **파일 감시(notify)**: imported 루트를 재귀 감시. 외부 변경 시 `file_index`/`file_meta` 증분 갱신(md/markdown/mdx/txt, ≤2MB), `index-updated` + `file-changed` emit. `file_meta.mtime/size` 동일하면 skip.
+  - **소음 필터(v0.7.0)**: 루트 기준 상대 경로에 숨김(`.`)·`SKIP_DIRS`(node_modules·.git·target·dist·.vs·.idea) 컴포넌트가 있으면 이벤트를 버린다. 트리도 인덱스도 안 보는 곳인데 재귀 감시라 이벤트만 올라오고 있었다.
+  - **`fs-structural`(v0.7.0)**: 구조 변경(`Create`·`Remove`·`Modify(Name)`)만 별도 emit → 프런트가 트리 재파생. Windows 백엔드는 **내용 변경을 `Modify(Any)` 로 주므로** 그건 제외한다(앱 자신의 저장마다 전체 재스캔이 도는 것을 막는다).
+- **부팅 재색인(v0.7.0)**: `hydrate()` 후 imported 루트마다 `search_index_folder`. 앱이 꺼진 동안의 추가·삭제를 여기서 반영한다.
+- **prune(v0.7.0)**: `index_folder` 가 walk 하며 본 경로를 모아 두었다가, `file_meta` 에만 남은 행을 지운다. 증분 색인은 추가·수정만 반영해 삭제된 파일이 검색 결과에 계속 남았다. 하위 판정은 `under_root`(구분자 경계 요구) — `LIKE 'path%'` 만 쓰면 형제 접두어(`C:\a` → `C:\ab\x.md`)까지 지우고, 경로 안의 `%`·`_` 가 와일드카드로 먹는다.
 - **즐겨찾기/최근**: `favorite`(토글)·`recent`(upsert + 상한 50) 갱신.
-- **삭제**: 노드 삭제는 FTS 무관(D1). 디스크 삭제(notify Remove) 또는 언임포트 시 `search_remove_path`(prefix) 로 인덱스 정리.
+- **삭제**: 노드 삭제는 FTS 무관(D1). 디스크 삭제(notify Remove) 시 `search_remove_path` 로 인덱스 정리.
+  - **알려진 구멍**: 언임포트(`ws_delete`)는 인덱스를 건드리지 않는다. 같은 `realPath` 가 두 부모 아래 import 될 수 있어(`find_by_parent_path` 는 부모별 중복만 막는다) 무조건 지우면 안 되기 때문. 필요해지면 "남은 imported_folder 중 그 경로를 덮는 게 없을 때만 정리"로 조건부 처리할 것.
 
 ## 이식성
 - 워크스페이스 정의(노드 트리)는 **JSON export/import**(`ws_export`/`ws_import`) → 백업·다른 PC 이동. **FTS 인덱스는 이식하지 않고 재생성**(가져오기 후 각 imported 루트 재인덱싱).
