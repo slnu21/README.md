@@ -10,6 +10,8 @@ import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { PromptModal, type PromptSpec } from "./PromptModal";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
 import { showFullNameOnClip } from "../lib/hoverName";
+import { pickDefaultDir } from "../lib/paths";
+import { createDocAt, createDocIn, type NewDocResult } from "../features/workspace/newDoc";
 
 const isFolderKind = (k: TreeKind) =>
   k === "virtual_folder" || k === "imported_folder" || k === "disk_folder";
@@ -374,10 +376,53 @@ export function WorkspaceTree() {
     if (p) void importFolderTo(parentId, p);
   }
 
+  /** 새 문서 실패를 사용자 언어로. `exists` 는 원본을 건드리지 않았음을 함께 알린다. */
+  function showDocError(r: Extract<NewDocResult, { ok: false }>) {
+    const key =
+      r.reason === "exists"
+        ? "dialog.nameErrExists"
+        : r.reason === "io"
+          ? "dialog.nameErrIo"
+          : `dialog.nameErr${r.reason === "illegal-chars" ? "Illegal" : r.reason === "too-long" ? "Long" : r.reason.charAt(0).toUpperCase() + r.reason.slice(1)}`;
+    setConfirm({
+      title: t("dialog.nameErrTitle"),
+      message: t(key, { detail: r.detail ?? "" }),
+      saveLabel: t("menu.ok"),
+      onSave: () => {},
+    });
+  }
+
+  /** 실제 디스크 폴더 안에 새 문서(가져온 폴더 루트·그 하위 폴더 우클릭). */
+  function newDocPrompt(dir: string) {
+    setPrompt({
+      title: t("ws.docName"),
+      initial: t("ws.docNameDefault"),
+      onOk: (name) =>
+        void createDocIn(dir, name).then((r) => {
+          if (!r.ok) showDocError(r);
+        }),
+    });
+  }
+
+  /** 가상 폴더에는 디스크 경로가 없다 → 저장 위치를 물어 만들고 참조를 그 폴더에 넣는다. */
+  async function newDocForVirtual(parentId: string) {
+    const st = useAppStore.getState();
+    const dir = pickDefaultDir(st.activePath, st.recent);
+    const base = `${t("ws.docNameDefault")}.md`;
+    const path = await saveFile(dir ? `${dir}/${base}` : base, [
+      { name: "Markdown", extensions: ["md", "markdown", "mdx", "txt"] },
+    ]);
+    if (!path) return;
+    const r = await createDocAt(path);
+    if (r.ok) void addFileRefTo(parentId, r.path);
+    else showDocError(r);
+  }
+
   function menuItems(n: TreeNode): MenuItem[] {
     const items: MenuItem[] = [];
     if (n.kind === "virtual_folder" && n.id) {
       const id = n.id;
+      items.push({ label: t("ws.newDoc"), onClick: () => void newDocForVirtual(id) });
       items.push({ label: t("ws.newSubfolder"), onClick: () => newFolderPrompt(id) });
       items.push({ label: t("ws.addFile"), onClick: () => void addFilePrompt(id) });
       items.push({ label: t("ws.importFolder"), onClick: () => void importFolderInto(id) });
@@ -389,6 +434,7 @@ export function WorkspaceTree() {
       items.push({ label: t("ws.removeFromWs"), danger: true, onClick: () => void removeNode(id) });
     } else if (n.kind === "imported_folder" && n.id) {
       const id = n.id;
+      if (n.realPath) items.push({ label: t("ws.newDoc"), onClick: () => newDocPrompt(n.realPath!) });
       // 트리는 렌더할 때마다 디스크에서 파생되므로 "다시 스캔"은 재파생 + 검색 색인 갱신이다.
       items.push({ label: t("ws.resync"), onClick: () => void resyncWorkspace() });
       items.push({
@@ -406,6 +452,10 @@ export function WorkspaceTree() {
           onClick: () => void toggleFavorite(n.realPath!),
         });
       items.push({ label: t("ws.removeFromWs"), danger: true, onClick: () => void removeNode(id) });
+    } else if (n.kind === "disk_folder" && n.realPath) {
+      // 이 kind 가 메뉴를 갖는 건 처음이다(여태 빈 배열이라 우클릭 자체가 무시됐다).
+      // 실제 디스크 경로를 가진 유일한 파생 노드라 "여기에 새 문서"의 제자리다.
+      items.push({ label: t("ws.newDoc"), onClick: () => newDocPrompt(n.realPath!) });
     } else if (n.kind === "disk_file" && n.realPath) {
       const rp = n.realPath;
       const fav = favorites.includes(rp);

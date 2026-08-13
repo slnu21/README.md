@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, collectImportedPaths, type TreeNode } from "../store";
 import { themes } from "../themes";
-import { pickFile, pickFolder, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, openExternal, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
+import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, openExternal, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
@@ -23,7 +23,8 @@ import { ShortcutHelp } from "./ShortcutHelp";
 import { editorActions, keyHint } from "../features/editor/actions";
 import { exportHtml, exportToPdf, copyHtml, type ExportParams } from "../features/export";
 import { READABLE_RE, isReadable } from "../lib/fileTypes";
-import { dirOf } from "../lib/paths";
+import { dirOf, pickDefaultDir } from "../lib/paths";
+import { createDocAt } from "../features/workspace/newDoc";
 import { bytesToBase64 } from "../lib/bytes";
 import { showFullNameOnClip } from "../lib/hoverName";
 import type { TocItem } from "../lib/markdown";
@@ -183,6 +184,11 @@ export function AppShell() {
         return;
       }
       if (!(e.ctrlKey || e.metaKey)) return;
+      if (!e.shiftKey && !e.altKey && (e.key === "n" || e.key === "N")) {
+        e.preventDefault(); // WebView2 가 새 창으로 먹으면 여기까지 안 온다(버튼·팔레트가 본체)
+        newDocRef.current();
+        return;
+      }
       if (e.key === "p" || e.key === "P") {
         e.preventDefault(); // 웹뷰 인쇄 대화상자 방지
         const want = e.shiftKey ? "command" : "file";
@@ -279,6 +285,47 @@ export function AppShell() {
     await importFolder(path);
   }
 
+  // 새 문서(전역) — 저장 위치를 먼저 묻고 빈 파일을 만든 뒤 탭으로 연다. 워크스페이스 폴더를
+  // 우클릭하는 쪽(WorkspaceTree)이 더 빠른 길이고, 이건 열린 폴더가 없을 때도 되는 보편 경로다.
+  async function onNewDoc() {
+    const st = useAppStore.getState();
+    const dir = pickDefaultDir(st.activePath, st.recent);
+    const base = `${t("ws.docNameDefault")}.md`;
+    const path = await saveFile(dir ? `${dir}/${base}` : base, [
+      { name: "Markdown", extensions: ["md", "markdown", "mdx", "txt"] },
+    ]);
+    if (!path) return;
+    const r = await createDocAt(path);
+    if (r.ok) return;
+    // 저장 대화상자는 기존 파일을 고르면 OS 가 이미 "바꾸시겠습니까?"를 물은 뒤다. 그래도
+    // create_new 는 거절한다 — 새 문서를 만들려다 남의 문서를 날리는 게 최악이므로 한 번 더 묻는다.
+    if (r.reason === "exists") {
+      setConfirm({
+        title: t("dialog.nameErrTitle"),
+        message: t("dialog.nameErrExists"),
+        saveLabel: t("dialog.existsOpenInstead"),
+        discardLabel: t("dialog.existsBlank"),
+        danger: true,
+        onSave: () => void readFile(path).then((c) => openFile(path, c)).catch(() => {}),
+        onDiscard: () =>
+          void writeFile(path, "")
+            .then(() => openFile(path, ""))
+            .catch(() => {}),
+      });
+      return;
+    }
+    setConfirm({
+      title: t("dialog.nameErrTitle"),
+      message: t("dialog.nameErrIo", { detail: r.detail ?? "" }),
+      saveLabel: t("menu.ok"),
+      onSave: () => {},
+    });
+  }
+  // 전역 키 이펙트는 [] 로 한 번만 등록하므로 그 안의 클로저는 첫 렌더에 얼어붙는다
+  // (언어를 바꿔도 옛 t 로 문구를 낸다). 최신 핸들러를 ref 로 들고 그걸 부른다.
+  const newDocRef = useRef<() => void>(() => {});
+  newDocRef.current = () => void onNewDoc();
+
   // 탭 포인터 드래그 재정렬. 임계값(5px) 초과 시에만 드래그로 간주(클릭=활성화 보존).
   const tabDrag = useRef<{ path: string; startX: number; moved: boolean } | null>(null);
   const justDraggedTab = useRef(false);
@@ -358,6 +405,7 @@ export function AppShell() {
     const add = (id: string, label: string, run: () => void, enabled = true) => {
       if (enabled) cmds.push({ id, label, run });
     };
+    add("new-doc", t("menu.newFile"), () => void onNewDoc());
     add("open-file", t("menu.openFile"), () => void onOpenFile());
     add("open-folder", t("menu.openFolder"), () => void onOpenFolder());
     add("resync", t("ws.resyncAll"), () => void useAppStore.getState().resyncWorkspace());
@@ -1038,7 +1086,8 @@ export function AppShell() {
                 </div>
               )}
             </div>
-            <button type="button" className="tab-add" aria-label={t("menu.openFile")} title={t("menu.openFile")} onClick={onOpenFile}>
+            {/* 탭 옆 + 는 보편적으로 "새 문서"다. 파일 열기는 타이틀바에 이미 있다. */}
+            <button type="button" className="tab-add" aria-label={t("menu.newFile")} title={t("menu.newFile")} onClick={() => void onNewDoc()}>
               <Icon name="plus" />
             </button>
           </div>
@@ -1108,6 +1157,10 @@ export function AppShell() {
               <h2>{t("app.name")}</h2>
               <p>{ko ? "파일이나 폴더를 열어 시작하세요." : "Open a file or folder to get started."}</p>
               <div className="empty-actions">
+                <button type="button" onClick={() => void onNewDoc()}>
+                  <Icon name="plus" />
+                  {t("menu.newFile")}
+                </button>
                 <button type="button" onClick={onOpenFile}>
                   <Icon name="file" />
                   {t("menu.openFile")}
