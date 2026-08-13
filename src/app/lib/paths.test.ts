@@ -1,5 +1,75 @@
 import { describe, expect, it } from "vitest";
-import { anyUnderRoots, dirOf, isAbsolute, isUnderRoot, resolvePath } from "./paths";
+import {
+  anyUnderRoots,
+  dirOf,
+  isAbsolute,
+  isUnderRoot,
+  normalizeDocName,
+  pickDefaultDir,
+  resolvePath,
+} from "./paths";
+
+describe("normalizeDocName", () => {
+  it.each([
+    ["notes", "notes.md"],
+    ["notes.md", "notes.md"],
+    ["NOTES.MD", "NOTES.MD"], // 확장자 판정은 대소문자 무시, 이름은 그대로 보존
+    ["a.markdown", "a.markdown"],
+    ["a.mdx", "a.mdx"],
+    ["a.txt", "a.txt"],
+    ["v1.2", "v1.2.md"], // "점=확장자" 로 보면 확장자 .2 짜리 못 여는 파일이 된다
+    ["회의록", "회의록.md"],
+    ["2026-08-13 회고", "2026-08-13 회고.md"], // 공백·하이픈은 정상 문자
+    ["  spaced  ", "spaced.md"],
+    ["trailing...", "trailing.md"], // Windows 가 조용히 잘라내는 후행 점
+    ["trailing   ", "trailing.md"],
+    ["notes.png", "notes.png.md"], // 읽을 수 없는 확장자는 확장자로 안 친다
+  ])("%s → %s", (raw, want) => {
+    const r = normalizeDocName(raw);
+    expect(r.ok, `${raw}: ${r.error ?? ""}`).toBe(true);
+    expect(r.name).toBe(want);
+  });
+
+  it.each([
+    ["a/b", "separator"],
+    ["a\\b", "separator"],
+    ["a:b", "illegal-chars"],
+    ["a*b", "illegal-chars"],
+    ["a?b", "illegal-chars"],
+    ['a"b', "illegal-chars"],
+    ["a<b", "illegal-chars"],
+    ["a>b", "illegal-chars"],
+    ["a|b", "illegal-chars"],
+    ["a\u0001b", "illegal-chars"],
+    ["CON", "reserved"],
+    ["con.md", "reserved"],
+    ["LPT9.txt", "reserved"],
+    ["COM1", "reserved"],
+    ["", "empty"],
+    ["   ", "empty"],
+    [".", "empty"],
+    ["..", "empty"],
+    ["...", "empty"],
+    ["a".repeat(300), "too-long"],
+  ])("%s → 오류 %s", (raw, want) => {
+    const r = normalizeDocName(raw);
+    expect(r.ok).toBe(false);
+    expect(r.error).toBe(want);
+  });
+
+  // 예약어 검사가 과잉 매칭하면 멀쩡한 이름이 막힌다 — 경계를 못박는다.
+  it.each(["COM0", "COM10", "CONS", "CONTENTS.md", "AUXILIARY", "NULL.md"])(
+    "%s 는 예약어가 아니다",
+    (raw) => expect(normalizeDocName(raw).ok).toBe(true),
+  );
+});
+
+describe("pickDefaultDir", () => {
+  it("활성 문서 폴더 우선", () => expect(pickDefaultDir("C:/w/a.md", ["D:/x/b.md"])).toBe("C:/w"));
+  it("활성 없으면 최근", () => expect(pickDefaultDir(null, ["C:/w/b.md"])).toBe("C:/w"));
+  it("둘 다 없으면 빈 문자열", () => expect(pickDefaultDir(null, [])).toBe(""));
+  it("구분자 없는 경로는 빈 문자열", () => expect(pickDefaultDir("a.md", [])).toBe(""));
+});
 
 describe("isUnderRoot", () => {
   it.each([

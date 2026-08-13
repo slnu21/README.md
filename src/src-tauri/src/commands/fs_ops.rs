@@ -36,6 +36,36 @@ pub fn write_file_base64(path: String, b64: String) -> Result<(), String> {
     fs::write(&path, bytes).map_err(|e| e.to_string())
 }
 
+/// 새 문서 생성. 부모 폴더가 없으면 만들고, **이미 있으면 실패**한다.
+///
+/// `write_file` 을 쓰지 않는 이유: 그건 조용히 덮어쓴다. "새 문서 만들기"가 남의 문서를
+/// 날리면 안 된다. 프런트에서 path_exists 로 먼저 확인하는 방법도 있지만 확인과 쓰기 사이가
+/// 벌어져(TOCTOU) 완전하지 않다 — `create_new(true)` 는 OS 가 원자적으로 보장한다.
+/// 이미 있을 때만 "EEXIST" 를 돌려준다(프런트가 이 문자열로 분기해 지역화 메시지를 낸다).
+#[tauri::command]
+pub fn create_file(path: String, contents: Option<String>) -> Result<(), String> {
+    let p = Path::new(&path);
+    if let Some(dir) = p.parent() {
+        if !dir.as_os_str().is_empty() {
+            fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        }
+    }
+    let mut f = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(p)
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                "EEXIST".to_string()
+            } else {
+                e.to_string()
+            }
+        })?;
+    use std::io::Write;
+    f.write_all(contents.unwrap_or_default().as_bytes())
+        .map_err(|e| e.to_string())
+}
+
 /// 경로 존재 여부 — 이미지 저장 시 파일명 충돌을 피해 뒤 번호를 올리는 데 쓴다.
 #[tauri::command]
 pub fn path_exists(path: String) -> bool {

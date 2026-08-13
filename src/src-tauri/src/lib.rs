@@ -82,6 +82,7 @@ pub fn run() {
             commands::fs_ops::read_file_base64,
             commands::fs_ops::write_file,
             commands::fs_ops::write_file_base64,
+            commands::fs_ops::create_file,
             commands::fs_ops::path_exists,
             commands::fs_ops::path_is_dir,
             commands::fs_ops::read_dir_tree,

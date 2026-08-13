@@ -36,6 +36,11 @@ export function writeFileBase64(path: string, b64: string): Promise<void> {
   return invoke<void>("write_file_base64", { path, b64 });
 }
 
+/** 새 문서 생성. 부모 폴더가 없으면 만들고, **이미 있으면 "EEXIST" 로 거절**한다(덮어쓰지 않는다). */
+export function createFile(path: string, contents = ""): Promise<void> {
+  return invoke<void>("create_file", { path, contents });
+}
+
 /** 경로 존재 여부(이미지 파일명 충돌 회피용). */
 export function pathExists(path: string): Promise<boolean> {
   return invoke<boolean>("path_exists", { path });

@@ -43,7 +43,11 @@ collect("searchKeymap", searchKeymap);
 
 // 앱 전역(shell/AppShell.tsx 의 window keydown) — 상류가 아니라 우리가 처리한다.
 const APP_KEYS = new Set(
-  ["Mod-p", "Mod-Shift-p", "Mod-Shift-h", "Mod-s", "Mod-=", "Mod--", "Mod-0"].map(norm),
+  // F5·Mod-n 은 WebView2 가 브라우저 가속기로 먼저 가로챌 수 있다(리로드·새 창). 앱은 둘 다
+  // preventDefault 로 잡고 있고, 못 잡는 환경에서도 버튼·우클릭·팔레트로 같은 기능을 제공한다.
+  ["Mod-n", "F5", "Mod-p", "Mod-Shift-p", "Mod-Shift-h", "Mod-s", "Mod-=", "Mod--", "Mod-0"].map(
+    norm,
+  ),
 );
 
 describe("inheritedShortcuts — 도움말에 적은 키가 실제로 존재하는가", () => {

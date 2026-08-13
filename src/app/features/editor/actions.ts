@@ -269,6 +269,8 @@ export const inheritedShortcuts: InheritedShortcut[] = [
   { labelKey: "ed.undo", key: "Mod-z", group: "editing" },
   { labelKey: "ed.redo", key: "Mod-y", group: "editing" },
   // 앱 전역 — shell/AppShell.tsx
+  { labelKey: "ed.newDoc", key: "Mod-n", group: "app" },
+  { labelKey: "ed.resync", key: "F5", group: "app" },
   { labelKey: "ed.quickOpen", key: "Mod-p", group: "app" },
   { labelKey: "ed.palette", key: "Mod-Shift-p", group: "app" },
   { labelKey: "ed.globalFind", key: "Mod-Shift-h", group: "app" },
