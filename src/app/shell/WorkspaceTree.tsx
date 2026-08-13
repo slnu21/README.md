@@ -376,6 +376,15 @@ export function WorkspaceTree() {
     if (p) void importFolderTo(parentId, p);
   }
 
+  /** 리딩 모드에서 옆 패널로 열기 — 활성 탭은 그대로 두고 두 번째 패널에 건다. */
+  async function openBeside(path: string) {
+    try {
+      useAppStore.getState().openBeside(path, await readFile(path));
+    } catch (e) {
+      console.error("옆에서 열기 실패:", e);
+    }
+  }
+
   /** 새 문서 실패를 사용자 언어로. `exists` 는 원본을 건드리지 않았음을 함께 알린다. */
   function showDocError(r: Extract<NewDocResult, { ok: false }>) {
     const key =
@@ -446,11 +455,13 @@ export function WorkspaceTree() {
     } else if (n.kind === "file_ref" && n.id) {
       const id = n.id;
       const fav = n.realPath ? favorites.includes(n.realPath) : false;
-      if (n.realPath)
+      if (n.realPath) {
+        items.push({ label: t("tab.openBeside"), onClick: () => void openBeside(n.realPath!) });
         items.push({
           label: fav ? t("ws.unfavorite") : t("ws.favorite"),
           onClick: () => void toggleFavorite(n.realPath!),
         });
+      }
       items.push({ label: t("ws.removeFromWs"), danger: true, onClick: () => void removeNode(id) });
     } else if (n.kind === "disk_folder" && n.realPath) {
       // 이 kind 가 메뉴를 갖는 건 처음이다(여태 빈 배열이라 우클릭 자체가 무시됐다).
@@ -459,6 +470,9 @@ export function WorkspaceTree() {
     } else if (n.kind === "disk_file" && n.realPath) {
       const rp = n.realPath;
       const fav = favorites.includes(rp);
+      if (isReadable(n.name)) {
+        items.push({ label: t("tab.openBeside"), onClick: () => void openBeside(rp) });
+      }
       // 가져온 폴더의 개별 파일은 드래그로 옮길 수 없으므로, 참조(바로가기) 추가는 여기서 명시적으로.
       items.push({ label: t("ws.addRef"), onClick: () => void addFileRefTo(null, rp) });
       items.push({

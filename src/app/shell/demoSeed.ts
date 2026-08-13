@@ -42,6 +42,19 @@ const SAMPLE = [
   "[^1]: Footnotes render at the bottom.",
 ].join("\n");
 
+// 두 번째 문서 — 리딩 분할(나란히 보기)을 데모·레이아웃 프로브에서 확인하려면 탭이 둘 필요하다.
+const SAMPLE2 = [
+  "# Guide",
+  "",
+  "## 나란히 보기",
+  "리딩 모드에서 탭을 우클릭해 **옆에 나란히 열기**를 고르면 두 문서를 좌우로 놓고 읽습니다.",
+  "",
+  "## Side by side",
+  "In reading mode, right-click a tab and choose **Open beside** to read two documents at once.",
+  "",
+  "> 가운데 손잡이를 끌어 폭을 조절하고, 더블클릭하면 반반으로 돌아갑니다.",
+].join("\n");
+
 const TREE: DirEntryNode = {
   name: "docs",
   path: "C:/docs",
@@ -67,5 +80,7 @@ export function applyDemoFromUrl(): void {
   const lang = q.get("lang");
   if (lang) s.setLanguage(lang);
   s.addFolder(TREE);
+  // guide 를 먼저 열고 README 를 나중에 열어 README 가 활성이 되게 한다(openFile 이 활성을 가져간다).
+  s.openFile("C:/docs/guide.md", SAMPLE2);
   s.openFile("C:/docs/README.md", SAMPLE);
 }

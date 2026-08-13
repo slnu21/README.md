@@ -1,23 +1,29 @@
-// 편집/미리보기 분할 리사이저(기능 2). .split 컨테이너의 grid 비율을 드래그로 조정.
-// 드래그 중엔 DOM 스타일을 직접 갱신(rAF)하고, 놓을 때만 store(splitRatio)에 커밋(persist).
+// 분할 리사이저. .split 컨테이너의 grid 비율을 드래그로 조정.
+// 드래그 중엔 DOM 스타일을 직접 갱신(rAF)하고, 놓을 때만 store 에 커밋(persist).
+//
+// 앱에 두 개가 있다(편집:미리보기 / 리딩 분할의 좌:우). 둘은 **상호배타적으로 display:none**
+// 이라 화면에는 항상 하나만 있고, 그래서 paint() 의 "나는 3트랙의 가운데" 가정이 양쪽 다 참이다
+// (App.css 의 .seam-main / .seam-reader 규칙 참고). 트랙 인덱스 같은 걸 넘길 필요가 없다.
 import { useRef } from "react";
-import { useAppStore } from "../store";
+import { useTranslation } from "react-i18next";
 
 interface SeamProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   vertical: boolean; // 세로 스택(≤900px) 여부
+  ratio: number;
+  onChange: (r: number) => void;
+  className?: string;
 }
 
-export function Seam({ containerRef, vertical }: SeamProps) {
-  const splitRatio = useAppStore((s) => s.splitRatio);
-  const setSplitRatio = useAppStore((s) => s.setSplitRatio);
+export function Seam({ containerRef, vertical, ratio, onChange, className }: SeamProps) {
+  const { t } = useTranslation();
   const dragging = useRef(false);
   const raf = useRef(0);
 
-  // 컨테이너 rect 대비 포인터 위치 → 에디터 비율(0~1).
+  // 컨테이너 rect 대비 포인터 위치 → 앞 칸 비율(0~1).
   function ratioFrom(clientX: number, clientY: number): number {
     const el = containerRef.current;
-    if (!el) return splitRatio;
+    if (!el) return ratio;
     const rect = el.getBoundingClientRect();
     const raw = vertical ? (clientY - rect.top) / rect.height : (clientX - rect.left) / rect.width;
     return Math.min(0.8, Math.max(0.2, raw));
@@ -33,6 +39,7 @@ export function Seam({ containerRef, vertical }: SeamProps) {
       el.style.gridTemplateColumns = "1fr";
     } else {
       el.style.gridTemplateColumns = tmpl;
+      // React 를 우회해 DOM 에 직접 쓰므로 반대 축은 우리가 지워야 한다(React 가 대신 안 해 준다).
       el.style.gridTemplateRows = "";
     }
   }
@@ -55,7 +62,7 @@ export function Seam({ containerRef, vertical }: SeamProps) {
     dragging.current = false;
     e.currentTarget.releasePointerCapture(e.pointerId);
     if (raf.current) cancelAnimationFrame(raf.current);
-    setSplitRatio(ratioFrom(e.clientX, e.clientY)); // store에서 클램프 + persist
+    onChange(ratioFrom(e.clientX, e.clientY)); // store 에서 클램프 + persist
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -63,32 +70,32 @@ export function Seam({ containerRef, vertical }: SeamProps) {
     const dec = vertical ? "ArrowUp" : "ArrowLeft";
     const inc = vertical ? "ArrowDown" : "ArrowRight";
     if (e.key === dec) {
-      setSplitRatio(splitRatio - step);
+      onChange(ratio - step);
       e.preventDefault();
     } else if (e.key === inc) {
-      setSplitRatio(splitRatio + step);
+      onChange(ratio + step);
       e.preventDefault();
     } else if (e.key === "Home" || e.key === "Enter") {
-      setSplitRatio(0.5);
+      onChange(0.5);
       e.preventDefault();
     }
   }
 
   return (
     <div
-      className="seam"
+      className={className ? `seam ${className}` : "seam"}
       role="separator"
       tabIndex={0}
       aria-orientation={vertical ? "horizontal" : "vertical"}
       aria-label="resize"
-      aria-valuenow={Math.round(splitRatio * 100)}
+      aria-valuenow={Math.round(ratio * 100)}
       aria-valuemin={20}
       aria-valuemax={80}
-      title="드래그로 폭 조정 · 더블클릭 시 초기화"
+      title={t("view.seamHint")}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onDoubleClick={() => setSplitRatio(0.5)}
+      onDoubleClick={() => onChange(0.5)}
       onKeyDown={onKeyDown}
     />
   );

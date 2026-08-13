@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>layout probe</title>
+    <!-- 개발 전용 하네스. 프로덕션 번들에 들어가지 않는다 — Vite 진입점은 src/index.html 하나뿐이고
+         그 그래프는 app/dev/ 를 import 하지 않는다. tools/layout-probe.mjs 가 이 페이지를 띄운다.
+         **진짜 앱을 그대로 마운트한다**(main.tsx). 하네스가 레이아웃을 흉내 내면 의미가 없다. -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="../main.tsx"></script>
+    <script type="module" src="./layoutProbe.ts"></script>
+  </body>
+</html>

@@ -14,6 +14,8 @@ import { Editor, type EditorHandle } from "./Editor";
 import type { SelState } from "../features/editor";
 import { Presentation } from "./Presentation";
 import { Seam } from "./Seam";
+import { PaneHeader } from "./PaneHeader";
+import { splitTemplate } from "../lib/layout";
 import { SettingsPopover } from "./SettingsPopover";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
@@ -91,17 +93,26 @@ export function AppShell() {
   const hydrate = useAppStore((s) => s.hydrate);
 
   const splitRatio = useAppStore((s) => s.splitRatio);
+  // 리딩 모드는 v0.7.0 부터 스토어 상태다(재시작해도 유지 + 팔레트·단축키가 같은 값을 본다).
+  const readerMode = useAppStore((s) => s.readerMode);
+  const readerSplit = useAppStore((s) => s.readerSplit);
+  const secondaryPath = useAppStore((s) => s.secondaryPath);
+  const readerRatio = useAppStore((s) => s.readerRatio);
   const fontRead = useAppStore((s) => s.fontRead);
   const previewZoom = useAppStore((s) => s.previewZoom);
   const autosave = useAppStore((s) => s.autosave);
 
   const previewRef = useRef<PreviewHandle>(null);
+  const previewRefB = useRef<PreviewHandle>(null); // 리딩 분할의 두 번째 패널
   const editorRef = useRef<EditorHandle>(null);
   const splitRef = useRef<HTMLDivElement>(null);
   // 양방향 스크롤 동기화 에코 억제(비대칭 2-락): 한쪽이 상대를 구동하면 상대의 되반사만 잠깐 무시.
   const previewLockUntil = useRef(0);
   const editorLockUntil = useRef(0);
+  // outline 은 pane-a(=활성 문서) 것이다. 에디터 자동완성의 헤딩 소스이기도 한데, 에디터는
+  // 편집 모드에만 있고 그때는 pane-b 가 없으므로 그대로 두면 된다.
   const [outline, setOutline] = useState<TocItem[]>([]);
+  const [outlineB, setOutlineB] = useState<TocItem[]>([]);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
@@ -112,9 +123,9 @@ export function AppShell() {
   const [exportMenu, setExportMenu] = useState<{ x: number; y: number } | null>(null);
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const [sel, setSel] = useState<SelState>({ line: 1, col: 1, selChars: 0 });
-  const [readerMode, setReaderMode] = useState(false); // 리딩(집중) 모드: 편집 숨기고 미리보기 전체폭
   const [presenting, setPresenting] = useState(false); // 프레젠테이션(전체화면 슬라이드)
-  const [paletteMode, setPaletteMode] = useState<"command" | "file" | null>(null); // 명령 팔레트/퀵오픈
+  // 명령 팔레트 / 파일 퀵오픈 / 나란히 볼 문서 고르기 — 같은 UI를 항목만 바꿔 쓴다.
+  const [paletteMode, setPaletteMode] = useState<"command" | "file" | "split" | null>(null);
   const [findOpen, setFindOpen] = useState(false); // 워크스페이스 전역 찾기·바꾸기
   const [keysOpen, setKeysOpen] = useState(false); // 단축키 도움말(F1)
   // ≤900px에서는 편집/미리보기가 세로 스택 → 리사이저 축 전환.
@@ -130,9 +141,16 @@ export function AppShell() {
     return () => mq.removeEventListener("change", on);
   }, []);
 
-  const splitStyle = vertical
-    ? { gridTemplateRows: `${splitRatio}fr 7px ${1 - splitRatio}fr`, gridTemplateColumns: "1fr" }
-    : { gridTemplateColumns: `${splitRatio}fr 7px ${1 - splitRatio}fr` };
+  // 두 번째 패널은 **이미 열린 탭**만 보여 준다(내용을 따로 들고 있지 않다 → 저장·외부 변경이
+  // 자동으로 반영된다). 탭이 닫히면 store 의 reconcilePanes 가 secondaryPath 를 비운다.
+  const secondary = tabs.find((tb) => tb.path === secondaryPath) ?? null;
+  const dual = readerMode && readerSplit && !!secondary;
+  const splitStyle = splitTemplate({
+    mode: dual ? "readerSplit" : readerMode ? "reader" : "edit",
+    vertical,
+    ratio: splitRatio,
+    readerRatio,
+  });
 
   // 확대/축소 단축키(기능 5): Ctrl +/−/0 · Ctrl+휠. 포커스/대상이 미리보기면 미리보기, 아니면 에디터.
   useEffect(() => {
@@ -414,7 +432,13 @@ export function AppShell() {
     add("export-html", t("menu.exportHtml"), () => active && void exportHtml(exportParamsOf(active), active.title).catch(() => {}), !!active);
     add("export-pdf", t("menu.exportPdf"), () => active && void exportToPdf(exportParamsOf(active)).catch(() => {}), !!active);
     add("copy-html", t("menu.copyHtml"), () => active && void copyHtml(exportParamsOf(active)).catch(() => {}), !!active);
-    add("reader", t("view.reader"), () => setReaderMode((v) => !v), !!active);
+    add("reader", t("view.reader"), () => useAppStore.getState().toggleReaderMode(), !!active);
+    add(
+      "reader-split",
+      t("view.readerSplit"),
+      () => setPaletteMode("split"),
+      !!active && tabs.length > 1,
+    );
     add("present", t("view.present"), () => setPresenting(true), !!active);
     THEME_ORDER.forEach((id) =>
       add(`theme-${id}`, `${t("cmd.theme")}: ${themes[id]?.name ?? id}`, () => setTheme(id)),
@@ -461,6 +485,22 @@ export function AppShell() {
       sub: path,
       run: () => void onOpenRecent(path),
     }));
+  }
+
+  // 나란히 볼 문서 고르기 — **이미 열린 탭**만 대상이다(두 번째 패널은 탭 내용을 그대로 본다).
+  function buildSplitItems(): PaletteItem[] {
+    return tabs
+      .filter((tb) => tb.path !== activePath)
+      .map((tb) => ({
+        id: tb.path,
+        label: tb.title,
+        sub: tb.path,
+        run: () => {
+          const st = useAppStore.getState();
+          st.openSecondary(tb.path);
+          st.setReaderMode(true);
+        },
+      }));
   }
 
   // 전역 찾기·바꾸기 대상 — 워크스페이스 등록 문서 파일 경로.
@@ -542,6 +582,17 @@ export function AppShell() {
   // 탭 우클릭 메뉴 항목. 저장 경로 있는 탭만 워크스페이스 추가·위치 열기·경로 복사 노출.
   function tabMenuItems(path: string): MenuItem[] {
     const items: MenuItem[] = [];
+    // 활성 문서 자신을 옆에 두는 건 의미가 없다 — 다른 탭일 때만 노출.
+    if (path && path !== activePath) {
+      items.push({
+        label: t("tab.openBeside"),
+        onClick: () => {
+          const st = useAppStore.getState();
+          st.openSecondary(path);
+          st.setReaderMode(true);
+        },
+      });
+    }
     if (path) items.push({ label: t("tab.addToWorkspace"), onClick: () => void addFileRefTo(null, path) });
     items.push({ label: t("tab.close"), onClick: () => requestCloseTab(path) });
     if (tabs.length > 1) items.push({ label: t("tab.closeOthers"), onClick: () => requestBulkClose(path) });
@@ -831,10 +882,25 @@ export function AppShell() {
               disabled={!active}
               aria-pressed={readerMode}
               title={t("view.reader")}
-              onClick={() => setReaderMode((v) => !v)}
+              onClick={() => useAppStore.getState().toggleReaderMode()}
             >
               <Icon name="read" />
               <span className="lbl">{t("view.reader")}</span>
+            </button>
+            {/* 나란히 보기 — 리딩 모드에서 열린 탭이 둘 이상일 때만 의미가 있다. */}
+            <button
+              className={"tbtn" + (dual ? " on" : "")}
+              type="button"
+              disabled={!readerMode || tabs.length < 2}
+              aria-pressed={dual}
+              title={t("view.readerSplit")}
+              aria-label={t("view.readerSplit")}
+              onClick={() => {
+                if (dual) useAppStore.getState().closeSecondary();
+                else setPaletteMode("split");
+              }}
+            >
+              <Icon name="swap" />
             </button>
             <button
               className="tbtn"
@@ -924,8 +990,20 @@ export function AppShell() {
 
         {paletteMode && (
           <CommandPalette
-            items={paletteMode === "command" ? buildCommands() : buildFileItems()}
-            placeholder={paletteMode === "command" ? t("cmd.palette") : t("cmd.files")}
+            items={
+              paletteMode === "command"
+                ? buildCommands()
+                : paletteMode === "split"
+                  ? buildSplitItems()
+                  : buildFileItems()
+            }
+            placeholder={
+              paletteMode === "command"
+                ? t("cmd.palette")
+                : paletteMode === "split"
+                  ? t("view.readerSplit")
+                  : t("cmd.files")
+            }
             emptyText={paletteMode === "command" ? t("cmd.noCommands") : t("cmd.noFiles")}
             onClose={() => setPaletteMode(null)}
           />
@@ -1093,10 +1171,14 @@ export function AppShell() {
           </div>
 
           {active ? (
+            // DOM 순서 고정: editor · seam-main · pane-a · seam-reader · pane-b.
+            // 모드별로 셋씩 display:none 하면 보이는 grid 아이템이 항상 1개 또는 3개다(lib/layout.ts).
+            // 이 순서 덕분에 **주 미리보기(pane-a)가 어떤 전환에서도 언마운트되지 않아** 스크롤
+            // 위치와 iframe 문서가 그대로 살아 있다 — 리딩 모드가 원래 지키려던 성질이다.
             <div
-              className={"split" + (readerMode ? " reader" : "")}
+              className={"split" + (readerMode ? " reader" : "") + (dual ? " reader-split" : "")}
               ref={splitRef}
-              style={readerMode ? undefined : splitStyle}
+              style={splitStyle}
             >
               <section className="editor" aria-label="editor">
                 <Editor
@@ -1126,9 +1208,18 @@ export function AppShell() {
                 />
               </section>
 
-              <Seam containerRef={splitRef} vertical={vertical} />
+              <Seam
+                className="seam-main"
+                containerRef={splitRef}
+                vertical={vertical}
+                ratio={splitRatio}
+                onChange={(r) => useAppStore.getState().setSplitRatio(r)}
+              />
 
-              <section className="preview" aria-label="preview">
+              <section className="preview pane-a" aria-label="preview">
+                {dual && (
+                  <PaneHeader title={active.title} onSwap={() => useAppStore.getState().swapPanes()} />
+                )}
                 <Preview
                   ref={previewRef}
                   content={active.content}
@@ -1150,6 +1241,37 @@ export function AppShell() {
                 />
                 <OutlineOverlay items={outline} onSelect={(id) => previewRef.current?.scrollToHeading(id)} />
               </section>
+
+              <Seam
+                className="seam-reader"
+                containerRef={splitRef}
+                vertical={vertical}
+                ratio={readerRatio}
+                onChange={(r) => useAppStore.getState().setReaderRatio(r)}
+              />
+
+              {dual && secondary && (
+                <section className="preview pane-b" aria-label="preview (secondary)">
+                  <PaneHeader
+                    title={secondary.title}
+                    onSwap={() => useAppStore.getState().swapPanes()}
+                    onClose={() => useAppStore.getState().closeSecondary()}
+                  />
+                  {/* onSourceLine 을 넘기지 않는다 — 서로 다른 문서라 스크롤 동기화가 의미 없다. */}
+                  <Preview
+                    ref={previewRefB}
+                    content={secondary.content}
+                    path={secondary.path}
+                    themeId={themeId}
+                    onToc={setOutlineB}
+                    onOpenPath={(p) => {
+                      if (OPENABLE.test(p)) void openIncoming([p]);
+                      else void openExternal(p).catch(() => {});
+                    }}
+                  />
+                  <OutlineOverlay items={outlineB} onSelect={(id) => previewRefB.current?.scrollToHeading(id)} />
+                </section>
+              )}
             </div>
           ) : (
             <div className="empty-state">

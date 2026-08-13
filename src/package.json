@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "probe:mermaid": "node tools/mermaid-probe.mjs",
+    "probe:layout": "node tools/layout-probe.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
