@@ -4,6 +4,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { defaultThemeId } from "../themes";
+import * as panes from "./panes";
 import {
   readFile,
   readDirTree,
@@ -115,6 +116,17 @@ async function buildRoots(nodes: WorkspaceNode[]): Promise<TreeNode[]> {
   return Promise.all((byParent.get(null) ?? []).map(build));
 }
 
+/** 스토어에서 패널 리듀서가 볼 부분만 뽑는다(store/panes.ts 는 순수·테스트 대상). */
+const paneStateOf = (s: {
+  activePath: string | null;
+  secondaryPath: string | null;
+  readerSplit: boolean;
+}): panes.PaneState => ({
+  activePath: s.activePath,
+  secondaryPath: s.secondaryPath,
+  readerSplit: s.readerSplit,
+});
+
 /** 트리에서 imported_folder 실경로 수집(중첩 포함) — 감시·재인덱싱·재동기화 대상. */
 export function collectImportedPaths(nodes: TreeNode[]): string[] {
   const out: string[] = [];
@@ -165,6 +177,12 @@ interface AppState {
   activeSidebarTab: "workspace" | "recent"; // 사이드바 상단 탭
   autosave: boolean; // 자동저장(옵트인) — 편집 후 유휴 시 디스크 저장
 
+  // 리딩(집중) 모드 — 편집기를 숨기고 미리보기만 본다. 좌우 분할이면 두 문서를 나란히.
+  readerMode: boolean;
+  readerSplit: boolean; // 분할 요청. secondaryPath 가 없으면 렌더되지 않는다(reconcilePanes)
+  secondaryPath: string | null; // 두 번째 패널이 보여 줄 열린 탭
+  readerRatio: number; // 리딩 분할의 좌:우 비율(편집/미리보기의 splitRatio 와 별개)
+
   roots: TreeNode[]; // 워크스페이스 트리(그래프+디스크 파생)
   resyncBusy: number; // 진행 중인 재색인 수(0보다 크면 새로고침 버튼이 회전) — 비영속
   expanded: Record<string, boolean>; // 폴더 펼침 상태(key 기준)
@@ -191,6 +209,13 @@ interface AppState {
   setOutlineOpacity: (v: number) => void;
   setSidebarTab: (tab: "workspace" | "recent") => void;
   setAutosave: (on: boolean) => void;
+  setReaderMode: (on: boolean) => void;
+  toggleReaderMode: () => void;
+  setReaderRatio: (r: number) => void;
+  openSecondary: (path: string) => void; // 이미 열린 탭을 두 번째 패널로
+  openBeside: (path: string, content: string) => void; // 탭을 열되 활성은 그대로 두고 두 번째로
+  closeSecondary: () => void;
+  swapPanes: () => void;
 
   hydrate: () => Promise<void>;
   refreshWorkspace: () => Promise<void>;
@@ -242,6 +267,10 @@ export const useAppStore = create<AppState>()(
       outlineOpacity: 0.92,
       activeSidebarTab: "workspace",
       autosave: false,
+      readerMode: false,
+      readerSplit: false,
+      secondaryPath: null,
+      readerRatio: 0.5,
 
       roots: [],
       resyncBusy: 0,
@@ -270,6 +299,31 @@ export const useAppStore = create<AppState>()(
       setSidebarTab: (tab) => set({ activeSidebarTab: tab }),
       setAutosave: (on) => set({ autosave: on }),
 
+      // 리딩 모드를 꺼도 readerSplit·secondaryPath 는 남긴다 — 다시 켜면 보던 짝이 그대로 돌아온다.
+      setReaderMode: (on) => set({ readerMode: on }),
+      toggleReaderMode: () => set((s) => ({ readerMode: !s.readerMode })),
+      setReaderRatio: (r) => set({ readerRatio: clamp(r, 0.2, 0.8) }),
+
+      openSecondary: (path) => set((s) => panes.openSecondary(paneStateOf(s), path)),
+
+      // openFile 은 항상 activePath 를 가져간다 — 그걸 쓰면 활성과 두 번째가 같은 문서가 된다.
+      // 여기서는 탭만 열고 활성은 건드리지 않은 뒤 두 번째로 지정한다.
+      openBeside: (path, content) =>
+        set((s) => {
+          const keepActive = s.activePath;
+          const exists = s.tabs.some((t) => t.path === path);
+          const tabs = exists
+            ? s.tabs.map((t) => (t.path === path ? { ...t, content, dirty: false } : t))
+            : [...s.tabs, { path, title: baseName(path), content, dirty: false }];
+          const recent = [path, ...s.recent.filter((p) => p !== path)].slice(0, 50);
+          void wsTouchRecent(path).catch(() => {});
+          const next = panes.openSecondary({ ...paneStateOf(s), activePath: keepActive }, path);
+          return { tabs, recent, readerMode: true, ...next };
+        }),
+
+      closeSecondary: () => set((s) => panes.closeSecondary(paneStateOf(s))),
+      swapPanes: () => set((s) => panes.swapPanes(paneStateOf(s))),
+
       // 부팅 시 로드 = refreshWorkspace + 세션 복원(마지막 열린 파일 재오픈).
       hydrate: async () => {
         await get().refreshWorkspace();
@@ -288,6 +342,13 @@ export const useAppStore = create<AppState>()(
         if (wantActive && get().tabs.some((tb) => tb.path === wantActive)) {
           set({ activePath: wantActive });
         }
+        // 지난 세션의 두 번째 패널이 가리키던 파일이 사라졌을 수 있다 — 여기서 정리한다.
+        set((s) =>
+          panes.reconcilePanes(
+            paneStateOf(s),
+            s.tabs.map((tb) => tb.path),
+          ),
+        );
 
         // 부팅 재색인 — 앱이 꺼져 있는 동안 생기거나 지워진 파일은 감시기가 못 봤다. 그대로 두면
         // 전역 검색이 새 문서를 영영 못 찾고 지운 문서를 계속 보여 준다. index_file 이 mtime/size
@@ -462,6 +523,8 @@ export const useAppStore = create<AppState>()(
           return { tabs };
         }),
 
+      // 탭이 닫히는 모든 경로에서 패널 상태를 함께 맞춘다 — 안 그러면 두 번째 패널이 닫힌
+      // 문서를 가리켜 빈 칸이 남는다. 규칙은 store/panes.ts 한 곳에만 있다(테스트 대상).
       closeTab: (path) =>
         set((s) => {
           const idx = s.tabs.findIndex((t) => t.path === path);
@@ -470,16 +533,24 @@ export const useAppStore = create<AppState>()(
           if (s.activePath === path) {
             activePath = tabs.length ? tabs[Math.min(idx, tabs.length - 1)].path : null;
           }
-          return { tabs, activePath };
+          return {
+            tabs,
+            ...panes.reconcilePanes({ ...paneStateOf(s), activePath }, tabs.map((t) => t.path)),
+          };
         }),
 
       closeOthers: (path) =>
         set((s) => {
           const keep = s.tabs.find((t) => t.path === path);
-          return keep ? { tabs: [keep], activePath: path } : {};
+          if (!keep) return {};
+          return {
+            tabs: [keep],
+            ...panes.reconcilePanes({ ...paneStateOf(s), activePath: path }, [path]),
+          };
         }),
 
-      closeAll: () => set({ tabs: [], activePath: null }),
+      closeAll: () =>
+        set({ tabs: [], activePath: null, secondaryPath: null, readerSplit: false }),
 
       updateContent: (path, content) =>
         set((s) => ({
@@ -516,6 +587,10 @@ export const useAppStore = create<AppState>()(
         outlineOpacity: s.outlineOpacity,
         activeSidebarTab: s.activeSidebarTab,
         autosave: s.autosave,
+        readerMode: s.readerMode,
+        readerSplit: s.readerSplit,
+        secondaryPath: s.secondaryPath,
+        readerRatio: s.readerRatio,
         // 세션 복원: 열린 파일 경로 + 활성 탭(내용은 비영속 — 용량, 부팅 시 디스크에서 재로딩).
         openPaths: s.tabs.map((tb) => tb.path),
         activePath: s.activePath,

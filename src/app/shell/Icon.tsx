@@ -26,6 +26,7 @@ export type IconName =
   | "read"
   | "present"
   | "refresh"
+  | "swap"
   | "md";
 
 export function Icon({ name, className }: { name: IconName; className?: string }) {
@@ -46,6 +47,10 @@ export function IconSprite() {
         <symbol id="i-refresh" viewBox="0 0 24 24">
           <path d="M20 12a8 8 0 1 1-2.4-5.7" />
           <path d="M20 4v4.6h-4.6" />
+        </symbol>
+        <symbol id="i-swap" viewBox="0 0 24 24">
+          <path d="M4 8h13M14 5l3 3-3 3" />
+          <path d="M20 16H7M10 13l-3 3 3 3" />
         </symbol>
         <symbol id="i-file" viewBox="0 0 24 24">
           <path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
