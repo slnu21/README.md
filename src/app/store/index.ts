@@ -38,6 +38,7 @@ export interface TreeNode {
   realPath?: string; // file_ref / imported_folder / disk 노드
   parentId?: string | null; // 그래프 노드
   sortOrder?: number;
+  missing?: boolean; // imported_folder: 원본 폴더를 읽지 못함(옮겨졌거나 지워짐)
   children: TreeNode[];
 }
 
@@ -100,7 +101,9 @@ async function buildRoots(nodes: WorkspaceNode[]): Promise<TreeNode[]> {
         const disk = await readDirTree(n.realPath);
         node.children = disk.children.map((c) => diskToTree(c, n.id));
       } catch {
-        /* 폴더가 사라졌으면 빈 채로 */
+        // 원본 폴더가 옮겨졌거나 지워졌다. 조용히 빈 폴더로 두면 사용자가 "왜 비었지?" 하고
+        // 원인을 못 찾는다 — 트리에 표시할 수 있게 표식만 남긴다(제거는 사용자 몫).
+        node.missing = true;
       }
     } else if (n.kind === "virtual_folder") {
       const kids = byParent.get(n.id) ?? [];
@@ -110,6 +113,17 @@ async function buildRoots(nodes: WorkspaceNode[]): Promise<TreeNode[]> {
   }
 
   return Promise.all((byParent.get(null) ?? []).map(build));
+}
+
+/** 트리에서 imported_folder 실경로 수집(중첩 포함) — 감시·재인덱싱·재동기화 대상. */
+export function collectImportedPaths(nodes: TreeNode[]): string[] {
+  const out: string[] = [];
+  const walk = (n: TreeNode) => {
+    if (n.kind === "imported_folder" && n.realPath) out.push(n.realPath);
+    n.children.forEach(walk);
+  };
+  nodes.forEach(walk);
+  return out;
 }
 
 /** 펼침 상태 병합: 존재하는 키만 보존(+합성 키) + 새 루트 폴더는 기본 열림. */
@@ -152,6 +166,7 @@ interface AppState {
   autosave: boolean; // 자동저장(옵트인) — 편집 후 유휴 시 디스크 저장
 
   roots: TreeNode[]; // 워크스페이스 트리(그래프+디스크 파생)
+  resyncBusy: number; // 진행 중인 재색인 수(0보다 크면 새로고침 버튼이 회전) — 비영속
   expanded: Record<string, boolean>; // 폴더 펼침 상태(key 기준)
   tabs: OpenTab[];
   activePath: string | null;
@@ -179,6 +194,8 @@ interface AppState {
 
   hydrate: () => Promise<void>;
   refreshWorkspace: () => Promise<void>;
+  resyncWorkspace: () => Promise<void>; // 수동 재동기화: 트리 재파생 + 가져온 루트 전체 재색인
+  resyncEnd: () => void; // index-done 수신 시 busy 감소(AppShell 이 호출)
   importFolder: (path: string) => Promise<void>;
   importWorkspaceJson: (json: string) => Promise<void>; // 워크스페이스 노드 그래프 전체 교체
   toggleFavorite: (path: string) => Promise<void>;
@@ -227,6 +244,7 @@ export const useAppStore = create<AppState>()(
       autosave: false,
 
       roots: [],
+      resyncBusy: 0,
       expanded: {},
       tabs: [],
       activePath: null,
@@ -270,6 +288,17 @@ export const useAppStore = create<AppState>()(
         if (wantActive && get().tabs.some((tb) => tb.path === wantActive)) {
           set({ activePath: wantActive });
         }
+
+        // 부팅 재색인 — 앱이 꺼져 있는 동안 생기거나 지워진 파일은 감시기가 못 봤다. 그대로 두면
+        // 전역 검색이 새 문서를 영영 못 찾고 지운 문서를 계속 보여 준다. index_file 이 mtime/size
+        // 로 skip 하는 증분이라 대부분 빈손으로 끝나고, Rust 가 별도 스레드 + 별도 연결로 돌려서
+        // IPC 를 막지 않는다. 첫 페인트와 경쟁하지 않게 잠깐 미룬다.
+        const roots = collectImportedPaths(get().roots);
+        if (roots.length) {
+          window.setTimeout(() => {
+            for (const p of roots) void searchIndexFolder(p).catch(() => {});
+          }, 1500);
+        }
       },
 
       // SQLite 스냅샷 → 트리 재구성 + 즐겨찾기·최근 갱신 + 펼침 병합.
@@ -283,6 +312,24 @@ export const useAppStore = create<AppState>()(
           /* SQLite 미가용(데모/브라우저) → 세션 상태 유지 */
         }
       },
+
+      // 수동 재동기화 — 트리 재파생(디스크 재스캔)은 refreshWorkspace 가 이미 하고, 여기에
+      // 가져온 루트별 재색인(추가·수정 반영 + 사라진 파일 정리)을 더한다. 색인은 백그라운드라
+      // 완료를 기다리지 않고, 끝날 때마다 오는 index-done 으로 busy 를 줄인다(AppShell).
+      resyncWorkspace: async () => {
+        const roots = collectImportedPaths(get().roots);
+        set((s) => ({ resyncBusy: s.resyncBusy + roots.length }));
+        await get().refreshWorkspace();
+        for (const p of roots) {
+          void searchIndexFolder(p).catch(() => {
+            get().resyncEnd(); // 호출 자체가 실패하면 index-done 이 안 오므로 여기서 되돌린다
+          });
+        }
+      },
+
+      // index-done 은 폴더 가져오기(importFolder/importFolderTo)에서도 온다 — 그쪽은 busy 를
+      // 올린 적이 없으므로 0 아래로 내려가지 않게 막는다.
+      resyncEnd: () => set((s) => ({ resyncBusy: Math.max(0, s.resyncBusy - 1) })),
 
       // 폴더 가져오기(루트) → imported_folder 노드 + 재로딩 + 백그라운드 인덱싱.
       importFolder: async (path) => {

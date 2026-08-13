@@ -46,6 +46,11 @@ describe("i18n", () => {
   it("최상위 네임스페이스가 ko/en 대칭이다", () =>
     expect(Object.keys(ko).sort()).toEqual(Object.keys(en).sort()));
 
+  // ed.* 밖(ws.*·view.*·menu.*·tab.*·status.*…)은 여태 무방비였다 — 한쪽에만 키를 넣어도
+  // 위 검사들을 전부 통과했다. 전체 키 집합을 대칭으로 못박아 원문 키 노출을 막는다.
+  it("전체 키 집합이 ko/en 대칭이다", () =>
+    expect([...flat(ko as Dict)].sort()).toEqual([...flat(en as Dict)].sort()));
+
   it("빈 문자열 번역이 없다", () => {
     for (const locale of [ko, en] as Dict[]) {
       for (const key of flat(locale)) {

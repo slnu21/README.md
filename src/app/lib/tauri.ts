@@ -100,6 +100,12 @@ export function onFileChanged(cb: (paths: string[]) => void): Promise<UnlistenFn
   return listen<string[]>("file-changed", (e) => cb(e.payload));
 }
 
+/** 가져온 폴더 **구조** 변경(생성·삭제·이름변경) 이벤트 구독 → 워크스페이스 트리 재파생용.
+ *  file-changed 와 별개다: 저쪽은 내용 변경까지 포함한 "열린 탭 리로드"용이라 빈도가 훨씬 높다. */
+export function onFsStructural(cb: (paths: string[]) => void): Promise<UnlistenFn> {
+  return listen<string[]>("fs-structural", (e) => cb(e.payload));
+}
+
 // ── 워크스페이스(SQLite) ──
 export interface WorkspaceNode {
   id: string;
@@ -149,9 +155,14 @@ export const searchIndexFolder = (path: string): Promise<void> => invoke("search
 export const searchReindexPath = (path: string): Promise<void> => invoke("search_reindex_path", { path });
 export const searchRemovePath = (path: string): Promise<void> => invoke("search_remove_path", { path });
 
-/** 폴더 인덱싱 완료 이벤트. */
-export const onIndexDone = (cb: (p: { root: string; count: number }) => void): Promise<UnlistenFn> =>
-  listen<{ root: string; count: number }>("index-done", (e) => cb(e.payload));
+/** 폴더 인덱싱 완료 이벤트. count=새로 인덱싱한 수, removed=사라진 파일을 인덱스에서 정리한 수. */
+export interface IndexDone {
+  root: string;
+  count: number;
+  removed: number;
+}
+export const onIndexDone = (cb: (p: IndexDone) => void): Promise<UnlistenFn> =>
+  listen<IndexDone>("index-done", (e) => cb(e.payload));
 /** 감시로 인한 인덱스 증분 갱신 이벤트(검색 패널 열려있으면 재질의). */
 export const onIndexUpdated = (cb: () => void): Promise<UnlistenFn> => listen("index-updated", () => cb());
 

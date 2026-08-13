@@ -12,12 +12,44 @@ use tauri::{AppHandle, Emitter, Manager, State};
 pub struct WatchState(pub Mutex<Option<RecommendedWatcher>>);
 
 const INDEX_EXTS: [&str; 4] = ["md", "markdown", "mdx", "txt"];
+/// 트리(`fs_ops::read_dir_tree`)·인덱스(`search::index_folder`)가 애초에 무시하는 디렉터리.
+/// 저 둘과 같은 목록이어야 한다(각자 자기 파일에 사본을 둔다 — 공용 모듈은 아직 만들지 않았다).
+const SKIP_DIRS: [&str; 6] = ["node_modules", ".git", "target", "dist", ".vs", ".idea"];
 
 fn is_indexable(p: &Path) -> bool {
     p.extension()
         .and_then(|e| e.to_str())
         .map(|e| INDEX_EXTS.contains(&e.to_lowercase().as_str()))
         .unwrap_or(false)
+}
+
+/// 트리 재파생이 필요한(= 구조가 바뀐) 이벤트인가.
+///
+/// `Modify(Name(_))` 이 반드시 들어가야 한다 — 탐색기의 이름 변경은 Create/Remove 가 아니라
+/// 여기로 온다. 반대로 내용만 바뀐 `Modify(Data)` 는 빼야 한다: 앱 자신의 저장(`fs::write`)이
+/// 그거라서, 넣으면 한 글자 저장할 때마다 워크스페이스 전체 재스캔이 돈다.
+fn is_structural(kind: &EventKind) -> bool {
+    match kind {
+        EventKind::Create(_) | EventKind::Remove(_) => true,
+        EventKind::Modify(notify::event::ModifyKind::Name(_)) => true,
+        EventKind::Modify(notify::event::ModifyKind::Any) => true, // 일부 백엔드는 Any 로만 준다
+        _ => false,
+    }
+}
+
+/// 감시 루트 기준으로 숨김(`.`)·무거운 디렉터리 아래인가.
+///
+/// 가져온 루트는 **재귀** 감시라 `node_modules/`·`.git/` 안의 변경까지 전부 이벤트로 온다.
+/// 트리도 인덱스도 그 아래를 안 보는데 인덱싱과 재파생만 태우고 있었다 — 여기서 원천 차단한다.
+/// 루트 **자신**의 경로에 점 폴더가 있어도(예: `C:\x\.config` 를 직접 가져온 경우) 유효하므로
+/// 루트 아래 상대 경로만 본다. 어느 루트에도 안 속하면(열린 파일의 상위 dir) 거르지 않는다.
+fn is_noisy_under(path: &str, roots: &[String]) -> bool {
+    roots.iter().any(|r| {
+        crate::commands::search::rel_under(path, r).is_some_and(|rel| {
+            rel.split(['/', '\\'])
+                .any(|c| c.starts_with('.') || SKIP_DIRS.contains(&c))
+        })
+    })
 }
 
 /// 감시 대상을 (재)설정한다. open_paths=열린 파일(상위 dir 감시), imported_roots=가져온 폴더(재귀 감시).
@@ -49,6 +81,7 @@ pub fn watch_files(
     }
 
     let app_ev = app.clone();
+    let roots_ev = roots.clone();
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
         if let Ok(event) = res {
             let kind = event.kind;
@@ -58,20 +91,25 @@ pub fn watch_files(
             ) {
                 return;
             }
-            let changed: Vec<String> = event
+            // 가져온 루트 아래 node_modules/.git 등은 트리도 인덱스도 안 보는 곳이다 — 여기서 뺀다.
+            let paths: Vec<&std::path::PathBuf> = event
                 .paths
+                .iter()
+                .filter(|p| !is_noisy_under(p.to_string_lossy().as_ref(), &roots_ev))
+                .collect();
+            if paths.is_empty() {
+                return;
+            }
+            let changed: Vec<String> = paths
                 .iter()
                 .map(|p| p.to_string_lossy().into_owned())
                 .collect();
-            if changed.is_empty() {
-                return;
-            }
 
             // 검색 인덱스 증분 갱신(md/txt 대상).
             if let Some(db) = app_ev.try_state::<Db>() {
                 if let Ok(conn) = db.0.lock() {
                     let mut touched = false;
-                    for p in &event.paths {
+                    for p in &paths {
                         let ps = p.to_string_lossy();
                         if matches!(kind, EventKind::Remove(_)) {
                             let _ = crate::commands::search::remove_path(&conn, ps.as_ref());
@@ -84,6 +122,20 @@ pub fn watch_files(
                     if touched {
                         let _ = app_ev.emit("index-updated", ());
                     }
+                }
+            }
+
+            // 트리 재파생용 — 구조가 바뀐 것만, 그리고 가져온 루트 아래만.
+            // file-changed 와 분리한 이유: 저 쪽은 "열린 탭 조용한 리로드"라는 검증된 경로라
+            // 페이로드·빈도를 건드리지 않고, 이쪽만 프런트에서 따로 스로틀하기 위해서다.
+            if is_structural(&kind) {
+                let structural: Vec<String> = changed
+                    .iter()
+                    .filter(|p| roots_ev.iter().any(|r| crate::commands::search::under_root(p, r)))
+                    .cloned()
+                    .collect();
+                if !structural.is_empty() {
+                    let _ = app_ev.emit("fs-structural", structural);
                 }
             }
 
@@ -102,4 +154,39 @@ pub fn watch_files(
 
     *state.0.lock().map_err(|e| e.to_string())? = Some(watcher);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use notify::event::{CreateKind, DataChange, ModifyKind, RemoveKind, RenameMode};
+
+    #[test]
+    fn structural_kinds() {
+        assert!(is_structural(&EventKind::Create(CreateKind::File)));
+        assert!(is_structural(&EventKind::Remove(RemoveKind::File)));
+        // 탐색기 이름 변경 — 이게 빠지면 폴더/파일 이름 변경이 트리에 안 붙는다
+        assert!(is_structural(&EventKind::Modify(ModifyKind::Name(RenameMode::Both))));
+        assert!(is_structural(&EventKind::Modify(ModifyKind::Any)));
+        // 내용만 바뀐 저장 — 앱 자신의 write 가 여기다. 트리 재파생 대상이 아니다.
+        assert!(!is_structural(&EventKind::Modify(ModifyKind::Data(DataChange::Content))));
+        assert!(!is_structural(&EventKind::Access(notify::event::AccessKind::Read)));
+    }
+
+    #[test]
+    fn noisy_paths_are_filtered_relative_to_root() {
+        let roots = vec![r"C:\w".to_string()];
+        assert!(is_noisy_under(r"C:\w\node_modules\pkg\readme.md", &roots));
+        assert!(is_noisy_under(r"C:\w\.git\COMMIT_EDITMSG", &roots));
+        assert!(is_noisy_under(r"C:\w\sub\target\out.md", &roots));
+        assert!(is_noisy_under(r"C:\w\.hidden.md", &roots));
+        assert!(!is_noisy_under(r"C:\w\docs\a.md", &roots));
+        assert!(!is_noisy_under(r"C:\w\a.md", &roots));
+        // 루트 밖(열린 파일의 상위 dir)은 거르지 않는다
+        assert!(!is_noisy_under(r"D:\other\.config\a.md", &roots));
+        // 루트 자신에 점 폴더가 있어도 유효 — 사용자가 직접 가져온 폴더다
+        let dotted = vec![r"C:\x\.config".to_string()];
+        assert!(!is_noisy_under(r"C:\x\.config\a.md", &dotted));
+        assert!(is_noisy_under(r"C:\x\.config\.git\a.md", &dotted));
+    }
 }

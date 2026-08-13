@@ -1,5 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { dirOf, isAbsolute, resolvePath } from "./paths";
+import { anyUnderRoots, dirOf, isAbsolute, isUnderRoot, resolvePath } from "./paths";
+
+describe("isUnderRoot", () => {
+  it.each([
+    ["C:/w/a.md", "C:/w", true],
+    ["C:/w", "C:/w", true], // 자기 자신
+    ["C:/w/sub/a.md", "C:/w", true],
+    ["C:/wx/a.md", "C:/w", false], // 형제 접두어 — startsWith 로는 틀린다
+    ["C:/workspace/a.md", "C:/work", false],
+    ["C:\\w\\a.md", "C:/w", true], // 구분자 혼용
+    ["c:/W/a.md", "C:/w", true], // 대소문자
+    ["C:/w/a.md", "C:/w/", true], // root 후행 구분자
+    ["C:/작업/문서.md", "C:/작업", true],
+    ["C:/작업실/문서.md", "C:/작업", false],
+    ["C:/w/a.md", "", false], // 빈 root 는 전부 아님(모든 경로를 삼키지 않게)
+    ["C:/w", "C:/w/sub", false],
+    ["D:/w/a.md", "C:/w", false],
+  ])("%s ⊂ %s → %s", (p, r, want) => expect(isUnderRoot(p, r)).toBe(want));
+});
+
+describe("anyUnderRoots", () => {
+  it("하나라도 걸리면 true", () =>
+    expect(anyUnderRoots(["D:/x", "C:/w/a.md"], ["C:/w"])).toBe(true));
+  it("전부 밖이면 false", () => expect(anyUnderRoots(["D:/x"], ["C:/w"])).toBe(false));
+  it("빈 배열", () => {
+    expect(anyUnderRoots([], ["C:/w"])).toBe(false);
+    expect(anyUnderRoots(["C:/w/a.md"], [])).toBe(false);
+  });
+});
 
 describe("dirOf", () => {
   it("슬래시", () => expect(dirOf("C:/a/b.md")).toBe("C:/a"));
