@@ -3,12 +3,17 @@
 // 렌더된 SVG는 sanitizeSvg 로 정화하며, srcdoc 은 정적 SVG만 담으므로 sandbox 격리가 유지된다.
 import { sanitizeSvg } from "./sanitize";
 import { DIAGRAM_CTX_CSS, DIAGRAM_FONT, DIAGRAM_FONT_PX } from "./renderDoc";
+import { createLock } from "./serialize";
 import { themes, defaultThemeId } from "../themes";
 
 let mermaidMod: Promise<typeof import("mermaid")> | null = null;
 const loadMermaid = () => (mermaidMod ??= import("mermaid"));
 
 let seq = 0;
+
+/** renderMermaid 직렬화 락. 아래 stage(공유 측정 컨테이너)와 mermaid.initialize(전역 설정)를
+ *  지킨다 — 자세한 이유는 renderMermaid 본문 주석 참고. */
+const mermaidLock = createLock();
 
 /** 측정 스테이지의 id. App.css가 이 안에서 트리 행 규칙(.node)을 되돌리는 데 쓴다 —
  *  mermaid도 노드 그룹에 class="node"를 붙이기 때문(v0.6.9, 아래 measureStage 주석 참고). */
@@ -130,43 +135,53 @@ export function decodeMermaidSrc(b64: string): string {
   }
 }
 
-/** HTML 내 `pre.mermaid[data-src]` placeholder를 렌더된 SVG로 치환. mermaid 블록이 없으면 원본 반환. */
+/** HTML 내 `pre.mermaid[data-src]` placeholder를 렌더된 SVG로 치환. mermaid 블록이 없으면 원본 반환.
+ *
+ *  **직렬 실행이다(v0.7.0).** 아래 본문은 공유 자원 둘을 만진다 — 모듈 전역 `stage`(마지막에
+ *  innerHTML을 비운다)와 `mermaid.initialize`(라이브러리 전역 설정). 호출이 겹치면 await 지점마다
+ *  교차해서 한쪽이 재는 동안 다른 쪽이 스테이지를 비우거나 테마 설정을 갈아 버린다. 호출자는
+ *  이미 여럿이다: 미리보기(Preview.tsx) · 프레젠테이션 오버레이(Presentation.tsx, 미리보기가
+ *  마운트된 채로 뜬다) · HTML 내보내기(features/export/html.ts) · 리딩 분할의 두 패널.
+ *  두 패널이 있으면 다이어그램이 순차 렌더되지만, 그게 맞는 대가다. */
 export async function renderMermaid(html: string, themeId: string): Promise<string> {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const nodes = Array.from(doc.querySelectorAll("pre.mermaid[data-src]"));
+  // 공유 자원을 건드리지 않으므로 락 밖에서 빠져나간다(다이어그램 없는 문서가 대다수다).
   if (nodes.length === 0) return html;
 
-  const mermaid = (await loadMermaid()).default;
-  // 다이어그램이 통째로 안 나오던 과거 두 원인은 아래에서 해결됨(회귀 시 함께 볼 것):
-  //  1) 소스의 `-->` 등 때문에 data-src가 DOMPurify(mXSS 방지)에 지워지던 문제
-  //     → markdown.ts에서 base64로 실어 해결.
-  //  2) foreignObject 라벨 글자가 비던 것 → sanitize.ts에서 foreignobject를 HTML 통합지점으로 등록.
-  mermaid.initialize(diagramConfig(themeId));
+  return mermaidLock(async () => {
+    const mermaid = (await loadMermaid()).default;
+    // 다이어그램이 통째로 안 나오던 과거 두 원인은 아래에서 해결됨(회귀 시 함께 볼 것):
+    //  1) 소스의 `-->` 등 때문에 data-src가 DOMPurify(mXSS 방지)에 지워지던 문제
+    //     → markdown.ts에서 base64로 실어 해결.
+    //  2) foreignObject 라벨 글자가 비던 것 → sanitize.ts에서 foreignobject를 HTML 통합지점으로 등록.
+    mermaid.initialize(diagramConfig(themeId));
 
-  for (const node of nodes) {
-    const src = decodeMermaidSrc(node.getAttribute("data-src") ?? "");
-    try {
-      // 3번째 인자 = 렌더·측정 컨테이너. 안 넘기면 mermaid가 document.body에 임시 div를 붙여
-      // **앱 문서 CSS 문맥**으로 측정하는데, 표시는 미리보기 문서라 라벨 상자가 어긋난다.
-      const { svg } = await mermaid.render(`mmd-${seq++}`, src, measureStage());
-      const wrap = doc.createElement("div");
-      wrap.className = "mermaid-rendered";
-      wrap.innerHTML = sanitizeSvg(svg);
-      // 원본 너비 모드(.diagram-natural)가 쓸 실제 폭. viewBox 뿐인 인라인 SVG는 CSS만으로 원본
-      // 크기를 낼 수 없어(width:auto·max-content 모두 100%로 되돌아감) 여기서 명시적 px를 넘긴다.
-      const vb = viewBoxWidth(wrap.querySelector("svg"));
-      if (vb) wrap.style.setProperty("--diagram-w", `${vb}px`);
-      node.replaceWith(wrap);
-    } catch (e) {
-      // 실제 오류를 표면화 — 문법 오류·청크 로드 실패를 사용자와 개발자 모두 볼 수 있게.
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("[mermaid] 렌더 실패:", src.slice(0, 120), e);
-      const err = doc.createElement("pre");
-      err.className = "mermaid-error";
-      err.textContent = `mermaid 렌더 오류: ${msg}`;
-      node.replaceWith(err);
+    for (const node of nodes) {
+      const src = decodeMermaidSrc(node.getAttribute("data-src") ?? "");
+      try {
+        // 3번째 인자 = 렌더·측정 컨테이너. 안 넘기면 mermaid가 document.body에 임시 div를 붙여
+        // **앱 문서 CSS 문맥**으로 측정하는데, 표시는 미리보기 문서라 라벨 상자가 어긋난다.
+        const { svg } = await mermaid.render(`mmd-${seq++}`, src, measureStage());
+        const wrap = doc.createElement("div");
+        wrap.className = "mermaid-rendered";
+        wrap.innerHTML = sanitizeSvg(svg);
+        // 원본 너비 모드(.diagram-natural)가 쓸 실제 폭. viewBox 뿐인 인라인 SVG는 CSS만으로 원본
+        // 크기를 낼 수 없어(width:auto·max-content 모두 100%로 되돌아감) 여기서 명시적 px를 넘긴다.
+        const vb = viewBoxWidth(wrap.querySelector("svg"));
+        if (vb) wrap.style.setProperty("--diagram-w", `${vb}px`);
+        node.replaceWith(wrap);
+      } catch (e) {
+        // 실제 오류를 표면화 — 문법 오류·청크 로드 실패를 사용자와 개발자 모두 볼 수 있게.
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[mermaid] 렌더 실패:", src.slice(0, 120), e);
+        const err = doc.createElement("pre");
+        err.className = "mermaid-error";
+        err.textContent = `mermaid 렌더 오류: ${msg}`;
+        node.replaceWith(err);
+      }
     }
-  }
-  if (stage) stage.innerHTML = ""; // 렌더 실패로 남을 수 있는 잔여 서브트리 정리(스테이지는 재사용)
-  return doc.body.innerHTML;
+    if (stage) stage.innerHTML = ""; // 렌더 실패로 남을 수 있는 잔여 서브트리 정리(스테이지는 재사용)
+    return doc.body.innerHTML;
+  });
 }

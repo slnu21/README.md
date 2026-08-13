@@ -16,6 +16,7 @@ import { renderMermaid } from "../lib/mermaid";
 import { buildDoc, DIAGRAM_CTX_CSS, type FontOpts } from "../lib/renderDoc";
 import { BASE_READER_PX, readStack, uiStack } from "../lib/fonts";
 import { applyTheme } from "../themes/apply";
+import { themes } from "../themes";
 // 측정 스테이지는 **이 문서**에 붙는다. 그러니 이 문서가 앱 문서와 같은 상속 문맥이어야 프로브가
 // 실제를 잰다 — App.css(body{font-family:var(--ui-font)}) + applyTheme + --ui-font 주입까지
 // App.tsx:18-40 이 하는 일을 그대로 재현한다. 하네스 자체 스타일을 쓰면 측정 문맥이 가짜가 된다.
@@ -321,6 +322,94 @@ async function run(): Promise<ProbeResult> {
         }
       }
     }
+  }
+
+  // (ix) 동시 렌더 — 미리보기 패널 둘(v0.7 리딩 분할)·프레젠테이션 오버레이·내보내기가 겹칠 때.
+  //
+  // renderMermaid 는 모듈 전역 자원 둘을 만진다: 공유 측정 스테이지(끝에서 innerHTML 을 비운다)와
+  // mermaid.initialize(라이브러리 전역 설정). 락이 없으면 await 지점마다 교차해 한쪽이 재는 동안
+  // 다른 쪽이 스테이지를 비우고, 나중 initialize 가 앞선 렌더의 테마까지 덮는다.
+  // 위 루프는 전부 순차라 이 경로를 절대 밟지 않는다 — 그래서 한 번 따로 겹쳐 본다.
+  {
+    applyTheme("light");
+    const serial = await renderMermaid(clean, "light");
+    // 같은 입력·같은 테마를 겹쳐 돌린 결과는 혼자 돌린 결과와 **바이트까지 같아야 한다**
+    // (mermaid 인스턴스 id만 매 호출 증가하므로 그것만 정규화한다). 측정이 어긋나면 라벨 좌표·
+    // 도형 폭이 소수점 단위로 흔들려 바로 드러난다 — 개수 세기보다 훨씬 촘촘한 그물이다.
+    const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
+    const svgSerial = count(serial, /<svg/g);
+    const errSerial = count(serial, /class="mermaid-error"/g);
+
+    const [ca, cb] = await Promise.all([
+      renderMermaid(clean, "light"),
+      renderMermaid(clean, "dark"),
+    ]);
+
+    // (ix-a) 겹쳐 돌려도 다이어그램 수·실패 수가 혼자 돌릴 때와 같아야 한다.
+    //   (바이트 비교는 못 쓴다 — mindmap 등 곡선 제어점이 순차 실행에서도 매번 미세하게 다르다.)
+    for (const [tag, out] of [
+      ["light", ca],
+      ["dark", cb],
+    ] as const) {
+      const svgs = count(out, /<svg/g);
+      if (svgs !== svgSerial) {
+        fail(
+          `[ix-a] 동시 렌더(${tag}): <svg> ${svgs}개(순차 실행은 ${svgSerial}개). 겹친 호출이 서로의 ` +
+            `측정 스테이지를 비우고 있다 — lib/mermaid.ts 의 mermaidLock 을 확인할 것.`,
+        );
+      }
+      const errs = count(out, /class="mermaid-error"/g);
+      if (errs !== errSerial) {
+        fail(
+          `[ix-a] 동시 렌더(${tag}): .mermaid-error 가 ${errs}개다(순차 실행은 ${errSerial}개). ` +
+            `겹친 호출이 서로의 렌더를 실패시키고 있다.`,
+        );
+      }
+    }
+
+    // (ix-b) **전역 설정 오염**이 이 경로의 진짜 실패 모드다. mermaid.initialize() 는 라이브러리
+    //   전역이라, 겹친 호출 B가 initialize(dark)를 하는 순간 아직 진행 중인 A의 **남은**
+    //   다이어그램들이 dark 로 그려진다(앞쪽 몇 개만 light — 그래서 전체 비교로는 안 잡힌다).
+    //   테마가 정한 노드 채움색(--surface)을 표식으로 쓴다: light 결과에 dark 색이 한 톨도
+    //   섞이면 안 되고, 그 반대도 마찬가지다.
+    const surface = (id: string) => themes[id].tokens["--surface"].toLowerCase();
+    for (const [tag, out, own, foreign] of [
+      ["light", ca, surface("light"), surface("dark")],
+      ["dark", cb, surface("dark"), surface("light")],
+    ] as const) {
+      const lower = out.toLowerCase();
+      const bad = count(lower, new RegExp(foreign, "g"));
+      if (bad > 0) {
+        fail(
+          `[ix-b] 동시 렌더(${tag}) 결과에 다른 테마의 노드 색 ${foreign} 이 ${bad}곳 섞였다 ` +
+            `(자기 색 ${own}). mermaid.initialize() 가 경합해 렌더 도중 테마가 갈렸다 — mermaidLock 확인.`,
+        );
+      }
+      if (count(lower, new RegExp(own, "g")) === 0) {
+        fail(`[ix-b] 동시 렌더(${tag}) 결과에 자기 테마 색 ${own} 이 없다(표식 셀렉터가 낡았다).`);
+      }
+    }
+
+    // 겹쳐 렌더한 결과물도 실제 미리보기 문맥에서 라벨이 도형 안에 있어야 한다(핵심 실패 모드).
+    const font: FontOpts = { readStack: readStack("default"), readerPx: BASE_READER_PX };
+    const doc = await mount(
+      iframe,
+      buildDoc(ca, "light", font, {
+        extraCss: "img{cursor:zoom-in}.md{max-width:860px;margin-left:auto;margin-right:auto}",
+        diagramWidth: "fit",
+      }),
+    );
+    await doc.fonts?.ready;
+    const wraps = Array.from(doc.querySelectorAll(".mermaid-rendered"));
+    if (wraps.length === 0) fail("[ix] 동시 렌더 결과에 렌더된 다이어그램이 하나도 없다.");
+    const reports = wraps.map((w, i) => inspectDiagram(w, i + 1, "concurrent"));
+    const labels = reports.reduce((a, r) => a + r.labels, 0);
+    totalLabels += labels;
+    lines.push(
+      `  ${"concurrent".padEnd(20)} ${String(wraps.length).padStart(2)} 다이어그램 · ` +
+        `foreignObject ${String(reports.reduce((a, r) => a + r.foCount, 0)).padStart(3)} · ` +
+        `최대 라벨 초과 ${round(Math.max(...reports.map((r) => r.maxOverflowPx)))}px`,
+    );
   }
 
   // (v) dominant-baseline 회귀 가드 + 공허 통과 방지 바닥값.
