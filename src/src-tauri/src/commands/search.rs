@@ -52,6 +52,71 @@ fn build_match(raw: &str) -> Option<String> {
     Some(parts.join(" "))
 }
 
+/// `path` 가 `root` 자신이거나 그 하위면 root 기준 상대 경로를 돌려준다(자기 자신이면 "").
+///
+/// 왜 직접 쓰나: SQL `LIKE 'root%'` 만으로는 두 가지가 틀린다 — ① `C:\a` 가 형제 폴더
+/// `C:\ab\x.md` 까지 잡는다(구분자 경계를 요구하지 않는다) ② 실제 경로에 들어 있는 `%`·`_`
+/// 가 SQL 와일드카드로 먹는다(Windows 는 `\` 가 구분자라 ESCAPE 지정도 깨끗하지 않다).
+/// 그래서 LIKE 는 **거친 필터**로만 쓰고(와일드카드는 더 많이 잡을 뿐 덜 잡지 않으므로 안전)
+/// 최종 판정은 여기서 한다. 구분자 종류와 ASCII 대소문자는 무시한다(Windows).
+pub(crate) fn rel_under<'a>(path: &'a str, root: &str) -> Option<&'a str> {
+    let root = root.trim_end_matches(['/', '\\']);
+    if root.is_empty() {
+        return None;
+    }
+    let (pb, rb) = (path.as_bytes(), root.as_bytes());
+    if pb.len() < rb.len() {
+        return None;
+    }
+    // ASCII 소문자화·구분자 통일은 바이트 길이를 바꾸지 않으므로 비ASCII(한글 경로)도 안전하다.
+    let norm = |x: u8| if x == b'\\' { b'/' } else { x.to_ascii_lowercase() };
+    if (0..rb.len()).any(|i| norm(pb[i]) != norm(rb[i])) {
+        return None;
+    }
+    if pb.len() == rb.len() {
+        return Some("");
+    }
+    let rest = &path[rb.len()..];
+    match rest.chars().next() {
+        Some(c) if c == '/' || c == '\\' => Some(&rest[c.len_utf8()..]),
+        _ => None, // 형제 접두어(C:\ab vs C:\a)
+    }
+}
+
+pub(crate) fn under_root(path: &str, root: &str) -> bool {
+    rel_under(path, root).is_some()
+}
+
+/// 경로 비교용 키(구분자 통일 + ASCII 소문자화). 인덱스에 남은 문자열은 walk 가 만든 것과
+/// 감시기(notify)가 준 것이 섞여 있어 대소문자·구분자가 어긋날 수 있다 — 그걸 같게 본다.
+fn norm_key(s: &str) -> String {
+    s.chars()
+        .map(|c| if c == '\\' { '/' } else { c.to_ascii_lowercase() })
+        .collect()
+}
+
+/// `root` 하위로 인덱스에 남아 있는 경로들. LIKE 는 거친 필터, 판정은 `under_root`.
+fn indexed_under(conn: &Connection, root: &str) -> Result<Vec<String>, String> {
+    let like = format!("{}%", root.trim_end_matches(['/', '\\']));
+    let mut stmt = conn
+        .prepare(
+            "SELECT real_path FROM file_meta WHERE real_path LIKE ?1
+             UNION SELECT real_path FROM file_index WHERE real_path LIKE ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![like], |r| r.get::<_, String>(0))
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for r in rows {
+        let p = r.map_err(|e| e.to_string())?;
+        if under_root(&p, root) {
+            out.push(p);
+        }
+    }
+    Ok(out)
+}
+
 pub(crate) fn remove_path(conn: &Connection, path: &str) -> Result<(), String> {
     conn.execute("DELETE FROM file_index WHERE real_path = ?1", params![path])
         .map_err(|e| e.to_string())?;
@@ -120,8 +185,16 @@ pub(crate) fn index_file(conn: &Connection, path: &str) -> Result<bool, String> 
 }
 
 /// 폴더 재귀 walk 인덱싱(스택 기반). 숨김/무거운 디렉터리·비대상 확장자·과대 파일 skip.
-fn index_folder(conn: &Connection, root: &Path) -> Result<u32, String> {
+///
+/// walk 하면서 만난 인덱스 대상 경로를 모아 두었다가, 끝나고 **인덱스에만 남아 있는 경로를
+/// 지운다**(prune). `index_file` 은 mtime/size 가 같으면 skip 하는 증분이라 추가·수정만 반영하고,
+/// 앱이 꺼져 있는 동안 지워진 파일은 영영 검색 결과에 남아 있었다. 디스크는 어차피 한 번 훑으므로
+/// 별도 stat 없이 여기서 함께 정리한다.
+///
+/// 반환: (인덱싱한 수, 정리한 수).
+fn index_folder(conn: &Connection, root: &Path) -> Result<(u32, u32), String> {
     let mut count = 0u32;
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
         let entries = match std::fs::read_dir(&dir) {
@@ -142,13 +215,25 @@ fn index_folder(conn: &Connection, root: &Path) -> Result<u32, String> {
                     stack.push(p);
                 }
             } else if is_indexable(&p) {
-                if index_file(conn, &p.to_string_lossy()).unwrap_or(false) {
+                let ps = p.to_string_lossy().into_owned();
+                if index_file(conn, &ps).unwrap_or(false) {
                     count += 1;
                 }
+                seen.insert(norm_key(&ps));
             }
         }
     }
-    Ok(count)
+
+    // prune — walk 에서 못 본 경로(삭제됨·확장자 변경·이제 skip 대상 폴더 아래)를 인덱스에서 뺀다.
+    let root_s = root.to_string_lossy();
+    let mut removed = 0u32;
+    for stale in indexed_under(conn, root_s.as_ref())? {
+        if !seen.contains(&norm_key(&stale)) {
+            remove_path(conn, &stale)?;
+            removed += 1;
+        }
+    }
+    Ok((count, removed))
 }
 
 /// 전역 검색 질의. bm25 랭킹, 스니펫은 센티넬 문자로 매치 강조, 선택적 경로 prefix 필터.
@@ -196,8 +281,12 @@ pub fn search_index_folder(app: AppHandle, path: String) -> Result<(), String> {
             Ok(c) => c,
             Err(_) => return,
         };
-        let count = index_folder(&conn, &std::path::PathBuf::from(&path)).unwrap_or(0);
-        let _ = app.emit("index-done", serde_json::json!({ "root": path, "count": count }));
+        let (count, removed) =
+            index_folder(&conn, &std::path::PathBuf::from(&path)).unwrap_or((0, 0));
+        let _ = app.emit(
+            "index-done",
+            serde_json::json!({ "root": path, "count": count, "removed": removed }),
+        );
     });
     Ok(())
 }
@@ -210,20 +299,68 @@ pub fn search_reindex_path(state: State<Db>, path: String) -> Result<(), String>
     Ok(())
 }
 
-/// 파일/폴더 인덱스 제거(삭제·언임포트). path 자신 + 하위(prefix) 모두 제거.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rel_under_boundaries() {
+        // 자기 자신
+        assert_eq!(rel_under(r"C:\w", r"C:\w"), Some(""));
+        assert_eq!(rel_under(r"C:\w\", r"C:\w"), Some(""));
+        // 하위
+        assert_eq!(rel_under(r"C:\w\a.md", r"C:\w"), Some("a.md"));
+        assert_eq!(rel_under(r"C:\w\sub\a.md", r"C:\w"), Some(r"sub\a.md"));
+        // root 후행 구분자
+        assert_eq!(rel_under(r"C:\w\a.md", r"C:\w\"), Some("a.md"));
+        // 형제 접두어 — LIKE 'C:\w%' 는 여기서 틀린다
+        assert_eq!(rel_under(r"C:\wx\a.md", r"C:\w"), None);
+        assert_eq!(rel_under(r"C:\workspace\a.md", r"C:\work"), None);
+        // 구분자 혼용 · ASCII 대소문자
+        assert_eq!(rel_under("C:/w/a.md", r"C:\w"), Some("a.md"));
+        assert_eq!(rel_under(r"c:\W\a.md", r"C:\w"), Some("a.md"));
+        // 한글 경로(비ASCII 바이트 정렬)
+        assert_eq!(rel_under(r"C:\작업\문서.md", r"C:\작업"), Some("문서.md"));
+        assert_eq!(rel_under(r"C:\작업실\문서.md", r"C:\작업"), None);
+        // 빈 root · 짧은 path
+        assert_eq!(rel_under(r"C:\w\a.md", ""), None);
+        assert_eq!(rel_under(r"C:\w\a.md", "/"), None);
+        assert_eq!(rel_under(r"C:\w", r"C:\w\sub"), None);
+    }
+
+    #[test]
+    fn under_root_matches_rel_under() {
+        assert!(under_root(r"C:\w\a.md", r"C:\w"));
+        assert!(under_root(r"C:\w", r"C:\w"));
+        assert!(!under_root(r"C:\wx\a.md", r"C:\w"));
+        assert!(!under_root(r"D:\w\a.md", r"C:\w"));
+    }
+
+    #[test]
+    fn norm_key_unifies_separator_and_case() {
+        assert_eq!(norm_key(r"C:\W\A.MD"), "c:/w/a.md");
+        assert_eq!(norm_key("c:/w/a.md"), "c:/w/a.md");
+        // 비ASCII 는 그대로(한글에 대소문자 개념이 없다)
+        assert_eq!(norm_key(r"C:\작업\문서.md"), "c:/작업/문서.md");
+    }
+
+    #[test]
+    fn build_match_sanitizes() {
+        assert_eq!(build_match("hello world"), Some("hello world*".into()));
+        assert_eq!(build_match("  "), None);
+        // FTS5 연산자 문자는 걸러진다(구문 오류 차단)
+        assert_eq!(build_match("a\"b OR* c"), Some("ab OR c*".into()));
+    }
+}
+
+/// 파일/폴더 인덱스 제거(삭제·언임포트). path 자신 + 하위 모두 제거.
+/// 하위 판정은 `under_root` — LIKE 만 쓰면 형제 접두어(`C:\a` → `C:\ab\x.md`)까지 지운다.
 #[tauri::command]
 pub fn search_remove_path(state: State<Db>, path: String) -> Result<(), String> {
-    let like = format!("{path}%");
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "DELETE FROM file_index WHERE real_path = ?1 OR real_path LIKE ?2",
-        params![path, like],
-    )
-    .map_err(|e| e.to_string())?;
-    conn.execute(
-        "DELETE FROM file_meta WHERE real_path = ?1 OR real_path LIKE ?2",
-        params![path, like],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
+    for p in indexed_under(&conn, &path)? {
+        remove_path(&conn, &p)?;
+    }
+    // 인덱스에 없더라도 file_meta 만 남은 경우를 위해 자기 자신은 한 번 더.
+    remove_path(&conn, &path)
 }

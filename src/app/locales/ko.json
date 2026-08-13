@@ -45,7 +45,11 @@
     "importJsonMsg": "현재 워크스페이스 구성이 파일 내용으로 대체됩니다. 디스크의 실제 파일은 삭제되지 않습니다.",
     "importAction": "가져오기",
     "importedBadge": "가져옴",
-    "importedHint": "가져온 폴더 — 하위 파일이 통째로 묶인 단위입니다(개별 이동 대신 폴더째 이동)."
+    "importedHint": "가져온 폴더 — 하위 파일이 통째로 묶인 단위입니다(개별 이동 대신 폴더째 이동).",
+    "resync": "다시 스캔",
+    "resyncAll": "워크스페이스 새로고침",
+    "missingBadge": "없음",
+    "missingHint": "원본 폴더를 찾을 수 없습니다 — 옮겨졌거나 지워졌습니다."
   },
   "ctx": { "cut": "잘라내기", "copy": "복사", "paste": "붙여넣기", "selectAll": "모두 선택" },
   "ed": {
@@ -124,7 +128,7 @@
   },
   "tab": { "addToWorkspace": "워크스페이스에 추가", "close": "탭 닫기", "closeOthers": "다른 탭 모두 닫기", "closeAll": "모든 탭 닫기", "reveal": "파일 위치 열기", "copyPath": "경로 복사" },
   "search": { "placeholder": "검색...", "searching": "검색 중…", "noResults": "결과 없음" },
-  "status": { "saved": "저장됨", "unsaved": "수정됨", "words": "단어", "ln": "줄", "col": "열", "selected": "자 선택", "min": "분" },
+  "status": { "saved": "저장됨", "unsaved": "수정됨", "words": "단어", "ln": "줄", "col": "열", "selected": "자 선택", "min": "분", "indexed": "색인 {{n}}개 갱신 · {{removed}}개 정리" },
   "settings": {
     "title": "설정",
     "open": "설정",

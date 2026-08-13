@@ -117,6 +117,7 @@ function TreeList({
                 (!folder && !readable ? " unreadable" : "") +
                 (nodeImported ? " imported" : "") +
                 (importedRoot ? " imported-root" : "") +
+                (n.missing ? " missing" : "") +
                 (draggingKey && n.key === draggingKey ? " dragging" : "") +
                 dropCls
               }
@@ -147,11 +148,17 @@ function TreeList({
               <span className="name" onMouseEnter={(e) => showFullNameOnClip(e, n.name)}>
                 {n.name}
               </span>
-              {importedRoot && (
-                <span className="badge imported-badge" title={t("ws.importedHint")}>
-                  {t("ws.importedBadge")}
-                </span>
-              )}
+              {importedRoot &&
+                (n.missing ? (
+                  // 원본 폴더를 못 읽었다. 빈 폴더로 보이면 원인을 못 찾으므로 여기서 말해 준다.
+                  <span className="badge missing-badge" title={t("ws.missingHint")}>
+                    {t("ws.missingBadge")}
+                  </span>
+                ) : (
+                  <span className="badge imported-badge" title={t("ws.importedHint")}>
+                    {t("ws.importedBadge")}
+                  </span>
+                ))}
               {!folder && readable && n.realPath && (
                 <button
                   type="button"
@@ -201,6 +208,8 @@ export function WorkspaceTree() {
   const removeNode = useAppStore((s) => s.removeNode);
   const moveNode = useAppStore((s) => s.moveNode);
   const reorderChildren = useAppStore((s) => s.reorderChildren);
+  const resyncWorkspace = useAppStore((s) => s.resyncWorkspace);
+  const resyncBusy = useAppStore((s) => s.resyncBusy);
 
   const [menu, setMenu] = useState<{ node: TreeNode; x: number; y: number } | null>(null);
   const [wsMenu, setWsMenu] = useState<{ x: number; y: number } | null>(null);
@@ -380,6 +389,8 @@ export function WorkspaceTree() {
       items.push({ label: t("ws.removeFromWs"), danger: true, onClick: () => void removeNode(id) });
     } else if (n.kind === "imported_folder" && n.id) {
       const id = n.id;
+      // 트리는 렌더할 때마다 디스크에서 파생되므로 "다시 스캔"은 재파생 + 검색 색인 갱신이다.
+      items.push({ label: t("ws.resync"), onClick: () => void resyncWorkspace() });
       items.push({
         label: t("ws.rename"),
         onClick: () =>
@@ -441,6 +452,16 @@ export function WorkspaceTree() {
           }
         >
           <Icon name="plus" />
+        </button>
+        <button
+          type="button"
+          className={"ws-tool icon" + (resyncBusy > 0 ? " busy" : "")}
+          title={t("ws.resyncAll")}
+          aria-label={t("ws.resyncAll")}
+          disabled={resyncBusy > 0}
+          onClick={() => void resyncWorkspace()}
+        >
+          <Icon name="refresh" />
         </button>
         <button
           type="button"

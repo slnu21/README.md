@@ -836,6 +836,46 @@ body {
   border-radius: 4px;
   padding: 1px 5px;
 }
+/* 원본 폴더를 못 읽는 가져온 폴더 — 빈 폴더로 착각하지 않게 이름을 흐리고 배지를 경고색으로. */
+.node .missing-badge {
+  flex: none;
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  /* 위험색은 앱 전역이 리터럴 #c0392b 를 쓴다(.ctx-item.danger, .modal-btn.danger) — 맞춘다. */
+  color: #c0392b;
+  background: color-mix(in srgb, #c0392b 12%, transparent);
+  border: 1px solid color-mix(in srgb, #c0392b 35%, var(--border));
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.node.missing .name {
+  opacity: 0.55;
+}
+
+/* 재동기화 진행 표시 — 아이콘만 돌린다(버튼 테두리까지 돌면 어지럽다). */
+.ws-tool.busy .ic {
+  animation: ws-spin 0.9s linear infinite;
+}
+.ws-tool:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+@keyframes ws-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws-tool.busy .ic {
+    animation: none;
+  }
+}
+
+/* 상태바 일시 알림(색인 완료 등) — 상시 항목과 구분되게 강조색. */
+.st-note {
+  color: var(--accent);
+}
+
 /* '폴더 행'에 마우스를 올렸을 때만 묶음 전체(폴더+하위+레일)를 함께 강조 — 함께 이동하는 단위임을 안내.
    하위 개별 항목은 옮길 수 없으므로, 그 위에서는 그룹 강조를 하지 않는다(개별 행 hover만). */
 .node.imported-root:hover,

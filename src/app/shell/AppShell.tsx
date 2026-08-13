@@ -2,9 +2,9 @@
 // 에디터는 현재 원문 표시(읽기 전용). 실제 편집=WBS 522, 미리보기 렌더=WBS 511.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAppStore, type TreeNode } from "../store";
+import { useAppStore, collectImportedPaths, type TreeNode } from "../store";
 import { themes } from "../themes";
-import { pickFile, pickFolder, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, openExternal, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
+import { pickFile, pickFolder, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, openExternal, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
@@ -31,17 +31,6 @@ import type { TocItem } from "../lib/markdown";
 const THEME_ORDER = ["light", "dark", "paper"] as const;
 const THEME_ICON = { light: "sun", dark: "moon", paper: "paper" } as const;
 const OPENABLE = READABLE_RE; // 드롭·파일연결에서 열 수 있는 문서 판별(공용 규칙)
-
-/** 트리에서 imported_folder 실경로 수집(중첩 포함) — 감시·재인덱싱 대상. */
-function collectImportedPaths(nodes: TreeNode[]): string[] {
-  const out: string[] = [];
-  const walk = (n: TreeNode) => {
-    if (n.kind === "imported_folder" && n.realPath) out.push(n.realPath);
-    n.children.forEach(walk);
-  };
-  nodes.forEach(walk);
-  return out;
-}
 
 /** 워크스페이스 트리의 파일 노드 수집(퀵오픈용) — 열 수 있는 문서만, realPath→name, 중복 경로 제거. */
 function collectFiles(nodes: TreeNode[], out: Map<string, string>): void {
@@ -117,6 +106,7 @@ export function AppShell() {
   const [searching, setSearching] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [indexNonce, setIndexNonce] = useState(0);
+  const [indexNote, setIndexNote] = useState<{ count: number; removed: number } | null>(null);
   const [dropActive, setDropActive] = useState(false);
   const [exportMenu, setExportMenu] = useState<{ x: number; y: number } | null>(null);
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
@@ -183,6 +173,13 @@ export function AppShell() {
       if (e.key === "F1") {
         e.preventDefault();
         setKeysOpen(true);
+        return;
+      }
+      // F5 = 워크스페이스 재동기화. WebView2 가 브라우저 가속기로 먼저 먹으면(리로드) 여기까지
+      // 안 온다 — 그때는 사이드바 버튼·우클릭·팔레트로 쓴다(기능은 그쪽이 본체다).
+      if (e.key === "F5" && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        void useAppStore.getState().resyncWorkspace();
         return;
       }
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -363,6 +360,7 @@ export function AppShell() {
     };
     add("open-file", t("menu.openFile"), () => void onOpenFile());
     add("open-folder", t("menu.openFolder"), () => void onOpenFolder());
+    add("resync", t("ws.resyncAll"), () => void useAppStore.getState().resyncWorkspace());
     add("find-replace", t("find.title"), () => setFindOpen(true));
     add("save", t("menu.save"), () => void saveActive(), !!active);
     add("export-html", t("menu.exportHtml"), () => active && void exportHtml(exportParamsOf(active), active.title).catch(() => {}), !!active);
@@ -594,6 +592,64 @@ export function AppShell() {
     });
     return () => {
       alive = false;
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  // 가져온 폴더의 구조 변경(생성·삭제·이름변경) → 워크스페이스 트리 재파생.
+  //
+  // 스로틀(선두 즉시 + 이후 최소 간격)이지 디바운스가 아니다. 빌드처럼 이벤트가 끊이지 않고
+  // 쏟아지면 디바운스는 타이머가 영원히 밀려 아무것도 안 하거나 매 이벤트마다 터진다.
+  //
+  // **의존성 배열은 반드시 [] 로 둔다.** refreshWorkspace 는 매번 새 roots 배열 객체를 만들기
+  // 때문에 roots 를 의존성에 넣으면 스스로를 영원히 다시 트리거한다. 감시기 재등록 이펙트
+  // (아래 pathsKey/rootsKey)와는 루프가 없다 — rootsKey 는 "가져온 루트 경로" 문자열이라
+  // 폴더 안 파일이 늘고 줄어도 바뀌지 않는다.
+  useEffect(() => {
+    const MIN_GAP = 2000;
+    let last = 0;
+    let timer = 0;
+    let unlisten: (() => void) | undefined;
+    let alive = true;
+    const runNow = () => {
+      last = Date.now();
+      timer = 0;
+      void useAppStore.getState().refreshWorkspace();
+    };
+    void onFsStructural(() => {
+      if (timer) return; // 이미 예약됨 — 합쳐서 한 번만 돈다
+      const wait = Math.max(0, MIN_GAP - (Date.now() - last));
+      if (wait === 0) runNow();
+      else timer = window.setTimeout(runNow, wait);
+    }).then((un) => {
+      if (alive) unlisten = un;
+      else un();
+    });
+    return () => {
+      alive = false;
+      if (timer) window.clearTimeout(timer);
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  // 색인 완료 → 재동기화 busy 감소 + 상태바에 잠깐 알림.
+  // 폴더 가져오기 때도 오는 이벤트라 상시 표시가 아니라 4초 뒤 사라지는 일시 알림이다.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let alive = true;
+    let clear = 0;
+    void onIndexDone((p) => {
+      useAppStore.getState().resyncEnd();
+      setIndexNote({ count: p.count, removed: p.removed });
+      if (clear) window.clearTimeout(clear);
+      clear = window.setTimeout(() => setIndexNote(null), 4000);
+    }).then((un) => {
+      if (alive) unlisten = un;
+      else un();
+    });
+    return () => {
+      alive = false;
+      if (clear) window.clearTimeout(clear);
       if (unlisten) unlisten();
     };
   }, []);
@@ -1091,6 +1147,12 @@ export function AppShell() {
             </span>
           )}
           <span className={active ? "st" : "st right"}>Markdown</span>
+          {indexNote && (
+            <span className="st st-note">
+              {/* 변수명이 count 면 i18next 가 복수형 키(_one/_other)를 먼저 찾는다 — n 을 쓴다. */}
+              {t("status.indexed", { n: indexNote.count, removed: indexNote.removed })}
+            </span>
+          )}
           <span className="st">{themeName}</span>
           <span className="st">UTF-8</span>
         </footer>

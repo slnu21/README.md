@@ -8,6 +8,24 @@ export function dirOf(path: string): string {
   return i >= 0 ? path.slice(0, i) : "";
 }
 
+/** `path` 가 `root` 자신이거나 그 하위인가.
+ *
+ *  단순 `startsWith` 는 형제 접두어를 잡는다(`C:/w` 가 `C:/workspace/a.md` 를 삼킨다) — 구분자
+ *  경계를 요구해야 한다. 구분자 종류와 ASCII 대소문자는 무시한다(Windows).
+ *  Rust 쪽 `commands/search.rs rel_under()` 와 같은 규칙이다 — 한쪽만 고치지 말 것. */
+export function isUnderRoot(path: string, root: string): boolean {
+  const norm = (s: string) => s.replace(/\\/g, "/").toLowerCase();
+  const r = norm(root).replace(/\/+$/, "");
+  if (!r) return false;
+  const p = norm(path);
+  return p === r || p.startsWith(r + "/");
+}
+
+/** 경로 중 하나라도 루트 중 하나의 아래인가(빈 배열이면 false). */
+export function anyUnderRoots(paths: string[], roots: string[]): boolean {
+  return paths.some((p) => roots.some((r) => isUnderRoot(p, r)));
+}
+
 /** 절대 경로인가(드라이브 문자 또는 루트 시작). */
 export function isAbsolute(p: string): boolean {
   return /^[a-zA-Z]:[\\/]/.test(p) || p.startsWith("/") || p.startsWith("\\");
