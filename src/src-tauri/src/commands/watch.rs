@@ -26,15 +26,20 @@ fn is_indexable(p: &Path) -> bool {
 /// 트리 재파생이 필요한(= 구조가 바뀐) 이벤트인가.
 ///
 /// `Modify(Name(_))` 이 반드시 들어가야 한다 — 탐색기의 이름 변경은 Create/Remove 가 아니라
-/// 여기로 온다. 반대로 내용만 바뀐 `Modify(Data)` 는 빼야 한다: 앱 자신의 저장(`fs::write`)이
-/// 그거라서, 넣으면 한 글자 저장할 때마다 워크스페이스 전체 재스캔이 돈다.
+/// 여기로 온다(Windows ReadDirectoryChangesW 의 FILE_ACTION_RENAMED_OLD/NEW_NAME →
+/// `RenameMode::From`/`To`).
+///
+/// 반대로 **`Modify(Any)` 는 넣으면 안 된다.** 같은 백엔드가 FILE_ACTION_MODIFIED(= 내용 변경)
+/// 를 바로 그 `Modify(Any)` 로 준다 — 앱 자신의 저장이 여기 해당해서, 넣으면 저장할 때마다
+/// 워크스페이스 전체가 다시 스캔된다(실구동 검증에서 저장 1회에 재파생 2회로 잡혔다).
+/// 배포 대상이 Windows 뿐이라 이 매핑을 전제해도 된다.
 fn is_structural(kind: &EventKind) -> bool {
-    match kind {
-        EventKind::Create(_) | EventKind::Remove(_) => true,
-        EventKind::Modify(notify::event::ModifyKind::Name(_)) => true,
-        EventKind::Modify(notify::event::ModifyKind::Any) => true, // 일부 백엔드는 Any 로만 준다
-        _ => false,
-    }
+    matches!(
+        kind,
+        EventKind::Create(_)
+            | EventKind::Remove(_)
+            | EventKind::Modify(notify::event::ModifyKind::Name(_))
+    )
 }
 
 /// 감시 루트 기준으로 숨김(`.`)·무거운 디렉터리 아래인가.
@@ -167,8 +172,11 @@ mod tests {
         assert!(is_structural(&EventKind::Remove(RemoveKind::File)));
         // 탐색기 이름 변경 — 이게 빠지면 폴더/파일 이름 변경이 트리에 안 붙는다
         assert!(is_structural(&EventKind::Modify(ModifyKind::Name(RenameMode::Both))));
-        assert!(is_structural(&EventKind::Modify(ModifyKind::Any)));
-        // 내용만 바뀐 저장 — 앱 자신의 write 가 여기다. 트리 재파생 대상이 아니다.
+        assert!(is_structural(&EventKind::Modify(ModifyKind::Name(RenameMode::From))));
+        assert!(is_structural(&EventKind::Modify(ModifyKind::Name(RenameMode::To))));
+        // Windows 백엔드는 **내용 변경**을 Modify(Any) 로 준다 — 앱 자신의 저장이 여기다.
+        // 이게 구조 변경으로 새면 저장할 때마다 워크스페이스 전체가 다시 스캔된다.
+        assert!(!is_structural(&EventKind::Modify(ModifyKind::Any)));
         assert!(!is_structural(&EventKind::Modify(ModifyKind::Data(DataChange::Content))));
         assert!(!is_structural(&EventKind::Access(notify::event::AccessKind::Read)));
     }
