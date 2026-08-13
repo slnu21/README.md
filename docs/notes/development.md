@@ -13,6 +13,12 @@ npm install        # 최초 1회
 npm run tauri dev  # 데스크톱 창 실행 (Rust 필요)
 ```
 - 타입체크: `cd src && npx tsc --noEmit`
+- 단위 테스트: `cd src && npm test` (vitest, **node 환경 — DOM 없음**) · Rust `cd src/src-tauri && cargo test --lib`
+- 렌더 프로브: `npm run probe:mermaid` — 미리보기 **문서 안**(라벨↔도형, 정화, 동시 렌더).
+- 레이아웃 프로브: `npm run probe:layout` — **앱 셸**(편집/리딩/리딩분할 3배치의 패널 폭·넘침·
+  전환 후 미리보기 iframe 보존). 두 프로브는 보는 곳이 겹치지 않는다 — mermaid 프로브는 자기
+  iframe 을 직접 만들어 앱 셸을 아예 로드하지 않으므로 패널 기하는 그쪽으로 안 잡힌다.
+  둘 다 앱을 띄우지 않아 사용자 DB·WebView2 프로필을 건드리지 않는다.
 - 빌드: `cd src && npm run tauri build` → 산출물은 `src/src-tauri/target/release/bundle/...`
 
 ## 구조 메모

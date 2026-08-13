@@ -91,6 +91,18 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v0.7.0 — ko-KR
+- **새 문서 만들기** — 워크스페이스에서 폴더를 우클릭해 이름만 입력하면 그 자리에 문서가 생깁니다. 탭 옆 `+` 버튼과 `Ctrl+N`은 저장 위치를 물어봅니다. 확장자를 안 적으면 `.md`를 붙이고, **같은 이름이 있으면 덮어쓰지 않고 알려 줍니다.**
+- **리딩 모드에서 두 문서를 나란히** — 탭을 우클릭해 "옆에 나란히 열기". 가운데 손잡이로 폭을 조절하고 좌우를 바꿀 수 있습니다. 나눈 상태와 폭은 다음 실행에도 유지됩니다.
+- **가져온 폴더 재동기화** — 폴더에 문서를 만들거나 지우거나 이름을 바꾸면 몇 초 안에 목록에 반영됩니다. 앱이 꺼져 있는 동안 생긴 문서도 다음 실행 때 검색에 잡히고, 지워진 문서는 검색 결과에서 정리됩니다. 사이드바 새로고침 단추와 `F5`로 직접 맞출 수도 있습니다.
+- 미리보기와 프레젠테이션이 동시에 그려질 때 다이어그램 색이 다른 테마로 섞이던 문제를 고쳤습니다.
+
+### v0.7.0 — en-US
+- **New document** — right-click a folder in the workspace, type a name, and the document is created right there. The `+` button next to the tabs and `Ctrl+N` ask where to save. `.md` is added when you omit the extension, and **an existing file is never overwritten** — you get told instead.
+- **Two documents side by side in reading mode** — right-click a tab and choose "Open beside". Drag the middle handle to resize, or swap the two sides. The split and its width survive a restart.
+- **Imported folders stay in sync** — creating, deleting or renaming a file in the folder shows up in the sidebar within seconds. Documents added while the app was closed become searchable on the next launch, and deleted ones are cleared from the search index. A refresh button and `F5` let you resync on demand.
+- Fixed diagram colors mixing between themes when the preview and presentation rendered at the same time.
+
 ### v0.6.9 — ko-KR
 - **다이어그램 도형 안 글자가 가로로 잘리던 문제 수정** — 순서도와 ER 다이어그램에서 도형 안 글자가 마지막 글자에 못 미쳐 중간에서 끊겨 보이던 문제를 고쳤습니다. 한글과 영문 모두 해당됐고, 확대율이나 글꼴을 바꿔도 그대로였습니다.
 - 언어를 바꾼 뒤 다이어그램의 한글 글꼴이 달라지던 것도 함께 고쳤습니다.
