@@ -3,6 +3,7 @@
 // 디바운스(previewDelay 설정, 기본 500ms). 테마 토큰을 iframe에 주입해 동기화. 로컬 이미지는 asset 프로토콜로 재작성.
 // 재렌더는 srcdoc 통째 리로드 → 직전 상단 소스 줄을 저장·복원해 스크롤 위치 유지(restoreLineRef).
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { createMarkdown, extractToc, type TocItem } from "../lib/markdown";
 import { sanitizeHtml } from "../lib/sanitize";
 import { renderMermaid } from "../lib/mermaid";
@@ -10,8 +11,9 @@ import { useAppStore } from "../store";
 import { readStack, BASE_READER_PX } from "../lib/fonts";
 import { buildDoc, type BuildDocOpts, type FontOpts } from "../lib/renderDoc";
 import { inlineImages } from "../lib/previewImages";
-import { dirOf, resolvePath } from "../lib/paths";
-import { openExternal } from "../lib/tauri";
+import { dirOf } from "../lib/paths";
+import type { OpenHow } from "../lib/links";
+import { annotateLinkTitles, handleLinkClick } from "../lib/previewLinks";
 
 // 미리보기 스크롤 위치 → 상단에 보이는 소스 줄(0-based). scrollToLine의 역보간.
 function topSourceLine(doc: Document): number | null {
@@ -75,15 +77,17 @@ interface PreviewProps {
   themeId: string;
   onToc?: (toc: TocItem[]) => void;
   onSourceLine?: (line: number) => void; // 미리보기 스크롤 → 상단 소스 줄(양방향 동기화)
-  /** 미리보기에서 로컬 문서 링크를 눌렀을 때(문서 폴더 기준으로 해석한 경로).
-   *  앱에서 열지/OS에 넘길지는 호스트가 결정한다. */
-  onOpenPath?: (path: string) => void;
+  /** 미리보기에서 로컬 파일 링크를 눌렀을 때(문서 폴더 기준으로 해석한 경로).
+   *  앱에서 열지/OS에 넘길지는 호스트가 결정한다. `how` 는 수식어에서 온 목적지
+   *  (맨클릭=here · Ctrl/⌘=beside · Alt=reveal). */
+  onOpenPath?: (path: string, how: OpenHow) => void;
 }
 
 export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   { content, path, themeId, onToc, onSourceLine, onOpenPath },
   ref,
 ) {
+  const { t } = useTranslation();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const workerRef = useRef<Worker | null>(null);
   const reqId = useRef(0);
@@ -222,7 +226,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
 
   // srcdoc 로드 때마다 iframe 문서에 리스너 부착(별도 문서 → 부모 전역 리스너 못 잡음).
   // same-origin(allow-same-origin)이라 스크립트 주입 없이 부착 가능:
-  //  · 우클릭(브라우저 기본 메뉴) 억제  · 이미지 클릭 → 라이트박스.
+  //  · 우클릭(브라우저 기본 메뉴) 억제  · 이미지 클릭 → 라이트박스  · 링크 클릭 가로채기.
   function onIframeLoad() {
     const doc = iframeRef.current?.contentDocument;
     const win = iframeRef.current?.contentWindow;
@@ -234,48 +238,24 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
       restoreLineRef.current = null;
     }
     doc.addEventListener("contextmenu", (e) => e.preventDefault());
+    // 링크에 목적지를 title 로 달아 둔다 — 누르기 전에 어디로 가는지 보인다.
+    annotateLinkTitles(doc, pathRef.current);
     doc.addEventListener("click", (e) => {
       const el = e.target as HTMLElement | null;
-      if (el?.tagName === "IMG") {
+      // 이미지는 링크로 감싸여 있을 수 있다(`[![alt](img)](url)`). 그때는 링크가 이긴다 —
+      // 감싼 사람이 "눌러서 이동"을 의도한 것이고, 확대는 감싸지 않은 이미지에만 준다.
+      if (el?.tagName === "IMG" && !el.closest("a")) {
         const src = (el as HTMLImageElement).currentSrc || el.getAttribute("src") || "";
         if (src) setLightbox(src);
         return;
       }
-      // ── 링크 클릭은 **반드시** 호스트가 가로챈다 ──────────────────────────────
-      // srcdoc 문서의 URL은 about:srcdoc 인데 base URL은 부모(tauri.localhost)에서 상속된다.
-      // 그래서 "#제목" 조차 tauri.localhost/#제목 으로 해석돼 같은 문서 내 스크롤이 아니라
-      // **전체 내비게이션**이 되고, srcdoc 내용이 사라져 미리보기가 빈 화면이 됐다.
-      const a = el?.closest("a");
-      const href = a?.getAttribute("href");
-      if (!href) return;
-      e.preventDefault();
-      if (href.startsWith("#")) {
-        // markdown-it 이 비ASCII 앵커를 퍼센트 인코딩하므로 디코드해서 id를 찾는다.
-        let id = href.slice(1);
-        try {
-          id = decodeURIComponent(id);
-        } catch {
-          /* 잘못된 인코딩은 원문 그대로 시도 */
-        }
-        doc.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-        return;
-      }
-      if (/^(?:https?|mailto|tel):/i.test(href)) {
-        void openExternal(href).catch(() => {});
-        return;
-      }
-      if (/^(?:data|blob|javascript|about):/i.test(href)) return; // 열지 않는다
-      // 로컬 경로 — 프래그먼트를 떼고 문서 폴더 기준으로 해석해 호스트가 연다.
-      // (대상 문서 안의 특정 제목까지 이동하는 것은 지원하지 않는다 — 문서만 열린다.)
-      const raw = href.split("#")[0];
-      if (!raw) return;
-      let rel = raw;
-      try {
-        rel = decodeURI(raw);
-      } catch {
-        /* 원문 그대로 */
-      }
-      onOpenPathRef.current?.(resolvePath(dirOf(pathRef.current), rel));
+      handleLinkClick(e, pathRef.current, {
+        anchor: (id) => doc.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        path: (abs, how) => onOpenPathRef.current?.(abs, how),
+        ignored: (href) => useAppStore.getState().showNotice(t("link.unsupported", { href })),
+        urlFailed: (_url, detail) =>
+          useAppStore.getState().showNotice(t("link.openFailed", { detail }), "error"),
+      });
     });
     // 미리보기 스크롤 → 상단 소스 줄 방출(rAF 스로틀). 새 srcdoc마다 문서 교체 → 옛 리스너 자동 소멸.
     if (win) {

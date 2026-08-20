@@ -25,8 +25,40 @@ const CONFIG = {
   ],
 };
 
+// ── 지워진 href 를 흔적으로 남긴다 ───────────────────────────────────────────
+// DOMPurify 는 허용 목록에 없는 스킴(javascript:·file:·obsidian: …)의 href 를 **통째로**
+// 지운다. 그러면 미리보기에는 파랗게 밑줄 그어진, 그런데 눌러도 아무 일 없는 링크가 남는다 —
+// 사용자가 "링크가 클릭이 안 된다"고 겪는 모양 그대로다. 지워진 값을 data-blocked-href 로
+// 남겨 두면 클릭 핸들러가 무엇이었는지 말해 주거나(안내 토스트), file:// 처럼 옮길 수 있는
+// 것은 로컬 경로로 바꿔 열 수 있다.
+//
+// 보안 경계는 그대로다 — href 를 되살리는 게 아니라 값을 data-* 로 **기록만** 한다.
+// 브라우저는 data-* 를 절대 실행하지 않고, 무엇을 열지는 lib/links.ts 가 다시 판단한다.
+const blockedHref = new WeakMap<Node, string>();
+let hooksInstalled = false;
+
+/** 훅은 **첫 정화 때** 단다. 모듈 로드 시점에 달면 DOM 없는 환경에서 터진다 —
+ *  DOMPurify 는 window 가 없으면 `addHook` 조차 없는 축소판을 내보내고, 우리 단위 테스트는
+ *  node 환경에서 돈다(이 모듈을 import 만 하는 테스트까지 같이 죽었다). */
+function ensureHooks(): void {
+  if (hooksInstalled || typeof DOMPurify.addHook !== "function") return;
+  hooksInstalled = true;
+  DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
+    // 속성 순회 중이라 여기서 노드를 건드리지 않는다 — 값만 챙겨 두고 뒤에서 붙인다.
+    if (data.attrName === "href") blockedHref.set(node, data.attrValue);
+  });
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    const original = blockedHref.get(node);
+    if (original === undefined) return;
+    blockedHref.delete(node);
+    const el = node as Element;
+    if (!el.hasAttribute("href")) el.setAttribute("data-blocked-href", original);
+  });
+}
+
 /** 미리보기 HTML 정화(마크다운 렌더 결과). sandbox iframe 주입 전 이중 방어. */
 export function sanitizeHtml(html: string): string {
+  ensureHooks();
   return DOMPurify.sanitize(html, CONFIG) as unknown as string;
 }
 
