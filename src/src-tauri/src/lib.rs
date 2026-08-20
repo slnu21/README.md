@@ -86,6 +86,7 @@ pub fn run() {
             commands::fs_ops::path_exists,
             commands::fs_ops::path_is_dir,
             commands::fs_ops::read_dir_tree,
+            commands::shell_open::open_with_default,
             commands::watch::watch_files,
             commands::workspace::ws_load,
             commands::workspace::ws_create_folder,

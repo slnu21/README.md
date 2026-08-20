@@ -60,6 +60,9 @@ function baseName(path: string): string {
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
+/** 토스트 식별자. 시각이 아니라 순번이면 충분하고, 같은 밀리초에 두 번 떠도 구분된다. */
+let noticeSeq = 0;
+
 const isFolderKind = (k: TreeKind) =>
   k === "virtual_folder" || k === "imported_folder" || k === "disk_folder";
 
@@ -183,6 +186,10 @@ interface AppState {
   secondaryPath: string | null; // 두 번째 패널이 보여 줄 열린 탭
   readerRatio: number; // 리딩 분할의 좌:우 비율(편집/미리보기의 splitRatio 와 별개)
 
+  /** 잠깐 떴다 사라지는 알림(토스트) — 비영속. 실패를 조용히 삼키지 않기 위한 자리다.
+   *  id 는 같은 문구가 연달아 떠도 표시 시간이 다시 시작되도록 매번 새로 준다. */
+  notice: { id: number; text: string; kind: "info" | "error" } | null;
+
   roots: TreeNode[]; // 워크스페이스 트리(그래프+디스크 파생)
   resyncBusy: number; // 진행 중인 재색인 수(0보다 크면 새로고침 버튼이 회전) — 비영속
   expanded: Record<string, boolean>; // 폴더 펼침 상태(key 기준)
@@ -216,6 +223,9 @@ interface AppState {
   openBeside: (path: string, content: string) => void; // 탭을 열되 활성은 그대로 두고 두 번째로
   closeSecondary: () => void;
   swapPanes: () => void;
+
+  showNotice: (text: string, kind?: "info" | "error") => void;
+  dismissNotice: () => void;
 
   hydrate: () => Promise<void>;
   refreshWorkspace: () => Promise<void>;
@@ -271,6 +281,7 @@ export const useAppStore = create<AppState>()(
       readerSplit: false,
       secondaryPath: null,
       readerRatio: 0.5,
+      notice: null,
 
       roots: [],
       resyncBusy: 0,
@@ -323,6 +334,10 @@ export const useAppStore = create<AppState>()(
 
       closeSecondary: () => set((s) => panes.closeSecondary(paneStateOf(s))),
       swapPanes: () => set((s) => panes.swapPanes(paneStateOf(s))),
+
+      // id 를 매번 새로 만든다 — 같은 문구를 다시 띄워도 Toast 의 표시 시간이 다시 시작된다.
+      showNotice: (text, kind = "info") => set({ notice: { id: ++noticeSeq, text, kind } }),
+      dismissNotice: () => set({ notice: null }),
 
       // 부팅 시 로드 = refreshWorkspace + 세션 복원(마지막 열린 파일 재오픈).
       hydrate: async () => {

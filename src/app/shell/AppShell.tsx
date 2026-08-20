@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, collectImportedPaths, type TreeNode } from "../store";
 import { themes } from "../themes";
-import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, openExternal, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
+import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, openWithDefault, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
@@ -29,6 +29,8 @@ import { dirOf, pickDefaultDir } from "../lib/paths";
 import { createDocAt } from "../features/workspace/newDoc";
 import { bytesToBase64 } from "../lib/bytes";
 import { showFullNameOnClip } from "../lib/hoverName";
+import type { OpenHow } from "../lib/links";
+import { Toast } from "./Toast";
 import type { TocItem } from "../lib/markdown";
 
 const THEME_ORDER = ["light", "dark", "paper"] as const;
@@ -233,6 +235,44 @@ export function AppShell() {
       }
     },
     [importFolder, openFile],
+  );
+
+  // 미리보기·슬라이드에서 로컬 파일 링크를 눌렀을 때. 목적지는 수식어가 정한다
+  // (맨클릭=여기 · Ctrl/⌘=옆 패널 · Alt=탐색기에서 위치). 실패는 반드시 토스트로 알린다 —
+  // 조용히 삼키면 "눌러도 아무 일이 없다"가 되고, 그게 v0.6.8~v0.7.0 의 외부 링크였다.
+  const openLinkTarget = useCallback(
+    async (p: string, how: OpenHow) => {
+      const notice = useAppStore.getState().showNotice;
+      if (!(await pathExists(p).catch(() => false))) {
+        notice(t("link.notFound", { path: p }), "error");
+        return;
+      }
+      // 폴더를 가리키는 링크는 탐색기에서 보여 준다(앱에 폴더 뷰가 없다).
+      if (how === "reveal" || (await pathIsDir(p).catch(() => false))) {
+        await revealInExplorer(p).catch((e: unknown) =>
+          notice(t("link.openFailed", { detail: String(e) }), "error"),
+        );
+        return;
+      }
+      if (OPENABLE.test(p)) {
+        if (how === "beside") useAppStore.getState().openBeside(p, await readFile(p));
+        else await openIncoming([p]);
+        return;
+      }
+      // 앱에서 못 여는 형식 → OS 기본 프로그램. 확장자 허용 목록은 Rust 에 있다(shell_open.rs).
+      try {
+        await openWithDefault(p);
+      } catch (err) {
+        const code = String(err);
+        if (code.includes("EUNSAFE")) {
+          // 자동으로 열지 않는 형식(.exe·.lnk·.html 등) — 폴더만 열어 사용자가 직접 판단하게 한다.
+          await revealInExplorer(p).catch(() => {});
+          notice(t("link.revealedInstead", { name: baseName(p) }));
+        } else if (code.includes("ENOENT")) notice(t("link.notFound", { path: p }), "error");
+        else notice(t("link.openFailed", { detail: code }), "error");
+      }
+    },
+    [openIncoming, t],
   );
 
   // OS 파일 드롭으로 열기(기능 1a).
@@ -985,6 +1025,12 @@ export function AppShell() {
             path={active.path}
             themeId={themeId}
             onClose={() => setPresenting(false)}
+            // 문서를 열면 슬라이드 뒤로 숨어 버리므로 프레젠테이션을 먼저 닫는다.
+            // 탐색기에서 위치만 보는 것(Alt)은 앱 화면을 바꾸지 않으니 그대로 둔다.
+            onOpenPath={(p, how) => {
+              if (how !== "reveal") setPresenting(false);
+              void openLinkTarget(p, how);
+            }}
           />
         )}
 
@@ -1233,11 +1279,7 @@ export function AppShell() {
                     editorLockUntil.current = Date.now() + 90; // 에디터 에코 억제
                     editorRef.current?.scrollToLine(line);
                   }}
-                  // 미리보기 링크: 열 수 있는 문서면 앱에서, 그 외(pdf·이미지 등)는 OS 기본 앱으로.
-                  onOpenPath={(p) => {
-                    if (OPENABLE.test(p)) void openIncoming([p]);
-                    else void openExternal(p).catch(() => {});
-                  }}
+                  onOpenPath={(p, how) => void openLinkTarget(p, how)}
                 />
                 <OutlineOverlay items={outline} onSelect={(id) => previewRef.current?.scrollToHeading(id)} />
               </section>
@@ -1264,10 +1306,7 @@ export function AppShell() {
                     path={secondary.path}
                     themeId={themeId}
                     onToc={setOutlineB}
-                    onOpenPath={(p) => {
-                      if (OPENABLE.test(p)) void openIncoming([p]);
-                      else void openExternal(p).catch(() => {});
-                    }}
+                    onOpenPath={(p, how) => void openLinkTarget(p, how)}
                   />
                   <OutlineOverlay items={outlineB} onSelect={(id) => previewRefB.current?.scrollToHeading(id)} />
                 </section>
@@ -1332,6 +1371,8 @@ export function AppShell() {
           <span className="st">UTF-8</span>
         </footer>
       </div>
+      {/* 셸 밖(fragment 최상위) — position:fixed 라 프레젠테이션 오버레이 위에도 뜬다. */}
+      <Toast />
     </>
   );
 }

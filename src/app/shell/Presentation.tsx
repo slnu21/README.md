@@ -9,6 +9,8 @@ import { buildDoc } from "../lib/renderDoc";
 import { readStack, BASE_READER_PX } from "../lib/fonts";
 import { useAppStore } from "../store";
 import { dirOf, inlineImages } from "../lib/previewImages";
+import type { OpenHow } from "../lib/links";
+import { annotateLinkTitles, handleLinkClick } from "../lib/previewLinks";
 import { Icon } from "./Icon";
 
 // 슬라이드 분리: 단독 '---' 줄(수평선/구분자). 없으면 문서 전체를 1장으로.
@@ -27,11 +29,14 @@ export function Presentation({
   path,
   themeId,
   onClose,
+  onOpenPath,
 }: {
   content: string;
   path: string;
   themeId: string;
   onClose: () => void;
+  /** 슬라이드 안 로컬 파일 링크. 호스트가 프레젠테이션을 닫고 연다(미리보기와 같은 규약). */
+  onOpenPath?: (path: string, how: OpenHow) => void;
 }) {
   const { t } = useTranslation();
   const fontRead = useAppStore((s) => s.fontRead);
@@ -75,9 +80,24 @@ export function Presentation({
     return () => document.removeEventListener("keydown", onKey);
   }, [slides.length, onClose]);
 
-  // 슬라이드 iframe 우클릭(브라우저 기본 메뉴) 억제.
+  // 슬라이드 iframe: 우클릭(브라우저 기본 메뉴) 억제 + 링크 가로채기.
+  //
+  // 링크를 가로채지 않으면 슬라이드가 통째로 날아간다 — 미리보기에서 v0.6.8에 고친 그 증상이
+  // (srcdoc 의 base URL 이 부모라 클릭이 전체 내비게이션이 된다) 여기엔 그대로 남아 있었다.
   function onFrameLoad() {
-    iframeRef.current?.contentDocument?.addEventListener("contextmenu", (e) => e.preventDefault());
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) return;
+    doc.addEventListener("contextmenu", (e) => e.preventDefault());
+    annotateLinkTitles(doc, path);
+    doc.addEventListener("click", (e) => {
+      handleLinkClick(e, path, {
+        anchor: (id) => doc.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        path: (abs, how) => onOpenPath?.(abs, how),
+        ignored: (href) => useAppStore.getState().showNotice(t("link.unsupported", { href })),
+        urlFailed: (_url, detail) =>
+          useAppStore.getState().showNotice(t("link.openFailed", { detail }), "error"),
+      });
+    });
   }
 
   return (

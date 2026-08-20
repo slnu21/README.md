@@ -1,7 +1,7 @@
 // Rust 커맨드 래퍼 + 다이얼로그. 실제 파일 I/O는 풀 접근 권한의 Rust(std::fs)에서 수행한다.
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { revealItemInDir, openPath as openerOpenPath } from "@tauri-apps/plugin-opener";
+import { revealItemInDir, openUrl as openerOpenUrl } from "@tauri-apps/plugin-opener";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -193,6 +193,19 @@ export const onOpenFile = (cb: (path: string) => void): Promise<UnlistenFn> =>
 /** 시스템 파일 탐색기에서 해당 파일 위치를 파일 선택 상태로 연다(탭 우클릭 메뉴). */
 export const revealInExplorer = (path: string): Promise<void> => revealItemInDir(path);
 
-/** 외부 링크·앱에서 못 여는 파일을 OS 기본 프로그램/브라우저로 연다.
- *  미리보기 iframe 안에서 직접 이동하면 srcdoc 문서가 날아가므로(빈 화면) 호스트가 대신 처리한다. */
-export const openExternal = (target: string): Promise<void> => openerOpenPath(target);
+/** 외부 링크(http(s)/mailto/tel)를 OS 기본 브라우저·메일 클라이언트로 연다.
+ *  미리보기 iframe 안에서 직접 이동하면 srcdoc 문서가 날아가므로(빈 화면) 호스트가 대신 처리한다.
+ *
+ *  **반드시 `openUrl` 이어야 한다.** `openPath` 는 `plugin:opener|open_path` 를 부르는데
+ *  `capabilities/default.json` 의 `opener:default` 에는 그 커맨드가 없어 ACL 에서 거부된다
+ *  ("Command plugin:opener|open_path not allowed by ACL" — 실행 중인 앱에 CDP 로 붙어 확인).
+ *  v0.6.8~v0.7.0 이 그걸 부르고 있었고, 거부를 `.catch(()=>{})` 로 삼켜서 외부 링크가
+ *  아무 반응 없이 죽어 있었다. `open_url` 은 기본 스코프(mailto:*·tel:*·http://*·https://*)로
+ *  이미 허용돼 있다 — 여기 넘기는 스킴 집합은 lib/links.ts 의 EXTERNAL_SCHEMES 와 같아야 한다. */
+export const openExternalUrl = (url: string): Promise<void> => openerOpenUrl(url);
+
+/** 앱에서 못 여는 로컬 파일을 OS 기본 프로그램으로 연다(미리보기의 .pdf·이미지 링크).
+ *  플러그인의 `open_path` 가 아니라 **우리 Rust 커맨드**를 쓴다 — 확장자 허용 목록을 백엔드에
+ *  두기 위해서다(사유는 `commands/shell_open.rs` 머리말). 실패 코드: "ENOENT" | "EUNSAFE". */
+export const openWithDefault = (path: string): Promise<void> =>
+  invoke<void>("open_with_default", { path });

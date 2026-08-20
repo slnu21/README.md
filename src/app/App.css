@@ -655,6 +655,33 @@ body {
 .modal-btn.danger:hover {
   border-color: #c0392b;
 }
+
+/* 토스트 — 모달과 달리 흐름을 막지 않는다. 창 바닥 가운데, 상태바 위. */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 42px;
+  transform: translateX(-50%);
+  z-index: 210; /* 모달(200)보다 위 — 모달을 띄운 채 실패를 알려야 할 수 있다 */
+  max-width: min(560px, 78vw);
+  padding: 9px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  color: var(--fg);
+  font-size: 12.5px;
+  line-height: 1.45;
+  cursor: pointer; /* 눌러서 즉시 닫기 */
+  animation: riseIn 0.16s ease both;
+  /* 긴 경로가 와도 창을 넘지 않게 한 줄로 줄인다(전체 문구는 title 로 뜬다). */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toast.error {
+  border-color: color-mix(in srgb, #c0392b 45%, var(--border));
+}
 .sec-label {
   display: flex;
   align-items: center;
