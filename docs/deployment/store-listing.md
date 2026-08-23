@@ -91,6 +91,18 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v0.7.1 — ko-KR
+- **미리보기에서 링크를 눌러도 아무 일이 없던 문제를 고쳤습니다** — 웹 주소(`http`/`https`) 링크를 **한 번 클릭하면 기본 브라우저로** 열립니다. 발표(프레젠테이션) 화면에서 링크를 눌렀을 때 슬라이드가 통째로 사라지던 것도 함께 고쳤습니다.
+- **문서 링크의 새 열기 방식** — 그냥 클릭은 현재 자리에서, **Ctrl+클릭은 옆 패널에**, **Alt+클릭은 탐색기에서 위치**를 엽니다. 링크에 마우스를 올리면 어디로 가는지 보여 줍니다.
+- **못 여는 링크를 알려 줍니다** — 없는 파일이나 안전상 열지 않는 형식은 화면 아래 알림으로 이유를 알려 줍니다. 안전을 위해 **문서 안의 링크로는 실행 파일이 열리지 않습니다**(대신 탐색기에서 위치를 열어 줍니다).
+- README에 흔한 배지 이미지(`[![배지](이미지)](주소)`)가 확대만 되고 링크로 이동하지 않던 것, `file:///` 링크가 열리지 않던 것도 고쳤습니다.
+
+### v0.7.1 — en-US
+- **Fixed links that did nothing when clicked in the preview** — web links (`http`/`https`) now open in your default browser with **a single click**. Clicking a link in presentation mode no longer blanks out the slide.
+- **New ways to open document links** — plain click opens in place, **Ctrl+click opens beside**, and **Alt+click reveals the file in Explorer**. Hover a link to see where it goes.
+- **Links that can't be opened now tell you why** — missing files and formats that are unsafe to open are reported in a toast. For safety, **a link inside a document can never launch an executable** — it opens the containing folder instead.
+- Also fixed: badge images (`[![badge](img)](url)`) only zooming instead of following the link, and `file:///` links not opening.
+
 ### v0.7.0 — ko-KR
 - **새 문서 만들기** — 워크스페이스에서 폴더를 우클릭해 이름만 입력하면 그 자리에 문서가 생깁니다. 탭 옆 `+` 버튼과 `Ctrl+N`은 저장 위치를 물어봅니다. 확장자를 안 적으면 `.md`를 붙이고, **같은 이름이 있으면 덮어쓰지 않고 알려 줍니다.**
 - **리딩 모드에서 두 문서를 나란히** — 탭을 우클릭해 "옆에 나란히 열기". 가운데 손잡이로 폭을 조절하고 좌우를 바꿀 수 있습니다. 나눈 상태와 폭은 다음 실행에도 유지됩니다.
@@ -243,4 +255,5 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [ ] **v0.6.7 업데이트 제출** — `release/v0.6.7/README_0.6.7_x64.msix`(동일 실신원) 배포 준비 완료(2026-07-30). **미제출 — v0.6.8이 상위 버전이라 건너뛰어도 무방**
 - [x] **v0.6.8 업데이트 제출** — `release/v0.6.8/README_0.6.8_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.8** 문구 — **제출 완료(2026-07-30) · 게시 완료**(2026-08-01 확인: `Get-AppxPackage SlnU.README.md` → `0.6.8.0` · `SignatureKind=Store`)
 - [x] **v0.6.9 업데이트 제출** — `release/v0.6.9/README_0.6.9_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.9** 문구 — **제출·인증 통과(2026-08-01) · 게시 완료**(2026-08-14 확인: `Get-AppxPackage SlnU.README.md` → `0.6.9.0` · `SignatureKind=Store`). GitHub 릴리스·태그 `v0.6.9`도 같은 날 완료 — <https://github.com/slnu21/README.md/releases/tag/v0.6.9>
-- [x] **v0.7.0 업데이트 제출** — `release/v0.7.0/README_0.7.0_x64.msix`(동일 실신원 · `0.7.0.0` · runFullTrust 매니페스트 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.7.0** 문구 — **제출·인증 통과(2026-08-15) · 게시 롤아웃 대기**(같은 날 확인 시점 `Get-AppxPackage SlnU.README.md` → 아직 `0.6.9.0`). **산출물 준비 완료(2026-08-14) · 릴리스 exe 실검증 9항목 통과**(갤러리 17종 렌더·라벨 온전·고의 오류 1건 · 새 문서 UI · 사이드바 새로고침 · single-instance 2탭 · 리딩 분할 좌우 473px + 머리띠 2 + iframe 넘침 0). **GitHub 릴리스·태그 `v0.7.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.7.0>. 직전 v0.6.9 게시 완료를 확인해 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
+- [x] **v0.7.0 업데이트 제출** — `release/v0.7.0/README_0.7.0_x64.msix`(동일 실신원 · `0.7.0.0` · runFullTrust 매니페스트 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.7.0** 문구 — **제출·인증 통과(2026-08-15) · 게시 완료**(2026-08-23 확인: `Get-AppxPackage SlnU.README.md` → `0.7.0.0` · `SignatureKind=Store`). **산출물 준비 완료(2026-08-14) · 릴리스 exe 실검증 9항목 통과**(갤러리 17종 렌더·라벨 온전·고의 오류 1건 · 새 문서 UI · 사이드바 새로고침 · single-instance 2탭 · 리딩 분할 좌우 473px + 머리띠 2 + iframe 넘침 0). **GitHub 릴리스·태그 `v0.7.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.7.0>. 직전 v0.6.9 게시 완료를 확인해 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
+- [ ] **v0.7.1 업데이트 제출** — `release/v0.7.1/README_0.7.1_x64.msix`(동일 실신원 · `0.7.1.0` · runFullTrust) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.7.1** 문구. 직전 v0.7.0이 **게시 완료(2026-08-23 확인)** 라 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
