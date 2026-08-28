@@ -52,6 +52,12 @@ npm run tauri dev  # 데스크톱 창 실행 (Rust 필요)
   `Shell.Application.Windows()` 에 그 폴더 창이 생기는지. 탐색기는 **같은 폴더 창이 이미 있으면
   재사용**하므로 케이스마다 먼저 닫고 봐야 한다.
 
+## mermaid는 못 살리는 태그를 **지우지 않고 글자로 그린다**
+- `htmlLabels:false`(v0.6.9) 이후 라벨은 SVG `<text>`다. 그 경로에 HTML 해석기가 없어서, mermaid는 라벨 안의 `<b>`·`<span>` 같은 태그를 **한 단어로 취급해 그대로 그린다**(`markdownToLines`의 html 토큰 분기). 태그가 사라지는 게 아니라 **글자로 찍힌다** — 그래서 "지원 안 하니 무시되겠지"가 아니라 반드시 우리가 먼저 걷어내야 한다(`lib/mermaidText.ts`).
+- 상류의 `<br>` 처리는 **한 겹이 아니다.** `createText`는 `/<br\s*\/?>/`(대소문자 구분·속성 없음)만 정규화하고, timeline은 자기 정규식으로 **bare `<br>`만** 자른다. 그래서 `<BR>`·`<br class="x">`·`<br/>`이 다이어그램 종류마다 다르게 샜다. 한 형태로 통일해 넘기는 것이 유일하게 안정적인 방법이다.
+- **`tsc`·vitest로는 안 잡힌다.** 라벨이 글자로 찍히는지는 렌더 결과를 봐야 안다 → `npm run probe:mermaid`의 `[x]` 검사(갤러리 19번 픽스처). 고치기 전에 정규화를 잠깐 끄고 **FAIL 26건을 눈으로 본 뒤** 되돌렸다.
+- 소스를 고칠 때 **mermaid 문법을 밟지 않도록** 낱말 경계를 쓴다. `<<interface>>`의 `i`/`ins`, 화살표 `<|--`·`<--`가 후보다 — 단위 테스트에 그대로 박아 뒀다.
+
 ## 알려진 TODO
 - 아이콘: `src/src-tauri/icons/`의 기본 아이콘을 교체(`npm run tauri icon <path>`).
 - Win10 오프라인 지원 시 `webviewInstallMode`를 `offlineInstaller`/`fixedRuntime`로(번들 증가). [deployment/webview2.md](../deployment/webview2.md).

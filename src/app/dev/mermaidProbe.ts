@@ -34,6 +34,14 @@ const MIN_DOMINANT_BASELINE = 10;
 /** 측정한 라벨 수 바닥값. 셀렉터가 깨지면 "위반 0건"으로 조용히 통과하므로 반드시 함께 본다. */
 const MIN_LABELS_MEASURED = 30;
 
+/** 라벨에 **글자로 찍히면 안 되는** 인라인 HTML. v0.6.9에서 라벨을 SVG `<text>`로 돌린 뒤
+ *  mermaid가 `<BR>`·`<br class="x">`·`<b>`를 그대로 글자로 그렸다(갤러리 19번이 픽스처).
+ *  `lib/mermaidText.ts`의 정규화가 살아 있는지를 렌더 결과로 확인한다. */
+const LITERAL_TAG_RE = /<\s*\/?\s*(?:br|b|strong|i|em|u|span|code|font)\b[^>]*>|&nbsp;/i;
+
+/** 글자를 실제로 훑은 다이어그램 수 바닥값(위와 같은 이유 — 공허 통과 방지). */
+const MIN_TEXT_SCANS = 100;
+
 interface DiagramReport {
   n: number;
   title: string;
@@ -56,6 +64,9 @@ export interface ProbeResult {
 const failures: string[] = [];
 const lines: string[] = [];
 const fail = (s: string) => failures.push(s);
+
+/** (x) 검사에서 글자를 훑은 다이어그램 수. */
+let textScans = 0;
 
 const round = (n: number) => Math.round(n * 10) / 10;
 
@@ -124,6 +135,25 @@ function inspectDiagram(wrap: Element, n: number, cfgKey: string): DiagramReport
     );
   } else if (style && !style.textContent?.includes(`#${id}`)) {
     fail(`[iv] ${cfgKey} #${n} ${title}: <style> 이 #${id} 를 참조하지 않는다(id 가 바뀌었다).`);
+  }
+
+  // (x) 라벨 안 인라인 HTML 이 **글자로** 찍히지 않았는가. mermaid 는 살릴 수 없는 태그를
+  //     지우지 않고 한 단어로 그려 버린다(chunk-Q4XR5HBZ.mjs:43) — 그래서 렌더 결과의 글자를 본다.
+  //     <style> 은 규칙 텍스트라 빼고 본다(선택자에 `>` 가 있어 오탐이 난다).
+  {
+    const clone = svg.cloneNode(true) as Element;
+    for (const st of Array.from(clone.querySelectorAll("style"))) st.remove();
+    const shown = clone.textContent ?? "";
+    textScans++;
+    const hit = LITERAL_TAG_RE.exec(shown);
+    if (hit) {
+      const at = Math.max(0, hit.index - 20);
+      fail(
+        `[x] ${cfgKey} #${n} ${title}: 라벨에 인라인 HTML 이 글자로 찍혔다 — "${hit[0]}" ` +
+          `(…${shown.slice(at, hit.index + hit[0].length + 20).replace(/\s+/g, " ")}…). ` +
+          `lib/mermaidText.ts 의 normalizeDiagramHtml 이 renderMermaid 에 닿지 않았다.`,
+      );
+    }
   }
 
   // (i) 통합 렌더러 다이어그램에는 foreignObject 가 있으면 안 된다.
@@ -425,13 +455,24 @@ async function run(): Promise<ProbeResult> {
         `셀렉터가 깨져 검사가 공허하게 통과하고 있다.`,
     );
   }
+  if (textScans < MIN_TEXT_SCANS) {
+    fail(
+      `[x] 글자를 훑은 다이어그램이 ${textScans}개뿐이다(최소 ${MIN_TEXT_SCANS}). ` +
+        `인라인 HTML 검사가 공허하게 통과하고 있다.`,
+    );
+  }
 
   iframe.remove();
   return {
     ok: failures.length === 0,
     failures,
     lines,
-    stats: { labels: totalLabels, dominantBaseline: totalDomBaseline, ctxProps: DIAGRAM_CTX_CSS.split(";").length },
+    stats: {
+      labels: totalLabels,
+      dominantBaseline: totalDomBaseline,
+      ctxProps: DIAGRAM_CTX_CSS.split(";").length,
+      textScans,
+    },
     srcdoc: shot,
   };
 }
