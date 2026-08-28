@@ -274,3 +274,41 @@ flowchart LR
 flowchart TD
     A[미완성 노드 --> B{닫히지 않은 중괄호
 ```
+
+## 19. 라벨 안 인라인 HTML (줄바꿈·서식 태그)
+
+`<br>`은 **어떻게 쓰든** 줄바꿈이 되어야 하고, 살릴 수 없는 서식 태그는 **글자만 남고 사라져야**
+한다. 태그가 도형 안에 글자로 찍히면 버그다 — v0.6.9에서 라벨을 SVG `<text>`로 돌린 뒤
+`<BR>`·`<br class>`·`<b>`가 그렇게 샜다(`lib/mermaidText.ts`가 소스에서 미리 고른다).
+
+아래에 **`<br`·`<b>`·`&nbsp;` 같은 태그 글자가 하나라도 보이면 버그다.**
+
+```mermaid
+flowchart TD
+    A["소문자<br>기본형"] --> B["대문자<BR>변형"]
+    B --> C["닫힌<br/>형태"]
+    C --> D["공백 낀<br />형태"]
+    D --> E["속성 붙은<br class='x'>형태"]
+    E --> F["서식 <b>굵게</b>와 <i>기울임</i>과 <span style='color:red'>색</span>"]
+    F --> G["엔티티 가&nbsp;나"]
+```
+
+`&nbsp;`는 sequence·journey에서 **파싱 자체를 깨뜨렸다**(다이어그램이 통째로 실패). 아래가
+오류 없이 렌더되어야 정상이다.
+
+```mermaid
+sequenceDiagram
+    참여자A->>참여자B: 첫 줄<br>둘째 줄
+    참여자B-->>참여자A: 가&nbsp;나
+    Note right of 참여자B: 노트도<BR>줄바꿈
+```
+
+줄바꿈을 아예 지원하지 않는 계열(pie·journey·gitGraph·xychart·quadrant·packet·treemap)에서는
+`<br>`을 공백으로 바꾼다 — mermaid가 못 하는 줄바꿈을 대신 해 줄 수는 없지만, 태그가 글자로
+보이는 것은 막는다.
+
+```mermaid
+pie title 줄바꿈 미지원 계열
+    "가<br>나" : 40
+    "다" : 60
+```

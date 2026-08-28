@@ -114,7 +114,7 @@ async function main() {
     const s = result.stats ?? {};
     console.log(
       `  측정 라벨 ${s.labels ?? 0}개 · dominant-baseline ${s.dominantBaseline ?? 0}개 · ` +
-        `상속 고정 속성 ${s.ctxProps ?? 0}개`,
+        `상속 고정 속성 ${s.ctxProps ?? 0}개 · 글자 검사 ${s.textScans ?? 0}개`,
     );
 
     if (shotPath && result.srcdoc) {

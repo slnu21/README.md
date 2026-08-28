@@ -2,6 +2,7 @@
 // 무거운 라이브러리는 최초 mermaid 블록이 있을 때만 동적 import(코드 스플리팅) → 초기 번들 제외.
 // 렌더된 SVG는 sanitizeSvg 로 정화하며, srcdoc 은 정적 SVG만 담으므로 sandbox 격리가 유지된다.
 import { sanitizeSvg } from "./sanitize";
+import { normalizeDiagramHtml } from "./mermaidText";
 import { DIAGRAM_CTX_CSS, DIAGRAM_FONT, DIAGRAM_FONT_PX } from "./renderDoc";
 import { createLock } from "./serialize";
 import { themes, defaultThemeId } from "../themes";
@@ -158,7 +159,9 @@ export async function renderMermaid(html: string, themeId: string): Promise<stri
     mermaid.initialize(diagramConfig(themeId));
 
     for (const node of nodes) {
-      const src = decodeMermaidSrc(node.getAttribute("data-src") ?? "");
+      // 라벨 안 인라인 HTML을 여기서 한 번 고른다(mermaidText.ts). data-src 자체는 사용자가 쓴
+      // 원문 그대로 두고 — 편집기·내보내기가 그걸 되읽는다 — 넘길 때만 정규화한다.
+      const src = normalizeDiagramHtml(decodeMermaidSrc(node.getAttribute("data-src") ?? ""));
       try {
         // 3번째 인자 = 렌더·측정 컨테이너. 안 넘기면 mermaid가 document.body에 임시 div를 붙여
         // **앱 문서 CSS 문맥**으로 측정하는데, 표시는 미리보기 문서라 라벨 상자가 어긋난다.

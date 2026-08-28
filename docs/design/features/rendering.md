@@ -32,6 +32,21 @@
 - `file:///`는 로컬 경로로 옮겨 다룬다(호스트가 붙은 UNC `file://server/share`는 무시). 스킴이 한 글자일 때만 Windows 드라이브 문자로 본다 — 등록된 URL 스킴은 모두 두 글자 이상이라, 이 규칙이 `obsidian:`류가 로컬 경로 분기로 새는 것을 막는다.
 - 링크로 감싼 이미지(배지)는 **링크가 라이트박스를 이긴다**. 감싸지 않은 이미지만 라이트박스.
 
+## 다이어그램 라벨 안 인라인 HTML
+`htmlLabels:false`(v0.6.9, 라벨 잘림 수정) 이후 mermaid는 라벨을 SVG `<text>`로 그린다. 그 경로에는 HTML 해석기가 없어서, **살릴 수 없는 태그를 지우지 않고 글자로 그린다**(`markdownToLines`가 html 토큰을 한 단어로 밀어 넣는다). 그래서 넘기기 전에 소스를 한 번 고른다 — 순수 함수 `lib/mermaidText.ts`(`normalizeDiagramHtml`·`detectDiagramKind`, vitest), 호출 지점은 `renderMermaid` 하나뿐이라 미리보기·프레젠테이션·HTML 내보내기가 같은 규칙을 쓴다.
+
+| 소스에 쓴 것 | 처리 | 왜 |
+|---|---|---|
+| `<br>`·`<BR>`·`<br/>`·`<br />`·`<br class="x">` | bare `<br>`로 통일 | mermaid 자체 정규화는 `/<br\s*\/?>/`(대소문자 구분·속성 없음) 뿐이라 나머지가 글자로 샜다. timeline은 자기 정규식으로 **bare만** 자른다 |
+| `<b> <i> <u> <span> <code> <strong> <em> …` | 태그만 제거, 글자는 유지 | SVG 라벨 경로에 표현 수단이 없다. 태그가 도형 안에 찍히는 것만 막는다 |
+| `&nbsp;` | NBSP 문자(U+00A0) | sequence·journey는 이걸 만나면 **파싱이 통째로 실패**한다(mermaid는 `#nbsp;`를 쓴다) |
+| `<a href>`·화살표·`<<interface>>`·제네릭 | 건드리지 않음 | mermaid 문법이거나 사용자가 쓴 주소다 |
+
+- **`data-src`는 원문 그대로 둔다.** 정규화는 mermaid로 넘길 때만 한다 — 문서 파일이 조용히 다시 쓰이지 않는다.
+- **`<b>`→`**`(마크다운) 변환은 하지 않는다.** flowchart 라벨은 마크다운으로 파싱되지 않아(백틱 마크다운 문자열일 때만) `**`가 또 글자로 보인다 — 리터럴을 다른 리터럴로 바꾸는 셈이다.
+- **상류 한계(mermaid.live도 같다).** pie·journey·gitGraph·xychart·quadrant·packet·treemap은 줄바꿈 자체를 못 한다 → 그 계열에서는 `<br>`을 **공백**으로 바꾼다(태그가 글자로 보이는 것만 막는다). classDiagram **멤버 줄**과 flowchart **frontmatter title**도 줄바꿈이 안 되고, sequence는 `<br>`은 되지만 서식 태그는 안 된다.
+- 회귀 가드: 갤러리 19번 픽스처 + `npm run probe:mermaid`의 `[x]` 검사(렌더된 글자에 태그가 있으면 실패).
+
 ## 성능
 - 파싱·하이라이트는 **Web Worker**에서. 입력 디바운스. 무거운 블록은 IntersectionObserver 지연.
 
