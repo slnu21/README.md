@@ -42,12 +42,12 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
 ## 현재 상태 (2026-08-30 기준)
-- **v0.8.0 GitHub 릴리스 완료 — Store 제출은 사용자 직접(진행 중)**(`develop-release-v080`). <https://github.com/slnu21/README.md/releases/tag/v0.8.0> — `main` push(13커밋) + 애노테이트 태그 `v0.8.0` + 자산 4종(NSIS·MSIX·zip·NOTICES) 업로드 확인. 이번 릴리스에 담긴 것 셋: **mermaid 라벨 인라인 HTML 정규화**(수정) · **리딩 테마 확장**(한지·전자잉크 + prose 색 위계 + 사용자 테마 파일) · **스타일 팩**(테마별 CSS + 폴더 드롭인 + 내보내기). 세 작업 모두 아래에 상세.
+- **v0.8.0 릴리스 완결 — GitHub 릴리스 + Store 제출 완료(인증·게시 대기)**(`develop-release-v080`). <https://github.com/slnu21/README.md/releases/tag/v0.8.0> — `main` push(13커밋) + 애노테이트 태그 `v0.8.0` + 자산 4종(NSIS·MSIX·zip·NOTICES) 업로드 확인. 이번 릴리스에 담긴 것 셋: **mermaid 라벨 인라인 HTML 정규화**(수정) · **리딩 테마 확장**(한지·전자잉크 + prose 색 위계 + 사용자 테마 파일) · **스타일 팩**(테마별 CSS + 폴더 드롭인 + 내보내기). 세 작업 모두 아래에 상세.
   - 버전 단일원 0.7.1→0.8.0(`package.json`·`tauri.conf.json`·`Cargo.toml`+lock·`package-lock`). **기능 추가 배치라 minor** — 이 저장소 패턴(0.7.0이 기능 5단위)과 같다.
   - CHANGELOG `[0.8.0]` 확정 · `release/v0.8.0/RELEASE_NOTES.md` 신규 · store-listing **업데이트 내용(ko/en)** 추가 + 기능 목록의 테마 줄을 5종+내 테마 만들기로 갱신. **THIRD-PARTY-NOTICES 는 런타임 의존성 무변경이라 그대로 복사**(v0.7.1 대비 `package.json`·`Cargo.toml` 의존성 diff 0을 확인함).
   - 산출물 빌드·패키징 완료(`release/v0.8.0/` · NSIS 5.50MB / MSIX 6.52MB / zip 6.40MB). **실신원 MSIX 매니페스트 실물 확인** — Name=`SlnU.README.md` · Publisher=`CN=1398342C-A2D7-4B4A-BFE2-34D8CCFD7FBA` · `0.8.0.0` · PublisherDisplay=`SlnU` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.8.0.
   - 검증: `tsc` · vitest **646** · `cargo test --lib` **15** · clippy 0 · `vite build`(기존 청크 경고만) · `probe:mermaid` PASS · `probe:layout` PASS · **릴리스 exe 실구동 20항목 PASS**(CDP, 사용자 DB·프로필 비켜 놓고 원복). 실측: 갤러리 20종 라벨 538개 온전·태그 누출 0 · 제목 h1~h6 단조 감소하며 h4>본문 · 인용문 안 기움 · 테마 3커맨드 동작 · 드롭인 팩이 뜨고 CSS 가 기본 규칙을 덮으며 토큰 색을 따른다.
-  - **남은 것**: Partner Center 업로드(사용자가 직접 진행). 실신원 MSIX 는 `release/v0.8.0/README_0.8.0_x64.msix`.
+  - **Store 제출 완료(2026-08-30) — 인증·게시 대기.** 실신원 MSIX(`release/v0.8.0/README_0.8.0_x64.msix`) Partner Center 업로드(사용자 직접). 제출 직전 `Get-AppxPackage SlnU.README.md` 로 **직전 v0.7.1 이 `0.7.1.0`·`SignatureKind=Store` 게시 완료**임을 확인해 동시 제출 충돌이 없음을 확인했다.
 - **[v0.8.0 수록] 스타일 팩 — 테마가 색뿐 아니라 모양(CSS)도 갖는다**(`develop-style-packs`, 커밋 2개). "예쁘게 만든 스타일을 남에게 줄 수 있나"에서 출발. **전역 `custom.css` 를 안 쓴 이유**: 끄는 방법이 없고, 두 사람의 팩이 섞이며, 공유 단위가 "CSS + 어느 테마"로 흩어진다. 테마가 자기 CSS 를 가지면 셋이 한꺼번에 풀린다(전환이 곧 토글).
   - **파일 배치** — `themes.jsonc`(손으로, 앱이 **기계적으로 다시 쓰지 않는다** — 주석이 곧 설명서다) + `themes\`(폴더째 읽는다: `*.jsonc` 팩 · `<id>.css` 사이드카). **폴더에 떨어뜨리는 것이 곧 가져오기**라 가져오기 대화상자를 안 만들었다.
   - **우선순위는 원칙 하나** — 내장 → `themes\*.jsonc`(파일명 순, 정렬은 Rust) → `themes.jsonc`. CSS 도 같아 사이드카가 인라인을 이긴다.
