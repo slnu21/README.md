@@ -37,7 +37,8 @@ README.md는 가볍고 **100% 오프라인**인 마크다운 리더 & 에디터�
 - 폴더 워크스페이스 트리 + 다중 탭 편집(순서 변경)
 - CodeMirror 6 마크다운 에디터 (서식 단축키 · 자동 목록 · 우클릭 메뉴 · 찾기/바꾸기 · 실행 취소)
 - 읽기·에디터 글꼴 선택(고급 번들 폰트) · 확대·축소
-- 라이트 · 다크 · 페이퍼 테마
+- 테마 5종 — 라이트 · 다크 · 페이퍼 · **한지**(먹빛 글자에 주사색 강조) · **전자잉크**(무채색)
+- 내 테마 만들기 — 설정 파일에 색을 직접 적고, 모양(CSS)까지 더해 남과 주고받기
 - 저장 · 외부 변경 자동 감지·리로드 · 최근 파일
 - 한국어 · English
 - 가볍고 빠른 실행, 작은 용량
@@ -78,7 +79,8 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 - Folder workspace tree + multi-tab editing (reorderable)
 - CodeMirror 6 Markdown editor (formatting shortcuts, auto lists, right-click menu, find & replace, undo/redo)
 - Reading/editor font selection (bundled premium fonts) · zoom
-- Light · Dark · Paper themes
+- Five themes — Light, Dark, Paper, **Hanji** (ink on Korean mulberry paper) and **E-Paper** (fully achromatic)
+- Make your own — set colors in a config file, add shapes with CSS, and share the result as one file
 - Save, external-change auto-reload, recent files
 - Korean · English
 - Lightweight and fast, small footprint
@@ -90,6 +92,20 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 ## 업데이트 내용 (What's new)
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
+
+### v0.8.0 — ko-KR
+- **새 테마 둘** — **한지**는 미색 종이에 먹빛 글자, 강조는 주사(朱砂) 붉은색이라 목록 불릿과 인용 막대가 고서의 권점처럼 찍힙니다(바탕에 발簾자국도 옅게). **전자잉크**는 이북리더기처럼 색을 쓰지 않고, 그림자를 없애 화면을 평평하게 합니다.
+- **리딩 모드 서식이 색으로 구분됩니다** — 그동안 제목이 본문과 완전히 같은 색이라 크기로만 구분됐습니다. 이제 제목·인용문·목록 불릿·표 머리글·코드가 각기 자기 색을 갖습니다. `####` 이하 제목이 본문보다 작아지던 것, 한글 인용문이 가짜 기울임으로 읽기 어렵던 것도 고쳤습니다.
+- **내 테마를 직접 만들 수 있습니다** — 설정에서 테마 파일을 열어 색상 코드를 적으면 바로 반영됩니다. 적지 않은 항목은 자동으로 계산되니 바꾸고 싶은 줄만 적으면 됩니다.
+- **스타일 팩** — 색뿐 아니라 모양(CSS)까지 테마에 담을 수 있습니다. 제목 앞 세로 막대, 절 번호 자동 매기기 같은 것들입니다. **테마 내보내기**로 파일 하나에 담아 남에게 줄 수 있고, 받은 파일은 테마 폴더에 넣기만 하면 됩니다.
+- 다이어그램 라벨 안 `<br>`이 줄바꿈 대신 태그 글자로 보이던 문제, `&nbsp;`를 쓰면 일부 다이어그램이 통째로 안 그려지던 문제를 고쳤습니다.
+
+### v0.8.0 — en-US
+- **Two new themes** — **Hanji** puts warm ink on Korean mulberry paper, with cinnabar-red accents so list bullets and quote bars read like the annotation marks in an old book (with faint laid lines in the paper). **E-Paper** uses no color at all, like an e-reader, and drops shadows for a flat page.
+- **Reading mode now separates formatting by color** — until now headings were exactly the same color as body text, distinguishable only by size. Headings, quotes, list markers, table headers and code each have their own color. Also fixed: `####` headings rendering smaller than body text, and Korean quotes being hard to read because of synthesized fake italics.
+- **Make your own theme** — open the theme file from Settings and type in color codes; changes apply immediately. Anything you leave out is derived automatically, so you only write the lines you want to change.
+- **Style packs** — a theme can carry shapes (CSS) as well as colors: a vertical bar before headings, automatic section numbers, and so on. **Export theme** bundles it into a single file to share, and a file you receive just goes in the theme folder.
+- Fixed `<br>` showing up as literal tag text inside diagram labels, and `&nbsp;` breaking some diagrams entirely.
 
 ### v0.7.1 — ko-KR
 - **미리보기에서 링크를 눌러도 아무 일이 없던 문제를 고쳤습니다** — 웹 주소(`http`/`https`) 링크를 **한 번 클릭하면 기본 브라우저로** 열립니다. 발표(프레젠테이션) 화면에서 링크를 눌렀을 때 슬라이드가 통째로 사라지던 것도 함께 고쳤습니다.

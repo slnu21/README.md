@@ -42,7 +42,13 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
 ## 현재 상태 (2026-08-30 기준)
-- **[미출시] 스타일 팩 — 테마가 색뿐 아니라 모양(CSS)도 갖는다**(`develop-style-packs`, 커밋 2개). "예쁘게 만든 스타일을 남에게 줄 수 있나"에서 출발. **전역 `custom.css` 를 안 쓴 이유**: 끄는 방법이 없고, 두 사람의 팩이 섞이며, 공유 단위가 "CSS + 어느 테마"로 흩어진다. 테마가 자기 CSS 를 가지면 셋이 한꺼번에 풀린다(전환이 곧 토글).
+- **v0.8.0 배포 준비 완료 — GitHub 릴리스·Store 제출 대기**(`develop-release-v080`). 이번 릴리스에 담긴 것 셋: **mermaid 라벨 인라인 HTML 정규화**(수정) · **리딩 테마 확장**(한지·전자잉크 + prose 색 위계 + 사용자 테마 파일) · **스타일 팩**(테마별 CSS + 폴더 드롭인 + 내보내기). 세 작업 모두 아래에 상세.
+  - 버전 단일원 0.7.1→0.8.0(`package.json`·`tauri.conf.json`·`Cargo.toml`+lock·`package-lock`). **기능 추가 배치라 minor** — 이 저장소 패턴(0.7.0이 기능 5단위)과 같다.
+  - CHANGELOG `[0.8.0]` 확정 · `release/v0.8.0/RELEASE_NOTES.md` 신규 · store-listing **업데이트 내용(ko/en)** 추가 + 기능 목록의 테마 줄을 5종+내 테마 만들기로 갱신. **THIRD-PARTY-NOTICES 는 런타임 의존성 무변경이라 그대로 복사**(v0.7.1 대비 `package.json`·`Cargo.toml` 의존성 diff 0을 확인함).
+  - 산출물 빌드·패키징 완료(`release/v0.8.0/` · NSIS 5.50MB / MSIX 6.52MB / zip 6.40MB). **실신원 MSIX 매니페스트 실물 확인** — Name=`SlnU.README.md` · Publisher=`CN=1398342C-A2D7-4B4A-BFE2-34D8CCFD7FBA` · `0.8.0.0` · PublisherDisplay=`SlnU` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.8.0.
+  - 검증: `tsc` · vitest **646** · `cargo test --lib` **15** · clippy 0 · `vite build`(기존 청크 경고만) · `probe:mermaid` PASS · `probe:layout` PASS · **릴리스 exe 실구동 20항목 PASS**(CDP, 사용자 DB·프로필 비켜 놓고 원복). 실측: 갤러리 20종 라벨 538개 온전·태그 누출 0 · 제목 h1~h6 단조 감소하며 h4>본문 · 인용문 안 기움 · 테마 3커맨드 동작 · 드롭인 팩이 뜨고 CSS 가 기본 규칙을 덮으며 토큰 색을 따른다.
+  - **남은 것(확인 게이트)**: `git push` · 애노테이트 태그 `v0.8.0` · `gh release` · Partner Center 업로드. 직전 v0.7.1 이 Store 게시 완료인지 먼저 확인하고 올릴 것(동시 제출 충돌 회피 — 지난 릴리스마다 지킨 규칙).
+- **[v0.8.0 수록] 스타일 팩 — 테마가 색뿐 아니라 모양(CSS)도 갖는다**(`develop-style-packs`, 커밋 2개). "예쁘게 만든 스타일을 남에게 줄 수 있나"에서 출발. **전역 `custom.css` 를 안 쓴 이유**: 끄는 방법이 없고, 두 사람의 팩이 섞이며, 공유 단위가 "CSS + 어느 테마"로 흩어진다. 테마가 자기 CSS 를 가지면 셋이 한꺼번에 풀린다(전환이 곧 토글).
   - **파일 배치** — `themes.jsonc`(손으로, 앱이 **기계적으로 다시 쓰지 않는다** — 주석이 곧 설명서다) + `themes\`(폴더째 읽는다: `*.jsonc` 팩 · `<id>.css` 사이드카). **폴더에 떨어뜨리는 것이 곧 가져오기**라 가져오기 대화상자를 안 만들었다.
   - **우선순위는 원칙 하나** — 내장 → `themes\*.jsonc`(파일명 순, 정렬은 Rust) → `themes.jsonc`. CSS 도 같아 사이드카가 인라인을 이긴다.
   - **두 형식** — 편집용은 사이드카(진짜 `.css` 라 문법 강조), 교환용은 팩 안 `styles` 인라인(파일 하나). `buildThemePack` 이 앞을 뒤로 바꾸며 **`extends` 로 물려받은 값까지 펼쳐 담아** 받는 쪽에 바탕 테마가 없어도 된다. 왕복 테스트로 박음.
@@ -53,7 +59,7 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
   - **공개 API 를 문서로 얼렸다**(`docs/design/features/themes.md`) — `.md`·h1~h6(`id`·`data-line`)·표준 태그·`.callout`·`.footnotes`·`.task-list-item`·`.mermaid-rendered`·`[data-line]`·`--prose-*` 23개·`.hljs-*`. 그 밖 내부 클래스는 예고 없이 바뀐다. 관례 한 줄: **색은 `themes.jsonc`, 모양은 CSS**(팩은 literal 대신 토큰을 쓴다).
   - 검증: `tsc` · vitest **619 → 646** · clippy 0 · `vite build` · `probe:mermaid`·`probe:layout` PASS · **릴리스 exe 실구동 15항목 PASS**. 실측: 사이드카로 h2 앞 세로 막대가 그려지고 토큰 색을 따른다 · 드롭인 팩이 목록에 뜬다 · 같은 id 면 내 파일이 이긴다 · `</style>` 팩은 막히되 색은 남는다 · 탐색기가 폴더 안에서 열린다.
   - **안 한 것**(설계상 보류): 가져오기 대화상자 · 드래그앤드롭 · 인앱 CSS 편집기 · 팩 갤러리 · CSS 파싱 · 자동 스코핑 · 앱 크롬 스타일링(영구 제외).
-- **[미출시] 리딩 테마 확장 — 한지·전자잉크 테마 + 서식 색 위계 + 사용자 테마 파일**(`develop-reading-themes`, 커밋 3개). 사용자 피드백 2건: paper가 "노란 배경 + 검은 글자"에 그친다 · 리딩 모드에서 제목·인용이 색으로 구분되지 않아 가독성이 떨어진다.
+- **[v0.8.0 수록] 리딩 테마 확장 — 한지·전자잉크 테마 + 서식 색 위계 + 사용자 테마 파일**(`develop-reading-themes`, 커밋 3개). 사용자 피드백 2건: paper가 "노란 배경 + 검은 글자"에 그친다 · 리딩 모드에서 제목·인용이 색으로 구분되지 않아 가독성이 떨어진다.
   - **2번은 취향이 아니라 실제 누락이었다** — `PREVIEW_CSS`에 **제목 `color` 규칙이 아예 없어** h1~h6이 본문과 같은 `--fg`를 상속했고, `h6`는 공통 규칙에서 빠졌으며 `h4~h6`엔 `font-size` 자체가 없어 UA 기본값으로 떨어졌다(h4가 본문보다 작다). 인용문은 `font-style:italic`인데 **한글에는 기울임 자형이 없어** 브라우저가 가짜 기울임을 합성해 오히려 가독성을 깎고 있었다.
   - **prose 토큰 23개**(`themes/prose.ts`) — 제목·인용·마커·표·코드·콜아웃·선택색까지. **기본값을 CSS(`PROSE_DEFAULT_CSS`)에 둔다** → 테마가 한 항목도 안 적어도 5토큰에서 `color-mix`로 파생된다(사용자 테마의 최소 기재량 = 0). **순서가 계약이다**: `PROSE_DEFAULT_CSS` → 테마 `:root` → `PREVIEW_CSS`(같은 특정도라 나중이 이긴다). 세 가지를 테스트로 못박았다 — 쓰는 모든 변수에 기본값이 있는가 · `PREVIEW_CSS` 안에 `--prose-*` 선언이 없는가 · 조립문 순서.
   - **한지**(미색 `#f2ecdf` · 먹 `#221f1c` · 주사 `#9c3a2e` · 발(簾)무늬) / **전자잉크**(무채색 · `elevation:"flat"` · 링크는 밑줄 · 오류만 유채색). 이름은 E Ink 상표를 피해 **전자잉크 / E-Paper**. 발무늬는 `App.css:1697`의 죽은 규칙에 있던 `repeating-linear-gradient` 관용구를 `--paper-texture` 변수로 승격시킨 것(자산 0바이트). 이제 **App.css에 테마 이름이 박힌 규칙이 0개**다.
@@ -67,7 +73,7 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
   - **대비 하한을 테스트로 지킨다** — 모든 내장 테마에 본문·제목 7:1, 강조·인용·각주·코드·마커 4.5:1. 인용문 기본값이 62%일 때 paper에서 **3.81:1**로 떨어지는 것을 이 검사가 잡아 70%로 올렸다(고의로 되돌려 FAIL을 먼저 눈으로 본 뒤 복구).
   - **프로브 행렬은 3종 그대로** — 프로브가 재는 것(라벨 상자 넘침·dominant-baseline·상속 속성)은 색과 무관하고 `diagramConfig`의 테마별 분기는 `darkMode` 하나뿐이라 light/dark가 두 경로를 다 덮는다. 5종이면 12→20설정이 돼 180초 타임아웃만 가까워진다(근거를 코드 주석으로 남김).
   - 검증: `tsc` · vitest **435 → 619** · `cargo test --lib` 15 · clippy 0 · `vite build`(기존 청크 경고만) · `probe:mermaid` PASS · `probe:layout` PASS · **릴리스 exe 실구동 78항목 PASS**(CDP, 사용자 DB·프로필 비켜 놓고 원복). 갤러리 20종을 두 새 테마에서 렌더해 라벨 538개 온전 · 한지 다이어그램 선은 먹색(주사색 아님) 확인.
-- **[미출시] 다이어그램 라벨 안 인라인 HTML 정규화**(`develop-mermaid-label-html`) — 사용자 신고: mermaid 라벨의 `<br>`이 줄바꿈이 아니라 **태그 글자로** 보인다. 실측해 보니 두 부류였다.
+- **[v0.8.0 수록] 다이어그램 라벨 안 인라인 HTML 정규화**(`develop-mermaid-label-html`) — 사용자 신고: mermaid 라벨의 `<br>`이 줄바꿈이 아니라 **태그 글자로** 보인다. 실측해 보니 두 부류였다.
   - **우리 회귀(v0.6.9 `htmlLabels:false` 이후)** — 라벨이 SVG `<text>`가 되면서 HTML 해석기가 사라졌고, mermaid는 못 살리는 태그를 **지우지 않고 한 단어로 그린다**(`markdownToLines`의 html 토큰 분기). 그래서 `<b>/<i>/<u>/<span>/<code>`가, 그리고 상류 정규화가 `/<br\s*\/?>/`(대소문자 구분·속성 없음) 한 겹뿐이라 **`<BR>`·`<br class="x">`** 가 글자로 찍혔다. timeline은 자기 정규식으로 **bare `<br>`만** 잘라 `<br/>`이 샜다.
   - **상류 한계(두 설정 모두·mermaid.live 동일)** — pie·journey·gitGraph·xychart·quadrant·packet·treemap은 줄바꿈 자체가 없고, classDiagram **멤버 줄**·flowchart **frontmatter title**도 안 되며, sequence는 `<br>`은 되지만 서식 태그는 안 된다. **`&nbsp;`는 sequence·journey에서 파싱을 통째로 깨뜨린다**(mermaid는 `#nbsp;`).
   - 고친 방법: **소스를 넘기기 전에 한 번 고른다** — 순수 `lib/mermaidText.ts`(`normalizeDiagramHtml`·`detectDiagramKind`, node vitest 21종). `<br…>` 모든 변형 → bare `<br>`(줄바꿈 못 하는 계열에서는 공백) · 서식 태그는 태그만 제거 · `&nbsp;` → U+00A0. `<a href>`·화살표·`<<interface>>`·제네릭은 안 건드린다(낱말 경계, 테스트로 박음). 호출 지점은 `renderMermaid` 하나 → 미리보기·프레젠테이션·HTML 내보내기가 같은 규칙. **`data-src`(사용자 원문)는 그대로 둔다** — 문서 파일이 조용히 다시 쓰이지 않는다.
