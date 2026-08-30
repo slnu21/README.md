@@ -89,8 +89,94 @@ CSS 변수 토큰 기반 **테마 레지스트리**. 코드 수정 없이 테마
 **파싱 결과가 아니라 원문을 캐시하는 이유**: 검증을 안 거친 객체가 localStorage 를 통해 테마로
 승격되는 경로가 없어지고, `Theme` 모양이 바뀌어도 낡은 캐시가 표류하지 않는다.
 
+## 스타일 팩 — 테마가 갖는 CSS
+
+테마는 색뿐 아니라 **모양**도 갖는다. 전역 `custom.css` 를 두지 않은 이유는 셋이다 —
+끄는 방법이 없고, 두 사람의 팩이 섞이며, 공유 단위가 "CSS + 어느 테마" 로 흩어진다.
+테마별로 두면 **전환이 곧 토글**이고, 한 번에 하나만 활성이라 충돌이 없다.
+
+```
+%APPDATA%\com.readme.app\
+├── themes.jsonc              손으로 쓰는 내 테마 (앱이 기계적으로 다시 쓰지 않는다)
+└── themes\
+    ├── README.md             폴더 안내 (비어 있을 때 한 번 생성)
+    ├── my-hanji.css          <id>.css — 그 테마의 모양
+    └── slnu-gothic.jsonc     받은 팩 (테마 + styles 인라인)
+```
+
+**앱이 `themes.jsonc` 를 기계적으로 다시 쓰지 않는 것**이 배치의 핵심이다. 그 파일은
+주석이 곧 설명서인데, 가져오기가 거기 항목을 추가하면 사용자가 쓴 주석과 서식이 날아간다.
+받은 것은 `themes\` 안에 별도 파일로 둔다 — **폴더에 떨어뜨리는 것이 곧 가져오기**다.
+
+### 우선순위 — 원칙 하나
+
+**내가 손으로 쓴 것이 남이 준 것을 이긴다.**
+
+1. 내장 테마
+2. `themes\*.jsonc` (파일명 오름차순 — 겹치면 뒤가 이긴다. 정렬은 Rust 가 한다)
+3. `themes.jsonc` (최종 승자)
+
+CSS 도 같다 — 사이드카 `themes\<id>.css` 가 팩에 인라인된 `styles` 를 이긴다.
+
+### 두 형식
+
+| | 형식 | 왜 |
+|---|---|---|
+| 편집용 | 사이드카 `<id>.css` | 진짜 `.css` 라 편집기가 문법을 강조한다 |
+| 교환용 | 팩 안 `"styles": { "<id>": "…" }` | 파일 하나라 잃어버리지 않는다 |
+
+내보내기(`buildThemePack`)가 앞을 뒤로 바꾼다. `extends` 로 물려받은 값까지 펼쳐 담으므로
+**받는 쪽에 그 바탕 테마가 없어도 된다**. 기본값인 항목은 빼서 읽을 만한 파일로 남긴다.
+
+### 주입 위치가 계약이다
+
+`buildDoc` 의 `<style>` 순서: `PROSE_DEFAULT_CSS` → 테마 `:root` → `PREVIEW_CSS` →
+**테마 CSS** → `extra`.
+
+- `PREVIEW_CSS` **뒤** — 팩이 기본 모양을 덮을 수 있어야 한다.
+- `extra` **앞** — 인쇄 여백·슬라이드 배치·읽기 폭 같은 **앱 설정**이 팩에 밀리면 안 된다
+  (팩 하나 때문에 인쇄가 망가지는 일을 막는다).
+
+## 공개 API — 팩이 기대도 되는 것
+
+공유를 지원한다는 건 DOM 모양의 **일부를 얼린다**는 뜻이다. 전부가 아니라 아래만 약속한다.
+
+| 훅 | 무엇 |
+|---|---|
+| `.md` | 문서 카드 루트 — 선택자를 이 안에 두기를 권한다 |
+| `h1`~`h6` | `id`=제목 슬러그, `data-line`=원본 줄 번호 |
+| 표준 태그 | `blockquote ul ol li table pre code hr img dl` |
+| `.callout` | `.note` · `.warning` · `.tip` |
+| `.footnotes` | `.footnote-ref` · `.footnote-backref` |
+| `.task-list-item` | `.task-list-item-checkbox` |
+| `.mermaid-rendered` | 다이어그램 래퍼(SVG 내부는 mermaid 소관) |
+| `[data-line]` | 모든 블록 요소 |
+| `--prose-*` 23개 | 색 어휘 |
+| `.hljs-*` | 코드 강조(highlight.js 상류 어휘) |
+
+**그 밖의 내부 클래스는 예고 없이 바뀐다.** 그리고 관례 한 줄 — **색은 `themes.jsonc`,
+모양은 CSS.** 팩이 색을 literal 로 박으면 다른 테마에서 어긋난다.
+
+### 안전 경계
+
+| | |
+|---|---|
+| 스크립트 실행 | **불가** — iframe 에 `allow-scripts` 없음 + CSP `script-src 'self'` |
+| 원격 요청 | **불가** — CSP `img-src` 가 막는다(`@import`·웹폰트·이미지 URL 전부) |
+| 앱 크롬 변경 | **불가** — 주입 지점이 미리보기 문서 하나뿐이다 |
+| 문서 내용 왜곡 | **가능** — `display:none`·`content:` 로 속일 수는 있다 |
+
+즉 **훔치지는 못하고 속일 수는 있는** 수준이다. 그래서 유일하게 막는 것은
+**`</style>`** 하나다 — 값이 그걸 품으면 스타일 요소를 닫고 임의 HTML 이 되므로
+대소문자·공백 변형까지 잡아 CSS 를 통째로 버린다(`sanitizeThemeCss`). 색은 살아남는다.
+
+CSS 파서는 넣지 않았다 — 큰 의존성이고 "검사했다"는 착각만 준다. 브라우저가 이미
+모르는 규칙을 조용히 무시하고, 이상하면 **내장 테마로 한 번 전환**하면 빠져나온다.
+
 ## 구현
 
 `src/app/themes/` — `index.ts`(레지스트리·내장 테마) · `prose.ts`(서식 토큰·기본값) ·
-`apply.ts`(:root 주입) · `custom.ts`(사용자 파일 파싱, 순수) · `load.ts`(디스크 I/O).
+`apply.ts`(:root 주입) · `custom.ts`(파싱·CSS 검증·팩 만들기, 전부 순수) · `load.ts`(디스크 I/O) ·
+`template.ts`(themes.jsonc 템플릿·폴더 안내문). Rust 는 `commands/fs_ops.rs` 의
+`theme_file_path`·`theme_dir_path`·`read_theme_bundle`.
 미리보기 주입은 `lib/renderDoc.ts` `themeVarsCss()`. 상태는 `src/app/store`.
