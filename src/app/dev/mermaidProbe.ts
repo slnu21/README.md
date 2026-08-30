@@ -258,6 +258,12 @@ async function run(): Promise<ProbeResult> {
   let shot: string | undefined;
   const wantShot = location.search.includes("shot");
 
+  // 이 목록은 **테마 열거가 아니라 기하 표본**이다. 프로브가 재는 것(라벨 상자 넘침·
+  // dominant-baseline·상속 속성)은 전부 색과 무관하고, diagramConfig 의 기하 입력(htmlLabels·
+  // fontFamily·fontSize)도 테마와 무관하다 — 테마별 분기는 darkMode 하나뿐이라 light/dark 둘이
+  // 그 두 경로를 다 덮는다. 테마를 늘릴 때마다 여기 추가하면 설정 수만 불어나 180초 타임아웃에
+  // 가까워진다. **type:"dark" 테마나 테마에 따라 기하가 바뀌는 설정을 넣으면 다시 볼 것.**
+  // 색 쪽 회귀는 themes/prose.test.ts(대비)와 lib/mermaid.test.ts(hex 계약)가 맡는다.
   for (const themeId of ["light", "dark", "paper"]) {
     for (const diagramWidth of ["fit", "natural"] as const) {
       for (const zoom of [1, 1.8]) {

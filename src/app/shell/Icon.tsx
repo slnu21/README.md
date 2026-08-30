@@ -11,6 +11,9 @@ export type IconName =
   | "sun"
   | "moon"
   | "paper"
+  | "hanji"
+  | "epaper"
+  | "swatch"
   | "save"
   | "export"
   | "chev"
@@ -77,6 +80,21 @@ export function IconSprite() {
         <symbol id="i-paper" viewBox="0 0 24 24">
           <path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
           <path d="M9 10h6M9 13.5h6M9 17h4" />
+        </symbol>
+        <symbol id="i-hanji" viewBox="0 0 24 24">
+          <path d="M5 3.5h14a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z" />
+          <path d="M4 8.5h16M4 12h16" />
+          <path d="M14.5 15h3.5v3.5h-3.5z" />
+        </symbol>
+        <symbol id="i-epaper" viewBox="0 0 24 24">
+          <path d="M6 2.5h12a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2z" />
+          <path d="M4 17.5h16" />
+          <path d="M7.5 6.5h9M7.5 10h9M7.5 13.5h5.5" />
+        </symbol>
+        <symbol id="i-swatch" viewBox="0 0 24 24">
+          <circle cx="9" cy="9.5" r="4.6" />
+          <circle cx="15" cy="9.5" r="4.6" />
+          <circle cx="12" cy="15" r="4.6" />
         </symbol>
         <symbol id="i-save" viewBox="0 0 24 24">
           <path d="M5 3h11l3 3v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />

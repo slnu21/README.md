@@ -41,7 +41,21 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **Store 패키징**: **MSIX → Store**(Microsoft 재서명 → 코드서명 인증서 불필요)가 기본. Tauri는 MSI/NSIS만 내므로 **MSIX 래핑 1단계** 필요. 매니페스트에 `runFullTrust`. 자세히: [docs/deployment/microsoft-store.md](docs/deployment/microsoft-store.md).
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
-## 현재 상태 (2026-08-28 기준)
+## 현재 상태 (2026-08-30 기준)
+- **[미출시] 리딩 테마 확장 — 한지·전자잉크 테마 + 서식 색 위계 + 사용자 테마 파일**(`develop-reading-themes`, 커밋 3개). 사용자 피드백 2건: paper가 "노란 배경 + 검은 글자"에 그친다 · 리딩 모드에서 제목·인용이 색으로 구분되지 않아 가독성이 떨어진다.
+  - **2번은 취향이 아니라 실제 누락이었다** — `PREVIEW_CSS`에 **제목 `color` 규칙이 아예 없어** h1~h6이 본문과 같은 `--fg`를 상속했고, `h6`는 공통 규칙에서 빠졌으며 `h4~h6`엔 `font-size` 자체가 없어 UA 기본값으로 떨어졌다(h4가 본문보다 작다). 인용문은 `font-style:italic`인데 **한글에는 기울임 자형이 없어** 브라우저가 가짜 기울임을 합성해 오히려 가독성을 깎고 있었다.
+  - **prose 토큰 23개**(`themes/prose.ts`) — 제목·인용·마커·표·코드·콜아웃·선택색까지. **기본값을 CSS(`PROSE_DEFAULT_CSS`)에 둔다** → 테마가 한 항목도 안 적어도 5토큰에서 `color-mix`로 파생된다(사용자 테마의 최소 기재량 = 0). **순서가 계약이다**: `PROSE_DEFAULT_CSS` → 테마 `:root` → `PREVIEW_CSS`(같은 특정도라 나중이 이긴다). 세 가지를 테스트로 못박았다 — 쓰는 모든 변수에 기본값이 있는가 · `PREVIEW_CSS` 안에 `--prose-*` 선언이 없는가 · 조립문 순서.
+  - **한지**(미색 `#f2ecdf` · 먹 `#221f1c` · 주사 `#9c3a2e` · 발(簾)무늬) / **전자잉크**(무채색 · `elevation:"flat"` · 링크는 밑줄 · 오류만 유채색). 이름은 E Ink 상표를 피해 **전자잉크 / E-Paper**. 발무늬는 `App.css:1697`의 죽은 규칙에 있던 `repeating-linear-gradient` 관용구를 `--paper-texture` 변수로 승격시킨 것(자산 0바이트). 이제 **App.css에 테마 이름이 박힌 규칙이 0개**다.
+  - **사용자 테마 파일** `%APPDATA%/com.readme.app/themes.jsonc` — 설정에 [테마 파일 열기]·[다시 불러오기] 두 버튼만. 인앱 색상 피커는 안 넣었다(23항목 → 팝오버가 두 배). **JSONC를 고른 이유는 주석이 그대로 설명서가 되기 때문**이다. `extends` 병합 · 같은 id = 덮어쓰기 · fail-soft.
+  - **값을 좁히는 것이 곧 방어다** — 테마 값은 `<style>:root{…}</style>`에 문자열로 이어 붙으므로 `;`+`}`가 있으면 블록을 벗어난다. **6자리 hex와 열거값만** 받고, 파서와 직렬화 **두 곳**에서 거른다. 질감·그림자도 CSS 문자열이 아니라 열거값. 5토큰은 mermaid로도 흘러가는데 khroma는 CSS 함수를 못 먹는다.
+  - **부팅 깜빡임 0** — 파일 **원문**을 localStorage에 캐시하고 첫 페인트 전에 동기 파싱한다(창은 프레임 0부터 화면에 있다). 파싱 결과가 아닌 원문을 캐시하는 이유는 검증을 안 거친 객체가 테마로 승격되는 경로를 없애기 위해서다.
+  - **놓치기 쉬운 곳 둘**(둘 다 실측함): (1) `setProperty`는 속성을 **지우지 않는다** → 질감·그림자를 분기마다 반드시 대입해야 한지→라이트로 바꿔도 발무늬가 안 남는다. (2) `.md{background:var(--bg)}`의 **단축 속성이 `background-image`를 초기화**한다 → longhand로 바꿔야 질감이 살아남는다.
+  - **테마 목록은 레지스트리 파생** — `themes`를 제자리에서 재구성(`setUserThemes`)해 정적 조회 4곳이 무수정으로 동작한다. 비영속 `themeRev`가 재렌더를 부르는데 **`App.tsx`의 applyTheme 이펙트에 넣는 것이 가장 중요하다**(파일만 다시 읽으면 themeId는 그대로라 앱 크롬이 낡은 토큰을 유지한다).
+  - **실구동에서 잡은 결함 1건** — 다시 불러오기가 "N개 불러왔습니다"를 무조건 띄워 바로 앞의 "4번째 줄이 잘못됐습니다"를 덮었다(토스트 슬롯이 하나). 단위 테스트는 둘을 따로 보고 있어 못 잡았다 → 경고가 없을 때만 성공을 알린다.
+  - 경고 문구는 파서가 아니라 **표시 계층**이 만든다(`{code,params}` → i18n) — 파서가 순수하게 남고, ko/en 이중언어가 되며, 테스트가 문구 대신 code를 본다.
+  - **대비 하한을 테스트로 지킨다** — 모든 내장 테마에 본문·제목 7:1, 강조·인용·각주·코드·마커 4.5:1. 인용문 기본값이 62%일 때 paper에서 **3.81:1**로 떨어지는 것을 이 검사가 잡아 70%로 올렸다(고의로 되돌려 FAIL을 먼저 눈으로 본 뒤 복구).
+  - **프로브 행렬은 3종 그대로** — 프로브가 재는 것(라벨 상자 넘침·dominant-baseline·상속 속성)은 색과 무관하고 `diagramConfig`의 테마별 분기는 `darkMode` 하나뿐이라 light/dark가 두 경로를 다 덮는다. 5종이면 12→20설정이 돼 180초 타임아웃만 가까워진다(근거를 코드 주석으로 남김).
+  - 검증: `tsc` · vitest **435 → 619** · `cargo test --lib` 15 · clippy 0 · `vite build`(기존 청크 경고만) · `probe:mermaid` PASS · `probe:layout` PASS · **릴리스 exe 실구동 78항목 PASS**(CDP, 사용자 DB·프로필 비켜 놓고 원복). 갤러리 20종을 두 새 테마에서 렌더해 라벨 538개 온전 · 한지 다이어그램 선은 먹색(주사색 아님) 확인.
 - **[미출시] 다이어그램 라벨 안 인라인 HTML 정규화**(`develop-mermaid-label-html`) — 사용자 신고: mermaid 라벨의 `<br>`이 줄바꿈이 아니라 **태그 글자로** 보인다. 실측해 보니 두 부류였다.
   - **우리 회귀(v0.6.9 `htmlLabels:false` 이후)** — 라벨이 SVG `<text>`가 되면서 HTML 해석기가 사라졌고, mermaid는 못 살리는 태그를 **지우지 않고 한 단어로 그린다**(`markdownToLines`의 html 토큰 분기). 그래서 `<b>/<i>/<u>/<span>/<code>`가, 그리고 상류 정규화가 `/<br\s*\/?>/`(대소문자 구분·속성 없음) 한 겹뿐이라 **`<BR>`·`<br class="x">`** 가 글자로 찍혔다. timeline은 자기 정규식으로 **bare `<br>`만** 잘라 `<br/>`이 샜다.
   - **상류 한계(두 설정 모두·mermaid.live 동일)** — pie·journey·gitGraph·xychart·quadrant·packet·treemap은 줄바꿈 자체가 없고, classDiagram **멤버 줄**·flowchart **frontmatter title**도 안 되며, sequence는 `<br>`은 되지만 서식 태그는 안 된다. **`&nbsp;`는 sequence·journey에서 파싱을 통째로 깨뜨린다**(mermaid는 `#nbsp;`).

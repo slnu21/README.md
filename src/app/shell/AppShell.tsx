@@ -1,11 +1,11 @@
 // 앱 셸 — 시안(docs/mockups/md-reader-shell.html) 이식 + 파일/폴더 열기·워크스페이스 트리(WBS 510).
 // 에디터는 현재 원문 표시(읽기 전용). 실제 편집=WBS 522, 미리보기 렌더=WBS 511.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, collectImportedPaths, type TreeNode } from "../store";
-import { themes } from "../themes";
+import { listThemeIds, themes } from "../themes";
 import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, openWithDefault, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
-import { Icon, IconSprite } from "./Icon";
+import { Icon, IconSprite, type IconName } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
 import { OutlineOverlay } from "./OutlineOverlay";
@@ -33,8 +33,16 @@ import type { OpenHow } from "../lib/links";
 import { Toast } from "./Toast";
 import type { TocItem } from "../lib/markdown";
 
-const THEME_ORDER = ["light", "dark", "paper"] as const;
-const THEME_ICON = { light: "sun", dark: "moon", paper: "paper" } as const;
+// 테마 목록은 레지스트리에서 파생한다(내장 먼저, 사용자 테마는 뒤) — themes.jsonc 가
+// 새 테마를 더하면 타이틀바·팔레트에 그대로 나타난다. 아이콘이 없는 id 는 견본(swatch)으로.
+const THEME_ICON: Record<string, IconName> = {
+  light: "sun",
+  dark: "moon",
+  paper: "paper",
+  hanji: "hanji",
+  epaper: "epaper",
+};
+const themeIcon = (id: string): IconName => THEME_ICON[id] ?? "swatch";
 const OPENABLE = READABLE_RE; // 드롭·파일연결에서 열 수 있는 문서 판별(공용 규칙)
 
 /** 워크스페이스 트리의 파일 노드 수집(퀵오픈용) — 열 수 있는 문서만, realPath→name, 중복 경로 제거. */
@@ -73,6 +81,7 @@ async function savePastedImage(docPath: string, data: Uint8Array, ext: string): 
 export function AppShell() {
   const { t } = useTranslation();
   const themeId = useAppStore((s) => s.themeId);
+  const themeRev = useAppStore((s) => s.themeRev);
   const setTheme = useAppStore((s) => s.setTheme);
   const language = useAppStore((s) => s.language);
   const setLanguage = useAppStore((s) => s.setLanguage);
@@ -320,7 +329,14 @@ export function AppShell() {
   }, [isDemo, openIncoming]);
 
   const ko = language === "ko";
-  const themeName = themes[themeId]?.name ?? "Light";
+  // 테마 표시명은 ko/en 번역을 쓰되, 번역 키가 없으면 레지스트리의 name 으로 떨어진다
+  // (사용자 테마는 번역 키가 없다). 상태바·팔레트·타이틀바 세 곳이 같은 규칙을 본다.
+  const themeLabel = (id: string): string =>
+    t(`theme.${id}`, { defaultValue: themes[id]?.name ?? id });
+  const themeName = themeLabel(themeId);
+  // themeRev 가 바뀔 때만 다시 읽는다 — themes 는 제자리에서 고쳐지는 객체라 참조가 안 변한다.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const themeIds: string[] = useMemo(() => listThemeIds(), [themeRev]);
   const active = tabs.find((tb) => tb.path === activePath) ?? null;
   const words = active && active.content.trim() ? active.content.trim().split(/\s+/).length : 0;
   // 읽기 시간(근사): 라틴 단어 200 wpm + CJK 글자 500자/분(≈단어 2.5개 상당).
@@ -480,8 +496,8 @@ export function AppShell() {
       !!active && tabs.length > 1,
     );
     add("present", t("view.present"), () => setPresenting(true), !!active);
-    THEME_ORDER.forEach((id) =>
-      add(`theme-${id}`, `${t("cmd.theme")}: ${themes[id]?.name ?? id}`, () => setTheme(id)),
+    listThemeIds().forEach((id) =>
+      add(`theme-${id}`, `${t("cmd.theme")}: ${themeLabel(id)}`, () => setTheme(id)),
     );
     (["narrow", "normal", "wide"] as const).forEach((w) =>
       add(
@@ -981,16 +997,16 @@ export function AppShell() {
           </div>
 
           <div className="seg theme" role="group" aria-label="theme">
-            {THEME_ORDER.map((id) => (
+            {themeIds.map((id) => (
               <button
                 key={id}
                 type="button"
                 aria-pressed={themeId === id}
-                title={themes[id].name}
-                aria-label={themes[id].name}
+                title={themeLabel(id)}
+                aria-label={themeLabel(id)}
                 onClick={() => setTheme(id)}
               >
-                <Icon name={THEME_ICON[id]} />
+                <Icon name={themeIcon(id)} />
               </button>
             ))}
           </div>

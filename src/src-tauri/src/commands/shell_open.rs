@@ -25,7 +25,7 @@ use tauri_plugin_opener::OpenerExt;
 ///   진짜 필요하면 탐색기로 떨어지므로 사용자가 직접 열 수 있다.
 const SHELL_SAFE_EXTS: &[&str] = &[
     // 문서·데이터
-    "pdf", "txt", "rtf", "csv", "tsv", "log", "json", "yaml", "yml", "toml", "xml", "ini", "doc",
+    "pdf", "txt", "rtf", "csv", "tsv", "log", "json", "jsonc", "yaml", "yml", "toml", "xml", "ini", "doc",
     "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "epub", //
     // 이미지
     "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico", "avif", "tif", "tiff", //
@@ -81,6 +81,8 @@ mod tests {
             "data.csv",
             "clip.mp4",
             "bundle.zip",
+            // 사용자 테마 파일 — 설정의 "테마 파일 열기" 가 이걸 기본 편집기로 여는다.
+            "themes.jsonc",
         ] {
             assert!(is_shell_safe(p), "{p} 는 열려야 한다");
         }

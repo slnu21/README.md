@@ -8,6 +8,7 @@ import "./App.css";
 
 function App() {
   const themeId = useAppStore((s) => s.themeId);
+  const themeRev = useAppStore((s) => s.themeRev);
   const language = useAppStore((s) => s.language);
   const fontMono = useAppStore((s) => s.fontMono);
   const fontRead = useAppStore((s) => s.fontRead);
@@ -15,9 +16,11 @@ function App() {
   const editorZoom = useAppStore((s) => s.editorZoom);
 
   // store 상태를 DOM/i18n에 반영. 테마 토글·언어 토글의 단일 경로.
+  // themeRev 가 의존성에 있어야 한다 — 사용자 테마 파일을 다시 불러오면 **id 는 그대로인채**
+  // 내용만 바뀌는데, 그러면 이 이펙트가 다시 돌지 않아 앱 크롬이 낡은 토큰을 영원히 유지한다.
   useEffect(() => {
     applyTheme(themeId);
-  }, [themeId]);
+  }, [themeId, themeRev]);
 
   useEffect(() => {
     void i18n.changeLanguage(language);

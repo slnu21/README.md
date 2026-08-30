@@ -10,7 +10,7 @@ export type { ExportParams } from "./html";
 // 인쇄용: 카드 테두리/그림자 제거 + 여백을 페이지 여백에 위임(내용이 종이를 꽉 채우게).
 const PRINT_CSS =
   "@page{margin:16mm}@media print{body{background:#fff;padding:0}" +
-  ".md{border:none;box-shadow:none;border-radius:0;padding:0}}";
+  ".md{border:none;box-shadow:none;border-radius:0;padding:0;background-image:none}}";
 
 /** 활성 문서 제목(파일명)의 확장자를 교체. */
 function withExt(name: string, ext: string): string {

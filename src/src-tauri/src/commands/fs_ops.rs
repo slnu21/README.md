@@ -5,6 +5,7 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
+use tauri::Manager;
 
 #[tauri::command]
 pub fn read_file(path: String) -> Result<String, String> {
@@ -158,3 +159,15 @@ fn build_tree(p: &Path, depth: usize) -> Result<DirEntryNode, String> {
 }
 
 // TODO: rename/move/delete, 메타데이터 등
+
+/// 사용자 테마 파일 경로(없으면 폴더만 만든다). SQLite DB 옆에 둔다.
+///
+/// **JS 쪽 `@tauri-apps/api/path` 를 안 쓰는 이유**: v0.7.1 에서 `opener` 플러그인의
+/// `open_path` 가 ACL 에 막혀 두 릴리스 동안 조용히 죽어 있었다. 앱 자신의 커맨드는
+/// ACL 대상이 아니므로, 여기 몇 줄이 그 위험을 통째로 없앱니다(capability 변경 불필요).
+#[tauri::command]
+pub fn theme_file_path(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("themes.jsonc").to_string_lossy().into_owned())
+}
