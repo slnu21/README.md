@@ -3,12 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
+import { ensureThemeFile, loadUserThemes } from "../themes/load";
+import { openWithDefault, revealInExplorer } from "../lib/tauri";
 import { readFonts, monoFonts, uiFonts } from "../lib/fonts";
 import { Icon } from "./Icon";
 
 export function SettingsPopover() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const showNotice = useAppStore((s) => s.showNotice);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const fontRead = useAppStore((s) => s.fontRead);
@@ -43,11 +47,35 @@ export function SettingsPopover() {
     }
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
-    return () => {
+  return () => {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  // 테마 파일 열기: 없으면 주석 달린 템플릿을 만들고 기본 편집기로 열어 준다.
+  // 연결된 프로그램이 없거나 거절되면 탐색기에서 위치를 여는 것으로 떨어진다(항상 동작한다).
+  async function openThemeFile(): Promise<void> {
+    try {
+      const path = await ensureThemeFile();
+      await openWithDefault(path).catch(() => revealInExplorer(path));
+    } catch (e) {
+      showNotice(t("theme.fileFailed", { detail: String(e) }), "error");
+    }
+  }
+
+  async function reloadThemes(): Promise<void> {
+    setBusy(true);
+    try {
+      const r = await loadUserThemes();
+      // 토스트 슬롯은 하나다 — 경고가 있으면 그쪽이 이긴다. "3개 불러왔습니다" 가
+      // "12번째 줄이 잘못됐습니다" 를 덮으면 사용자는 자기 오타를 영원히 못 찾는다.
+      // (null = Tauri 밖이거나 경로를 못 읽음 — 그때도 성공했다고 말하지 않는다.)
+      if (r && r.warnings.length === 0) showNotice(t("theme.loaded", { count: r.count }));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const pct = (z: number) => `${Math.round(z * 100)}%`;
 
@@ -193,6 +221,15 @@ export function SettingsPopover() {
 
           <button type="button" className="set-reset" onClick={() => setSplitRatio(0.5)}>
             {t("settings.resetSplit")}
+          </button>
+
+          {/* 색을 직접 정하는 입구. 인앱 색상 피커 대신 파일을 둔 이유는 항목이 23개라
+              팝오버가 두 배로 커지기 때문이다 — 파일 안 주석이 그대로 설명서 역할을 한다. */}
+          <button type="button" className="set-reset" onClick={() => void openThemeFile()}>
+            {t("settings.themeFile")}
+          </button>
+          <button type="button" className="set-reset" onClick={() => void reloadThemes()} disabled={busy}>
+            {t("settings.themeReload")}
           </button>
         </div>
       )}

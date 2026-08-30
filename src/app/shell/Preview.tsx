@@ -104,6 +104,8 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   const [bodyHtml, setBodyHtml] = useState("");
   const [lightbox, setLightbox] = useState<string | null>(null); // 확대할 이미지 src(라이트박스)
   // 읽기 글꼴/줌(기능 3·5) — iframe은 격리돼 있어 buildDoc에 직접 주입한다.
+  // 사용자 테마 파일을 다시 불러오면 themeId 는 그대로고 **내용만** 바뀜다 → 재빌드 신호는 이것이다.
+  const themeRev = useAppStore((s) => s.themeRev);
   const fontRead = useAppStore((s) => s.fontRead);
   const previewZoom = useAppStore((s) => s.previewZoom);
   const readingWidth = useAppStore((s) => s.readingWidth);
@@ -212,7 +214,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     // font(readStack/readerPx)는 fontRead·previewZoom 파생 → 이들 변경 시 재빌드. readingWidth도 CSS 파생.
     // diagramWidth는 docOpts 파생(문서 body 클래스) — 수동 관리 배열이라 빠뜨리면 즉시 반영되지 않는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bodyHtml, themeId, isDemo, fontRead, previewZoom, readingWidth, diagramWidth]);
+  }, [bodyHtml, themeId, themeRev, isDemo, fontRead, previewZoom, readingWidth, diagramWidth]);
 
   // Esc로 라이트박스 닫기.
   useEffect(() => {

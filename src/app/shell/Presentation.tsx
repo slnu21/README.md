@@ -39,6 +39,7 @@ export function Presentation({
   onOpenPath?: (path: string, how: OpenHow) => void;
 }) {
   const { t } = useTranslation();
+  const themeRev = useAppStore((s) => s.themeRev);
   const fontRead = useAppStore((s) => s.fontRead);
   const slides = useMemo(() => splitSlides(content), [content]);
   const [idx, setIdx] = useState(0);
@@ -61,7 +62,7 @@ export function Presentation({
     return () => {
       cancelled = true;
     };
-  }, [slides, cur, themeId, fontRead, path]);
+  }, [slides, cur, themeId, themeRev, fontRead, path]);
 
   // 키보드 내비게이션: ←/→ ·Space·PageUp/Down·Home/End·Esc.
   useEffect(() => {

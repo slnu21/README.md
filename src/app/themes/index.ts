@@ -25,7 +25,7 @@ export interface Theme {
   elevation?: Elevation;
 }
 
-export const themes: Record<string, Theme> = {
+export const BUILTIN_THEMES: Readonly<Record<string, Theme>> = {
   light: {
     id: "light",
     name: "Light",
@@ -135,3 +135,26 @@ export const themes: Record<string, Theme> = {
 };
 
 export const defaultThemeId = "light";
+
+/** **살아 있는** 레지스트리. 내장 테마 + 사용자 테마 파일을 합친 결과다.
+ *  조회부(apply.ts · renderDoc.ts · mermaid.ts · AppShell.tsx)는 전부 호출 시점에 `themes[id]` 를
+ *  보므로, 이 객체를 **제자리에서** 고치면 전부 그대로 따라온다. */
+export const themes: Record<string, Theme> = { ...BUILTIN_THEMES };
+
+/** 사용자 테마를 반영해 레지스트리를 다시 재는다. 파일이 진실원이므로 매번 통째로 재구성한다
+ *  — 파일에서 사라진 테마가 지워져야 하기 때문이다.
+ *
+ *  **`export let` 으로 재대입하지 않는다** — 라이브 바인딩 미묘함을 아예 만들지 않기 위해
+ *  const 객체를 제자리에서 고친다(어떤 import 형태든 같은 것을 본다).
+ *  순서도 계약이다 — 내장 테마가 선언 순서대로 먼저, 새 사용자 테마가 뒤에 붙는다.
+ *  같은 id 로 덮어쓴 테마는 **자리를 지킨다**(지우고 다시 넣으면 맨 뒤로 밀린다). */
+export function setUserThemes(user: Record<string, Theme>): void {
+  for (const k of Object.keys(themes)) delete themes[k];
+  for (const [k, v] of Object.entries(BUILTIN_THEMES)) themes[k] = user[k] ?? v;
+  for (const [k, v] of Object.entries(user)) if (!(k in BUILTIN_THEMES)) themes[k] = v;
+}
+
+/** 타이틀바·팔레트가 보는 표시 순서. */
+export function listThemeIds(): string[] {
+  return Object.keys(themes);
+}

@@ -163,6 +163,13 @@ function mergeExpanded(prev: Record<string, boolean>, roots: TreeNode[]): Record
 interface AppState {
   themeId: string;
   language: string;
+  /** 사용자 테마 파일 원문 캐시(영속). **파싱 결과가 아니라 원문**을 둔다 — localStorage 는
+   *  동기라 첫 페인트 전에 동기 파싱해 까뭅임을 없애면서도, 검증을 거치지 않은 객체가 테마로
+   *  승격하는 경로가 생기지 않고, Theme 모양이 바뀌어도 낡은 캐시가 표류하지 않는다. */
+  customThemesText: string;
+  /** 레지스트리가 바뀌었다는 신호(비영속). themeId 가 그대로여도 테마 내용은 바뀔 수 있으므로
+   *  이것을 의존성에 넣어야 앱 크롬·미리보기가 다시 칠해진다. */
+  themeRev: number;
 
   // 뷰 프리퍼런스(localStorage 영속) — 첫 페인트 영향으로 동기 복원.
   splitRatio: number;
@@ -199,6 +206,8 @@ interface AppState {
   recent: string[];
   favorites: string[];
 
+  setCustomThemesText: (text: string) => void;
+  bumpThemeRev: () => void;
   setTheme: (id: string) => void;
   setLanguage: (lng: string) => void;
   setSplitRatio: (r: number) => void;
@@ -262,6 +271,8 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       themeId: defaultThemeId,
       language: "en",
+      customThemesText: "",
+      themeRev: 0,
 
       splitRatio: 0.5,
       editorZoom: 1,
@@ -293,6 +304,8 @@ export const useAppStore = create<AppState>()(
       favorites: [],
 
       setTheme: (id) => set({ themeId: id }),
+      setCustomThemesText: (text) => set({ customThemesText: text }),
+      bumpThemeRev: () => set((s) => ({ themeRev: s.themeRev + 1 })),
       setLanguage: (lng) => set({ language: lng }),
       setSplitRatio: (r) => set({ splitRatio: clamp(r, 0.2, 0.8) }),
       setEditorZoom: (z) => set({ editorZoom: clamp(z, 0.8, 1.8) }),
@@ -587,6 +600,7 @@ export const useAppStore = create<AppState>()(
       partialize: (s) => ({
         themeId: s.themeId,
         language: s.language,
+        customThemesText: s.customThemesText,
         expanded: s.expanded,
         splitRatio: s.splitRatio,
         editorZoom: s.editorZoom,

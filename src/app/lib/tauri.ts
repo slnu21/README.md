@@ -51,6 +51,13 @@ export function readDirTree(path: string): Promise<DirEntryNode> {
   return invoke<DirEntryNode>("read_dir_tree", { path });
 }
 
+/** 사용자 테마 파일 경로(`%APPDATA%\com.readme.app\themes.jsonc`). 폴더는 필요하면 만들고
+ *  파일 자체는 만들지 않는다. 생성은 `createFile`(create_new)로 — `writeFile` 은 조용히
+ *  덮어쓰므로 "존재 검사 후 쓰기"는 사용자 테마를 날릴 수 있는 TOCTOU 다. */
+export function themeFilePath(): Promise<string> {
+  return invoke<string>("theme_file_path");
+}
+
 /** 경로가 폴더인지 판별(드롭 분기용). */
 export function pathIsDir(path: string): Promise<boolean> {
   return invoke<boolean>("path_is_dir", { path });

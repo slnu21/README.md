@@ -4,7 +4,7 @@
   "sidebar": { "workspace": "Workspace", "favorites": "Favorites", "recent": "Recent" },
   "view": { "reader": "Reading mode", "readerSplit": "Side by side", "closePane": "Close pane", "swapPanes": "Swap sides", "seamHint": "Drag to resize · double-click to reset", "present": "Presentation", "exitPresent": "Exit (Esc)", "prevSlide": "Previous", "nextSlide": "Next", "readingWidth": "Reading width", "widthNarrow": "Narrow", "widthNormal": "Normal", "widthWide": "Wide" },
   "cmd": { "palette": "Run a command…", "files": "Open a file…", "command": "Command", "theme": "Theme", "language": "Language", "noCommands": "No matching commands", "noFiles": "No files in workspace" },
-  "theme": { "light": "Light", "dark": "Dark", "paper": "Paper", "hanji": "Hanji", "epaper": "E-Paper" },
+  "theme": { "light": "Light", "dark": "Dark", "paper": "Paper", "hanji": "Hanji", "epaper": "E-Paper", "warnOne": "Theme file: {{detail}}", "warnMany": "Theme file: {{detail}} (and {{more}} more)", "loaded": "Loaded {{count}} custom theme(s)", "fileFailed": "Could not open the theme file: {{detail}}", "w": {"parseLine": "line {{line}} is invalid.", "parseFailed": "could not read it: {{detail}}", "notObject": "the top level is not an object - it must be { \"themes\": [...] }.", "unknownVersion": "unknown version {{version}} - reading it as 1.", "themesNotArray": "themes is not an array.", "entryNotObject": "theme #{{where}} is not an object; skipped.", "badId": "theme #{{where}}: id \"{{id}}\" is not usable (lowercase letters, digits, hyphens; 32 chars max).", "badExtends": "{{id}}: extends \"{{ext}}\" not found; using {{fallback}}.", "fieldNotObject": "{{id}}: {{field}} is not an object.", "unknownKey": "{{id}}: unknown entry \"{{key}}\" ignored.", "badColor": "{{id}}: {{key}} value \"{{value}}\" is not #rrggbb; ignored.", "badBool": "{{id}}: {{key}} must be true or false.", "tooMany": "more than {{max}} themes; the rest are ignored."} },
   "find": {
     "title": "Find & replace in files",
     "findPlaceholder": "Find",
@@ -160,6 +160,8 @@
     "autosave": "Autosave",
     "resetSplit": "Reset split (50/50)",
     "reset": "Reset",
+    "themeFile": "Open theme file",
+    "themeReload": "Reload themes",
     "outline": "Outline",
     "opacity": "Opacity",
     "pin": "Pin open"
