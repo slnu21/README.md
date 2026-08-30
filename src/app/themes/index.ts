@@ -1,6 +1,8 @@
 // Theme registry: CSS 변수 토큰 기반. dark/light 내장 + paper(종이질감) 등 확장.
 // 코드 수정 없이 테마를 추가할 수 있도록 정의를 레지스트리로 관리한다.
 
+import type { Elevation, ProseTokens, Texture } from "./prose";
+
 export interface ThemeTokens {
   "--bg": string;
   "--fg": string;
@@ -14,6 +16,13 @@ export interface Theme {
   name: string;
   type: "light" | "dark";
   tokens: ThemeTokens;
+  /** 미리보기(리딩) 서식 색. 적지 않은 항목은 PROSE_DEFAULT_CSS 가 5토큰에서 파생한다 →
+   *  테마가 한 항목도 안 적어도 동작한다(사용자 테마의 최소 기재량 = 0). */
+  prose?: Partial<ProseTokens>;
+  /** 바탕 무늬. 열거값이다 — 사용자 CSS 문자열을 그대로 받지 않는다(themes/prose.ts 주석). */
+  texture?: Texture;
+  /** 카드 그림자. flat = 그림자 없는 전자잉크 화면. */
+  elevation?: Elevation;
 }
 
 export const themes: Record<string, Theme> = {

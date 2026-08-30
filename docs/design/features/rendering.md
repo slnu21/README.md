@@ -32,6 +32,49 @@
 - `file:///`는 로컬 경로로 옮겨 다룬다(호스트가 붙은 UNC `file://server/share`는 무시). 스킴이 한 글자일 때만 Windows 드라이브 문자로 본다 — 등록된 URL 스킴은 모두 두 글자 이상이라, 이 규칙이 `obsidian:`류가 로컬 경로 분기로 새는 것을 막는다.
 - 링크로 감싼 이미지(배지)는 **링크가 라이트박스를 이긴다**. 감싸지 않은 이미지만 라이트박스.
 
+## 서식 색 위계(prose 토큰)
+
+미리보기 문서의 서식 색은 **`--prose-*` 커스텀 속성 23개**가 정한다. 정의는 `src/app/themes/prose.ts`,
+사용은 `lib/renderDoc.ts` `PREVIEW_CSS` 하나 — 리딩·분할·프레젠테이션·HTML/PDF 내보내기가 같은 규칙을 본다.
+
+| 묶음 | 변수 |
+|---|---|
+| 제목 | `--prose-heading` · `--prose-heading-rule`(h1·h2 밑줄) |
+| 본문 | `--prose-link` · `--prose-link-deco` · `--prose-marker`(불릿·순번·체크박스) · `--prose-muted`(각주·캐션·h6) · `--prose-mark-bg` · `--prose-selection` |
+| 인용 | `--prose-quote` · `--prose-quote-bar` · `--prose-quote-bg` |
+| 코드 | `--prose-code` · `--prose-code-bg` · `--prose-pre-bg` · `--prose-syn-key` · `--prose-syn-str` |
+| 선·표 | `--prose-rule`(hr·표 테두리·pre 테두리) · `--prose-table-head` · `--prose-table-zebra` |
+| 콜아웃 | `--prose-note` · `--prose-warn` · `--prose-tip` · `--prose-error`(렌더 오류·삭제된 코드 줄) |
+| 면 | `--paper-texture` · `--prose-card-shadow` (둘 다 열거값에서 생성) |
+
+### 순서가 계약이다
+
+`buildDoc` 은 `<style>` 을 **`PROSE_DEFAULT_CSS` → 테마 `:root` → `PREVIEW_CSS`** 순서로 쌀는다.
+셀렉터 특정도가 같으므로 나중이 이긴다:
+
+- 기본값이 테마보다 **앞**에 와야 테마 지정이 이긴다. 기본값을 `PREVIEW_CSS` 안에 두면 모든 테마를 덮어버린다.
+- 그래서 기본값은 `PROSE_DEFAULT_CSS` 에만 있고, 테마는 **직접 정한 항목만** 내보낸다 → 새 테마가 prose 를
+  하나도 안 적어도 동작하고(5토큰에서 `color-mix` 로 파생), 재빌드마다 나가는 바이트도 줄어든다.
+- `lib/renderDoc.prose.test.ts` 가 세 가지를 못박는다: `PREVIEW_CSS` 가 참조하는 모든 변수에 기본값이 있다 ·
+  `PREVIEW_CSS` 에는 `--prose-*` 선언이 없다 · 조립문 순서가 기본값→테마→규칙이다.
+
+### 값은 6자리 hex 또는 열거값만
+
+`themeVarsCss()` 가 직렬화 직전에 `isHex6()` 로 한 번 더 거른다. 이유 둘:
+
+1. **mermaid** — `diagramConfig` 가 5토큰을 khroma 로 파생하므로 `color-mix()`·`var()` 가 섞이면 렌더가 터진다.
+2. **CSS 탈출** — 값에 `;` 와 `}` 를 넣으면 `:root{}` 블록을 벗어난다. 사용자 자기 파일이라 보안 경계는
+   아니고 샌드박스에 스크립트도 없지만, 값을 hex·열거값으로 좁히면 그 경로가 **구조적으로** 사라진다.
+
+그래서 질감·그림자는 사용자 CSS 문자열이 아니라 **열거값**이다(`texture`·`elevation` → 사전 정의 상수).
+
+### 가독성 하한을 테스트로 지킨다
+
+`themes/prose.test.ts` 가 모든 내장 테마에 대해 본문 7:1, 제목 7:1, 강조·인용·각주·코드·마커 4.5:1 을 재고,
+`PROSE_DERIVED`(JS 복사본)가 `PROSE_DEFAULT_CSS`(CSS 원본)와 **같은 식인지** 문자열로 대조한다 — 한쪽만 고치면
+대비 검사가 거짓 통과하기 때문이다. 인용문 기본값이 62%일 때 paper 에서 3.81:1 로 떨어지는 것을
+이 검사가 잡아 70%로 올렸다.
+
 ## 다이어그램 라벨 안 인라인 HTML
 `htmlLabels:false`(v0.6.9, 라벨 잘림 수정) 이후 mermaid는 라벨을 SVG `<text>`로 그린다. 그 경로에는 HTML 해석기가 없어서, **살릴 수 없는 태그를 지우지 않고 글자로 그린다**(`markdownToLines`가 html 토큰을 한 단어로 밀어 넣는다). 그래서 넘기기 전에 소스를 한 번 고른다 — 순수 함수 `lib/mermaidText.ts`(`normalizeDiagramHtml`·`detectDiagramKind`, vitest), 호출 지점은 `renderMermaid` 하나뿐이라 미리보기·프레젠테이션·HTML 내보내기가 같은 규칙을 쓴다.
 

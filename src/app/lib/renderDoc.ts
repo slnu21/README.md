@@ -3,7 +3,9 @@
 // 자기완결 HTML 문서 문자열을 만든다. 폰트 @font-face 는 주입 대상이 다르므로 opts로 교체 가능:
 //   · 미리보기 = 앱오리진 url() (FONT_FACE_CSS 기본)
 //   · 내보내기 = 이식형(data URI 임베드 또는 빈 문자열)
-import { themes, defaultThemeId } from "../themes";
+import { themes, defaultThemeId, type Theme } from "../themes";
+import { CARD_SHADOW, PROSE_DEFAULT_CSS, PROSE_VAR, TEXTURE_CSS } from "../themes/prose";
+import { isHex6 } from "./color";
 import { FONT_FACE_CSS, BASE_READER_PX } from "./fonts";
 
 /** 다이어그램 전용 글꼴. mermaid 기본 스택("trebuchet ms",verdana,arial,sans-serif)에는 **한글
@@ -42,56 +44,71 @@ html,body{margin:0}
 body{padding:14px 14px 40px;background:color-mix(in srgb,var(--bg) 92%,#000);color:var(--fg);
   font-family:var(--read-font,"Palatino Linotype","Book Antiqua",Georgia,"Times New Roman",serif);
   font-size:var(--reader-font-size,16px);line-height:1.75;-webkit-font-smoothing:antialiased}
-/* 조판 시트: 페인 폭을 따라 넓어지는 카드(얇은 매트 여백) → 에디터와 시각적 구분 */
-.md{margin:0;background:var(--bg);border:1px solid var(--border);
-  border-radius:10px;padding:32px 44px 44px;
-  box-shadow:0 1px 2px rgba(0,0,0,.05),0 10px 30px rgba(0,0,0,.05)}
-h1,h2,h3,h4,h5{font-weight:600;line-height:1.25;margin:1.6em 0 .6em}
-h1{font-size:1.95em;margin-top:0;letter-spacing:-.01em}
-h2{font-size:1.45em;border-bottom:1px solid var(--border);padding-bottom:.25em}
+/* 조판 시트: 페인 폭을 따라 널어지는 카드(얇은 매트 여백) → 에디터와 시각적 구분.
+   background 를 단축이 아니라 longhand 로 쓴다 — 단축은 background-image 까지 초기화해
+   --paper-texture(한지 발무늬)를 조용히 지운다. */
+.md{margin:0;background-color:var(--bg);background-image:var(--paper-texture,none);
+  border:1px solid var(--border);border-radius:10px;padding:32px 44px 44px;
+  box-shadow:var(--prose-card-shadow)}
+::selection{background:var(--prose-selection)}
+h1,h2,h3,h4,h5,h6{font-weight:600;line-height:1.25;margin:1.6em 0 .6em;color:var(--prose-heading)}
+h1{font-size:1.95em;margin-top:0;letter-spacing:-.01em;padding-bottom:.3em;
+  border-bottom:1px solid var(--prose-heading-rule)}
+h2{font-size:1.45em;padding-bottom:.25em;border-bottom:1px solid var(--prose-heading-rule)}
 h3{font-size:1.2em}
+h4{font-size:1.06em}
+h5{font-size:1em}
+h6{font-size:.92em;color:var(--prose-muted)}
 p{margin:0 0 1em}
-a{color:var(--accent);text-decoration:none}
+a{color:var(--prose-link);text-decoration:var(--prose-link-deco)}
 a:hover{text-decoration:underline}
 ul,ol{padding-left:1.5em;margin:0 0 1em}
 li{margin:.25em 0}
-blockquote{margin:0 0 1em;padding:.2em 0 .2em 1em;border-left:3px solid var(--accent);
-  color:color-mix(in srgb,var(--fg) 62%,var(--bg));font-style:italic}
+li::marker{color:var(--prose-marker)}
+/* 이탤릭을 쓰지 않는다 — 한글에는 기울임 자형이 없어 브라우저가 가짜 기울임을 합성하고,
+   그 합성체는 한국어 본문에서 가독성을 오히려 깎는다. 구분은 막대+바탕색이 맡는다. */
+blockquote{margin:0 0 1em;padding:.45em .9em .45em 1em;
+  border-left:3px solid var(--prose-quote-bar);border-radius:0 6px 6px 0;
+  background:var(--prose-quote-bg);color:var(--prose-quote)}
+blockquote>:first-child{margin-top:0}
+blockquote>:last-child{margin-bottom:0}
 code{font-family:"Cascadia Code","Cascadia Mono",ui-monospace,Consolas,monospace;
-  font-size:.86em;background:color-mix(in srgb,var(--accent) 12%,var(--bg));
-  color:color-mix(in srgb,var(--accent) 55%,var(--fg));padding:.12em .4em;border-radius:5px}
-pre{background:color-mix(in srgb,var(--fg) 5%,var(--bg));border:1px solid var(--border);
+  font-size:.86em;background:var(--prose-code-bg);
+  color:var(--prose-code);padding:.12em .4em;border-radius:5px}
+pre{background:var(--prose-pre-bg);border:1px solid var(--prose-rule);
   border-radius:8px;padding:14px 16px;overflow:auto;margin:0 0 1em}
 pre code{background:none;color:inherit;padding:0;font-size:.85em}
 table{border-collapse:collapse;width:100%;margin:0 0 1em;
   font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;font-size:.95em}
-th,td{border:1px solid var(--border);padding:7px 11px;text-align:left}
-thead th{background:var(--surface)}
+th,td{border:1px solid var(--prose-rule);padding:7px 11px;text-align:left}
+thead th{background:var(--prose-table-head)}
+tbody tr:nth-child(even){background:var(--prose-table-zebra)}
+caption{color:var(--prose-muted);font-size:.92em;padding-bottom:.4em;text-align:left}
 img{max-width:100%;height:auto;border-radius:6px}
-hr{border:none;border-top:1px solid var(--border);margin:1.6em 0}
-h1:first-child,h2:first-child,h3:first-child{margin-top:0}
+hr{border:none;border-top:1px solid var(--prose-rule);margin:1.6em 0}
+h1:first-child,h2:first-child,h3:first-child,h4:first-child,h5:first-child,h6:first-child{margin-top:0}
 .task-list-item{list-style:none}
-.task-list-item-checkbox{margin:0 .5em 0 -1.4em}
-.footnotes{font-size:.9em;color:color-mix(in srgb,var(--fg) 78%,var(--bg));border-top:1px solid var(--border);margin-top:2.4em;padding-top:.4em}
+.task-list-item-checkbox{margin:0 .5em 0 -1.4em;accent-color:var(--prose-marker)}
+.footnotes{font-size:.9em;color:var(--prose-muted);border-top:1px solid var(--prose-rule);margin-top:2.4em;padding-top:.4em}
 .footnotes ol{padding-left:1.4em}
-.footnote-ref a,.footnote-backref{text-decoration:none;color:var(--accent)}
-mark{background:color-mix(in srgb,var(--accent) 22%,var(--bg));color:inherit;padding:.05em .2em;border-radius:3px}
+.footnote-ref a,.footnote-backref{text-decoration:none;color:var(--prose-link)}
+mark{background:var(--prose-mark-bg);color:inherit;padding:.05em .2em;border-radius:3px}
 ins{text-decoration:underline}
 sub,sup{font-size:.75em;line-height:0}
 abbr[title]{text-decoration:underline dotted;cursor:help}
-dl dt{font-weight:600;margin-top:.7em}
+dl dt{font-weight:600;margin-top:.7em;color:var(--prose-heading)}
 dl dd{margin:0 0 .4em 1.3em}
-.callout{border-left:4px solid var(--accent);border-radius:0 6px 6px 0;padding:.4em 1em;margin:1em 0;background:color-mix(in srgb,var(--accent) 8%,var(--bg))}
+.callout{border-left:4px solid var(--prose-note);border-radius:0 6px 6px 0;padding:.4em 1em;margin:1em 0;background:color-mix(in srgb,var(--prose-note) 8%,var(--bg))}
 .callout>:first-child{margin-top:0}
 .callout>:last-child{margin-bottom:0}
-.callout.warning{border-color:#d97706;background:color-mix(in srgb,#d97706 8%,var(--bg))}
-.callout.tip{border-color:#059669;background:color-mix(in srgb,#059669 8%,var(--bg))}
+.callout.warning{border-color:var(--prose-warn);background:color-mix(in srgb,var(--prose-warn) 8%,var(--bg))}
+.callout.tip{border-color:var(--prose-tip);background:color-mix(in srgb,var(--prose-tip) 8%,var(--bg))}
 .hljs{background:transparent;color:inherit}
-.hljs-comment,.hljs-quote{color:color-mix(in srgb,var(--fg) 45%,var(--bg));font-style:italic}
-.hljs-keyword,.hljs-selector-tag,.hljs-literal,.hljs-section,.hljs-doctag,.hljs-type,.hljs-name,.hljs-strong{color:color-mix(in srgb,var(--accent) 80%,var(--fg));font-weight:600}
-.hljs-string,.hljs-title,.hljs-attr,.hljs-attribute,.hljs-symbol,.hljs-bullet,.hljs-addition,.hljs-template-tag,.hljs-template-variable{color:color-mix(in srgb,var(--accent) 52%,var(--fg))}
+.hljs-comment,.hljs-quote{color:var(--prose-muted);font-style:italic}
+.hljs-keyword,.hljs-selector-tag,.hljs-literal,.hljs-section,.hljs-doctag,.hljs-type,.hljs-name,.hljs-strong{color:var(--prose-syn-key);font-weight:600}
+.hljs-string,.hljs-title,.hljs-attr,.hljs-attribute,.hljs-symbol,.hljs-bullet,.hljs-addition,.hljs-template-tag,.hljs-template-variable{color:var(--prose-syn-str)}
 .hljs-number,.hljs-meta,.hljs-built_in,.hljs-variable,.hljs-params,.hljs-selector-id,.hljs-selector-class{color:color-mix(in srgb,var(--fg) 82%,var(--bg))}
-.hljs-deletion{color:#c0392b}
+.hljs-deletion{color:var(--prose-error)}
 .hljs-emphasis{font-style:italic}
 math{font-size:1.02em}
 math[display="block"],eqn{display:block;margin:1em 0;text-align:center;overflow-x:auto}
@@ -107,7 +124,7 @@ eq{padding:0 .1em}
    viewBox에서 읽어 래퍼에 박아 준 원본 폭. flex-start = 중앙정렬+스크롤 시 왼쪽이 잘리는 함정 회피. */
 .diagram-natural .mermaid-rendered{justify-content:flex-start}
 .diagram-natural .mermaid-rendered svg{flex:none;max-width:none;width:var(--diagram-w,auto)}
-.mermaid-error{color:#c0392b}
+.mermaid-error{color:var(--prose-error)}
 `;
 
 export interface FontOpts {
@@ -125,6 +142,33 @@ export interface BuildDocOpts {
   diagramWidth?: "fit" | "natural";
 }
 
+/** 테마 → iframe :root 에 들어갈 CSS 선언문자열. **순수**다(document 미사용) — buildDoc 은
+ *  document.documentElement.lang 을 읽어 node 환경 테스트에서 못 부르므로, 검사하고 싶은
+ *  직렬화 로직만 여기로 떼어 둔다(lib/renderDoc.test.ts).
+ *
+ *  **값을 무조건 거르는 자리다.** 사용자 테마 파일이 들어오면 이 값들은 파일이 정하는데,
+ *  `}` 나 `</style>` 가 섞이면 스타일 블록을 벗어난다(샌드박스에 스크립트가 없어 RCE 는
+ *  아니지만 미리보기·내보내기가 깨진다). 파서에서 한 번 걸러도 직렬화에서 다시 거른다. */
+export function themeVarsCss(theme: Theme): string {
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(theme.tokens)) {
+    if (isHex6(v)) out.push(`${k}:${v};`);
+  }
+  for (const [key, cssVar] of Object.entries(PROSE_VAR)) {
+    const v = theme.prose?.[key as keyof typeof PROSE_VAR];
+    if (key === "linkUnderline") {
+      if (v === true) out.push(`${cssVar}:underline;`);
+      continue;
+    }
+    if (isHex6(v)) out.push(`${cssVar}:${v};`);
+  }
+  // 질감·그림자는 **무조건** 내보낸다. 기본값이 PROSE_DEFAULT_CSS 에 있으므로 생략해도
+  // 되지만, 명시하면 테마마다 값이 있다는 것이 직렬화문자열에서 바로 보인다.
+  out.push(`--paper-texture:${TEXTURE_CSS[theme.texture ?? "none"] ?? TEXTURE_CSS.none};`);
+  out.push(`--prose-card-shadow:${CARD_SHADOW[theme.elevation ?? "soft"] ?? CARD_SHADOW.soft};`);
+  return out.join("");
+}
+
 /** 본문 HTML을 자기완결 HTML 문서 문자열로 감싼다(테마·폰트·PREVIEW_CSS 인라인). */
 export function buildDoc(
   bodyHtml: string,
@@ -133,9 +177,7 @@ export function buildDoc(
   opts: BuildDocOpts = {},
 ): string {
   const theme = themes[themeId] ?? themes[defaultThemeId];
-  const vars = Object.entries(theme.tokens)
-    .map(([k, v]) => `${k}:${v};`)
-    .join("");
+  const vars = themeVarsCss(theme);
   // 격리 문서 → 읽기 글꼴/줌을 CSS 변수로 직접 주입(기능 3·5).
   // --reader-zoom: 다이어그램(SVG)은 절대 px 지오메트리라 font-size 확대를 못 따라간다 → 배율을 따로
   // 넘겨 .mermaid-rendered svg 가 zoom 으로 비례 확대한다. readerPx 에서 파생하므로 호출부 수정 불필요
@@ -155,7 +197,8 @@ export function buildDoc(
   return (
     `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">` +
     `<meta name="color-scheme" content="${theme.type}">` +
-    `<style>:root{${vars}${fontVars}}${fontFace}${PREVIEW_CSS}${extra}</style></head>` +
+    `<style>${PROSE_DEFAULT_CSS}:root{${vars}${fontVars}}` +
+    `${fontFace}${PREVIEW_CSS}${extra}</style></head>` +
     `<body${bodyClass}><div class="md">${bodyHtml}</div></body></html>`
   );
 }
