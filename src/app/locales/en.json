@@ -4,6 +4,7 @@
   "sidebar": { "workspace": "Workspace", "favorites": "Favorites", "recent": "Recent" },
   "view": { "reader": "Reading mode", "readerSplit": "Side by side", "closePane": "Close pane", "swapPanes": "Swap sides", "seamHint": "Drag to resize · double-click to reset", "present": "Presentation", "exitPresent": "Exit (Esc)", "prevSlide": "Previous", "nextSlide": "Next", "readingWidth": "Reading width", "widthNarrow": "Narrow", "widthNormal": "Normal", "widthWide": "Wide" },
   "cmd": { "palette": "Run a command…", "files": "Open a file…", "command": "Command", "theme": "Theme", "language": "Language", "noCommands": "No matching commands", "noFiles": "No files in workspace" },
+  "theme": { "light": "Light", "dark": "Dark", "paper": "Paper", "hanji": "Hanji", "epaper": "E-Paper" },
   "find": {
     "title": "Find & replace in files",
     "findPlaceholder": "Find",
