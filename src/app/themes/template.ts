@@ -69,3 +69,48 @@ export const THEME_FILE_TEMPLATE = `// README.md — 내 테마
   ]
 }
 `;
+
+/** `themes/` 폴더에 처음 들어가는 안내문. **[테마 폴더 열기]가 이 파일을 선택해 연다** —
+ *  그래야 탐색기가 폴더 *안*에서 열리고(부모에서 폴더만 선택되는 게 아니라), 무엇보다
+ *  "이 폴더에 뭘 넣지?"에 그 자리에서 답이 된다. `.md` 라 이 앱으로 바로 열어 읽을 수도 있다.
+ *  폴더가 비어 있을 때만 만든다 — 지운 사람에게 다시 들이밀지 않는다. */
+export const THEME_FOLDER_GUIDE = `# 테마 폴더 / Theme folder
+
+여기에 넣는 것 / What goes here:
+
+| 파일 | 뜻 |
+|---|---|
+| \`*.jsonc\` | 받은 테마 팩. 넣기만 하면 읽힙니다 — 이게 "가져오기"입니다. |
+| \`<테마id>.css\` | 그 테마만의 모양(CSS). 예: \`my-hanji.css\` |
+
+바꾼 뒤 **설정 ▸ 테마 다시 불러오기**를 누르세요.
+
+## 규칙 셋 / Three rules
+
+1. **색은 \`themes.jsonc\`, 모양은 CSS.** 색을 CSS에 적으면 다른 테마에서 어긋납니다.
+2. **색은 토큰으로.** \`#9c3a2e\` 대신 \`var(--prose-marker)\` 를 쓰면 어느 테마에서나 맞습니다.
+3. **내가 손으로 쓴 것이 이깁니다.** 같은 id면 \`themes.jsonc\` 가 이 폴더의 팩을 이깁니다.
+
+## 쓸 수 있는 선택자 / Stable hooks
+
+\`.md\`(문서 루트) · \`h1\`~\`h6\`(\`id\`=제목 슬러그, \`data-line\`=원본 줄) ·
+\`blockquote ul ol li table pre code hr img dl\` · \`.callout\`(\`.note\` \`.warning\` \`.tip\`) ·
+\`.footnotes\` \`.footnote-ref\` · \`.task-list-item\` · \`.mermaid-rendered\` · \`.hljs-*\` · \`[data-line]\`
+
+그 밖의 내부 클래스는 예고 없이 바뀔 수 있습니다.
+
+## 예시 — 제목 앞 세로 막대
+
+\`\`\`css
+/* <테마id>.css */
+h2 { position: relative; padding-left: 16px; }
+h2::before {
+  content: "";                       /* 글자가 아니라 빈 상자 */
+  position: absolute; left: 0; top: .18em; bottom: .18em;
+  width: 4px; border-radius: 2px;
+  background: var(--prose-marker);   /* 토큰 — 테마를 따라간다 */
+}
+\`\`\`
+
+원격 주소(웹폰트·이미지 URL)는 오프라인 앱이라 막혀 있습니다. \`data:\` URI 로 넣으세요.
+`;

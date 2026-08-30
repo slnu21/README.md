@@ -87,6 +87,8 @@ pub fn run() {
             commands::fs_ops::path_is_dir,
             commands::fs_ops::read_dir_tree,
             commands::fs_ops::theme_file_path,
+            commands::fs_ops::theme_dir_path,
+            commands::fs_ops::read_theme_bundle,
             commands::shell_open::open_with_default,
             commands::watch::watch_files,
             commands::workspace::ws_load,

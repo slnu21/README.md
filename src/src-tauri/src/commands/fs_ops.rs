@@ -4,7 +4,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::Manager;
 
 #[tauri::command]
@@ -170,4 +170,97 @@ pub fn theme_file_path(app: tauri::AppHandle) -> Result<String, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir.join("themes.jsonc").to_string_lossy().into_owned())
+}
+
+fn theme_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("themes");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+/// 사용자 테마 폴더 경로(`<appdata>/themes`). 없으면 만든다.
+/// 여기 떨어뜨린 `*.jsonc` 는 전부 읽힌다 — 받은 팩을 복사해 넣는 것이 곧 "가져오기"다.
+#[tauri::command]
+pub fn theme_dir_path(app: tauri::AppHandle) -> Result<String, String> {
+    Ok(theme_dir(&app)?.to_string_lossy().into_owned())
+}
+
+#[derive(Serialize)]
+pub struct NamedText {
+    /// 확장자를 뗀 파일 이름. `<id>.css` 규칙에서 테마 id 로 쓰인다.
+    pub name: String,
+    pub text: String,
+}
+
+/// 테마 입력을 **한 번에** 읽어 돌려준다. 파일마다 IPC 를 왕복하면 부팅이 느려지고,
+/// 읽는 도중 파일이 바뀌면 섞인 상태가 된다.
+///
+/// 읽기 실패한 개별 파일은 **조용히 건너뛴다**(fail-soft) — 파일 하나 때문에
+/// 나머지 테마가 전부 안 뜨는 것보다 낫다.
+#[derive(Serialize)]
+pub struct ThemeBundle {
+    pub file: String,
+    pub dir: String,
+    /// `themes.jsonc` — 손으로 쓰는 파일. 없으면 None.
+    pub main: Option<String>,
+    /// `themes/*.jsonc` — 받은 팩. 파일명 오름차순.
+    pub packs: Vec<NamedText>,
+    /// `themes/*.css` — 사이드카. name = 테마 id.
+    pub styles: Vec<NamedText>,
+}
+
+#[tauri::command]
+pub fn read_theme_bundle(app: tauri::AppHandle) -> Result<ThemeBundle, String> {
+    let file = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("themes.jsonc");
+    let dir = theme_dir(&app)?;
+
+    let mut packs = Vec::new();
+    let mut styles = Vec::new();
+    if let Ok(rd) = fs::read_dir(&dir) {
+        // 파일명 정렬 — 팩끼리 id 가 겹칠 때 "누가 이기는가"가 실행마다 달라지면 안 된다.
+        let mut entries: Vec<_> = rd.filter_map(|e| e.ok()).collect();
+        entries.sort_by_key(|e| e.file_name());
+        for e in entries {
+            let path = e.path();
+            if !path.is_file() {
+                continue;
+            }
+            let ext = path
+                .extension()
+                .and_then(|x| x.to_str())
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            let Some(stem) = path.file_stem().and_then(|x| x.to_str()) else {
+                continue;
+            };
+            let Ok(text) = fs::read_to_string(&path) else {
+                continue;
+            };
+            let item = NamedText {
+                name: stem.to_string(),
+                text,
+            };
+            match ext.as_str() {
+                "jsonc" | "json" => packs.push(item),
+                "css" => styles.push(item),
+                _ => {}
+            }
+        }
+    }
+
+    Ok(ThemeBundle {
+        file: file.to_string_lossy().into_owned(),
+        dir: dir.to_string_lossy().into_owned(),
+        main: fs::read_to_string(&file).ok(),
+        packs,
+        styles,
+    })
 }

@@ -2,6 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir, openUrl as openerOpenUrl } from "@tauri-apps/plugin-opener";
+import type { ThemeBundle } from "../themes/custom";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -56,6 +57,18 @@ export function readDirTree(path: string): Promise<DirEntryNode> {
  *  덮어쓰므로 "존재 검사 후 쓰기"는 사용자 테마를 날릴 수 있는 TOCTOU 다. */
 export function themeFilePath(): Promise<string> {
   return invoke<string>("theme_file_path");
+}
+
+/** 사용자 테마 폴더 경로(`…\com.readme.app\themes`). 없으면 만든다.
+ *  여기 `*.jsonc` 를 떨어뜨리는 것이 곧 "테마 가져오기"다 — 별도 대화상자가 필요 없다. */
+export function themeDirPath(): Promise<string> {
+  return invoke<string>("theme_dir_path");
+}
+
+/** 테마 입력(themes.jsonc + themes/*.jsonc + themes/*.css)을 한 번에 읽는다.
+ *  파일마다 IPC 를 왕복하면 부팅이 느려지고, 읽는 중 파일이 바뀌면 섞인 상태가 된다. */
+export function readThemeBundle(): Promise<ThemeBundle> {
+  return invoke<ThemeBundle>("read_theme_bundle");
 }
 
 /** 경로가 폴더인지 판별(드롭 분기용). */

@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
-import { ensureThemeFile, loadUserThemes } from "../themes/load";
-import { openWithDefault, revealInExplorer } from "../lib/tauri";
+import { ensureThemeFile, loadUserThemes, openThemeFolder } from "../themes/load";
+import { buildThemePack } from "../themes/custom";
+import { themes } from "../themes";
+import { openWithDefault, revealInExplorer, saveFile, writeFile } from "../lib/tauri";
 import { readFonts, monoFonts, uiFonts } from "../lib/fonts";
 import { Icon } from "./Icon";
 
@@ -13,6 +15,8 @@ export function SettingsPopover() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const showNotice = useAppStore((s) => s.showNotice);
+  const themeId = useAppStore((s) => s.themeId);
+  const themeRev = useAppStore((s) => s.themeRev);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const fontRead = useAppStore((s) => s.fontRead);
@@ -61,6 +65,32 @@ export function SettingsPopover() {
       await openWithDefault(path).catch(() => revealInExplorer(path));
     } catch (e) {
       showNotice(t("theme.fileFailed", { detail: String(e) }), "error");
+    }
+  }
+
+  // 폴더를 탐색기에서 연다. 여기 *.jsonc 를 떨어뜨리는 것이 곧 "가져오기"라
+  // 별도 가져오기 대화상자를 두지 않았다 — 이 버튼이 그 경로를 발견 가능하게 만든다.
+  async function revealThemeFolder(): Promise<void> {
+    try {
+      await openThemeFolder();
+    } catch (e) {
+      showNotice(t("theme.fileFailed", { detail: String(e) }), "error");
+    }
+  }
+
+  // 지금 쓰는 테마를 파일 하나로 뽑는다. 내 themes.jsonc 에는 테마가 여럿이고 CSS 는
+  // 사이드카로 흩어져 있으므로, 모아서 자기완결로 만드는 것이 내보내기의 본체다.
+  async function exportTheme(): Promise<void> {
+    void themeRev; // 레지스트리는 제자리에서 바뀐다 — rev 를 구독해야 최신을 집는다
+    const theme = themes[themeId];
+    if (!theme) return;
+    try {
+      const path = await saveFile(`${theme.id}.jsonc`, [{ name: "JSONC", extensions: ["jsonc"] }]);
+      if (!path) return; // 취소
+      await writeFile(path, buildThemePack(theme));
+      showNotice(t("theme.exported", { name: theme.name }));
+    } catch (e) {
+      showNotice(t("theme.exportFailed", { detail: String(e) }), "error");
     }
   }
 
@@ -230,6 +260,12 @@ export function SettingsPopover() {
           </button>
           <button type="button" className="set-reset" onClick={() => void reloadThemes()} disabled={busy}>
             {t("settings.themeReload")}
+          </button>
+          <button type="button" className="set-reset" onClick={() => void revealThemeFolder()}>
+            {t("settings.themeFolder")}
+          </button>
+          <button type="button" className="set-reset" onClick={() => void exportTheme()}>
+            {t("settings.themeExport")}
           </button>
         </div>
       )}

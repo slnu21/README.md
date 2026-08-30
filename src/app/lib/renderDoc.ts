@@ -191,6 +191,10 @@ export function buildDoc(
   const bodyClass = opts.diagramWidth === "natural" ? ` class="diagram-natural"` : "";
   const fontFace = opts.fontFaceCss ?? FONT_FACE_CSS;
   const extra = opts.extraCss ?? "";
+  // 테마 자신의 CSS(스타일 팩)는 PREVIEW_CSS 뒤 — 기본 모양을 덮을 수 있어야 한다.
+  // 그러나 extra 보다는 앞이다: 인쇄 여백·슬라이드 배치·읽기 폭 같은 **앱 설정**이
+  // 사용자 팩에 깔려 깨지면 안 된다(팩 하나로 인쇄가 망가지는 일을 막는다).
+  const themeCss = theme.css ?? "";
   // lang: mermaid 기본 글꼴 스택에 한글 글리프가 없어 한글은 문서별 폴백으로 해결된다. 앱 문서는
   // <html lang>이 있는데 srcdoc에 없으면 폴백 face가 갈려 측정↔표시 폭이 어긋난다(a11y 겸).
   const lang = document.documentElement.lang || "ko";
@@ -198,7 +202,7 @@ export function buildDoc(
     `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">` +
     `<meta name="color-scheme" content="${theme.type}">` +
     `<style>${PROSE_DEFAULT_CSS}:root{${vars}${fontVars}}` +
-    `${fontFace}${PREVIEW_CSS}${extra}</style></head>` +
+    `${fontFace}${PREVIEW_CSS}${themeCss}${extra}</style></head>` +
     `<body${bodyClass}><div class="md">${bodyHtml}</div></body></html>`
   );
 }

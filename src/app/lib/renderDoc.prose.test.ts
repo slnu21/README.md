@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { PREVIEW_CSS, buildDoc, themeVarsCss } from "./renderDoc";
 import { PROSE_DEFAULT_CSS, PROSE_KEYS, PROSE_VAR } from "../themes/prose";
-import { themes } from "../themes";
+import { setUserThemes, themes } from "../themes";
 import type { Theme } from "../themes";
 
 /** buildDoc 은 document.documentElement.lang 한 곳만 읽는다(srcdoc 의 lang 결정).
@@ -119,5 +119,39 @@ describe("문서 조립 순서", () => {
   it("없는 테마 id 는 기본 테마로 떨어진다", () => {
     const html = withDocumentStub(() => buildDoc("<p>x</p>", "no-such-theme", FONT));
     expect(html).toContain(themeVarsCss(themes.light));
+  });
+});
+
+describe("스타일 팩 주입", () => {
+  const withCss = (css: string): Theme => ({ ...themes.light, id: "packed", css });
+
+  it("테마 CSS 가 PREVIEW_CSS **뒤**에 온다 — 기본 모양을 덮을 수 있어야 한다", () => {
+    const html = withDocumentStub(() => {
+      setUserThemes({ packed: withCss("h2{color:red}") });
+      try {
+        return buildDoc("<p>x</p>", "packed", FONT);
+      } finally {
+        setUserThemes({});
+      }
+    });
+    expect(html.indexOf("h2{color:red}")).toBeGreaterThan(html.indexOf(PREVIEW_CSS));
+  });
+
+  it("그러나 extra 보다는 앞이다 — 인쇄 여백 같은 앱 설정이 팩에 안 밀린다", () => {
+    const html = withDocumentStub(() => {
+      setUserThemes({ packed: withCss("h2{color:red}") });
+      try {
+        return buildDoc("<p>x</p>", "packed", FONT, { extraCss: "/*APP*/" });
+      } finally {
+        setUserThemes({});
+      }
+    });
+    expect(html.indexOf("/*APP*/")).toBeGreaterThan(html.indexOf("h2{color:red}"));
+  });
+
+  it("CSS 가 없는 테마는 아무것도 더 붙이지 않는다", () => {
+    const a = withDocumentStub(() => buildDoc("<p>x</p>", "light", FONT));
+    expect(a).toContain(PREVIEW_CSS);
+    expect(a.split(PREVIEW_CSS)[1]).toBe("</style></head><body><div class=\"md\"><p>x</p></div></body></html>");
   });
 });
