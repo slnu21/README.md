@@ -6,11 +6,18 @@
 // → 파일 원문을 localStorage 에 캐시해 두고 부팅 때 **동기 파싱**한다(hydrateUserThemes).
 //   디스크 읽기는 그 뒤에 따라와, 달라졌을 때만 갱신한다(loadUserThemes).
 import i18n from "../lib/i18n";
-import { createFile, pathExists, readFile, themeFilePath } from "../lib/tauri";
+import {
+  createFile,
+  pathExists,
+  readThemeBundle,
+  revealInExplorer,
+  themeDirPath,
+  themeFilePath,
+} from "../lib/tauri";
 import { useAppStore } from "../store";
 import { applyTheme } from "./apply";
-import { parseUserThemes, type ThemeWarning } from "./custom";
-import { THEME_FILE_TEMPLATE } from "./template";
+import { parseThemeBundle, type ThemeBundle, type ThemeWarning } from "./custom";
+import { THEME_FILE_TEMPLATE, THEME_FOLDER_GUIDE } from "./template";
 import { BUILTIN_THEMES, defaultThemeId, setUserThemes, themes } from ".";
 
 /** 구조화된 경고 → 현재 언어의 한 줄. 파서는 순수하게 두고 문구는 여기서 붙인다. */
@@ -38,16 +45,17 @@ function reconcileSelection(): void {
   if (!themes[s.themeId]) s.setTheme(defaultThemeId);
 }
 
-/** **동기** — 캐시된 원문을 파싱해 레지스트리에 넣는다. 첫 페인트 전에 부른다.
+/** **동기** — 캐시된 뭉치를 파싱해 레지스트리에 넣는다. 첫 페인트 전에 부른다.
  *  경고는 내지 않는다(캐시는 이미 한 번 검증을 통과한 원문이고, 부팅 때 오류 토스트를
  *  띄우면 사용자는 무엇 때문인지 알 수 없다). 진짜 검증은 loadUserThemes 가 한다. */
 export function hydrateUserThemes(): void {
-  const text = useAppStore.getState().customThemesText;
-  if (!text) return;
+  const raw = useAppStore.getState().customThemesText;
+  if (!raw) return;
   try {
-    setUserThemes(parseUserThemes(text, BUILTIN_THEMES).themes);
+    const bundle = JSON.parse(raw) as ThemeBundle;
+    setUserThemes(parseThemeBundle(bundle, BUILTIN_THEMES).themes);
   } catch {
-    setUserThemes({}); // 캐시는 파생 데이터다 — 깨졌으면 버리고 파일이 고쳐 준다.
+    setUserThemes({}); // 캐시는 파생 데이터다 — 깨졌으면 버리고 디스크가 고쳐 준다.
   }
 }
 
@@ -59,24 +67,31 @@ export function hydrateUserThemes(): void {
  *  @returns 읽은 개수와 경고. 경로를 못 읽었으면(= Tauri 밖) null. */
 export async function loadUserThemes(): Promise<{ count: number; warnings: ThemeWarning[] } | null> {
   const st = useAppStore.getState();
-  let text = "";
+  let bundle: ThemeBundle;
   try {
-    const path = await themeFilePath();
-    if (await pathExists(path)) text = await readFile(path);
+    bundle = await readThemeBundle();
   } catch (e) {
     // Tauri 밖(데모·프로브)이거나 IPC 실패. 내장 테마로 조용히 남는다.
-    console.warn("[themes.jsonc] 경로를 읽지 못했습니다", e);
+    console.warn("[themes] 테마 입력을 읽지 못했습니다", e);
     return null;
   }
 
-  const { themes: parsed, warnings } = parseUserThemes(text, BUILTIN_THEMES);
+  const { themes: parsed, warnings } = parseThemeBundle(bundle, BUILTIN_THEMES);
   setUserThemes(parsed);
-  st.setCustomThemesText(text);
+  st.setCustomThemesText(cacheable(bundle));
   reconcileSelection();
   st.bumpThemeRev();
   applyTheme(useAppStore.getState().themeId);
   notice(warnings);
   return { count: Object.keys(parsed).length, warnings };
+}
+
+/** 부팅 깜빡임을 막는 캐시는 localStorage 에 들어간다 — 너무 크면 넣지 않는다.
+ *  캐시가 없으면 첫 페인트가 잠깐 기본 테마일 뿐, 디스크 읽기가 곧 바로잡는다. */
+const MAX_CACHE = 512 * 1024;
+function cacheable(bundle: ThemeBundle): string {
+  const json = JSON.stringify(bundle);
+  return json.length <= MAX_CACHE ? json : "";
 }
 
 /** 파일이 없으면 주석 달린 템플릿을 만든다. @returns 경로(만들었든 이미 있든). */
@@ -87,4 +102,28 @@ export async function ensureThemeFile(): Promise<string> {
     if (String(e) !== "EEXIST") throw e;
   });
   return path;
+}
+
+/** 테마 폴더를 탐색기에서 연다. 안내문(README.md)이 있으면 그걸 선택해 열어 **폴더 안**이
+ *  보이게 한다 — revealInExplorer 는 대상을 부모에서 선택하므로, 폴더 자체를 넘기면
+ *  한 단계 위가 열려 버린다. 안내문은 폴더가 비어 있을 때만 만든다(지운 사람에게 다시
+ *  들이밀지 않는다). @returns 실제로 연 경로. */
+export async function openThemeFolder(): Promise<string> {
+  const dir = await themeDirPath();
+  const guide = `${dir}\\README.md`;
+  if (await pathExists(guide)) {
+    await revealInExplorer(guide);
+    return guide;
+  }
+  const bundle = await readThemeBundle();
+  if (!bundle.packs.length && !bundle.styles.length) {
+    // create_new(true) — 있으면 EEXIST 로 거절되므로 남의 파일을 덮지 않는다.
+    await createFile(guide, THEME_FOLDER_GUIDE).catch(() => undefined);
+    if (await pathExists(guide)) {
+      await revealInExplorer(guide);
+      return guide;
+    }
+  }
+  await revealInExplorer(dir);
+  return dir;
 }

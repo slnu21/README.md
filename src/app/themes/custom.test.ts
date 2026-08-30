@@ -47,8 +47,8 @@ describe("정상 경로", () => {
   });
 
   it("빈 파일은 경고 없이 조용히 비어 있다", () => {
-    expect(P("")).toEqual({ themes: {}, warnings: [] });
-    expect(P("   \n\n ")).toEqual({ themes: {}, warnings: [] });
+    expect(P("")).toEqual({ themes: {}, styles: {}, warnings: [] });
+    expect(P("   \n\n ")).toEqual({ themes: {}, styles: {}, warnings: [] });
   });
 });
 

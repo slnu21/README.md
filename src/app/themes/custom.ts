@@ -43,6 +43,9 @@ export const THEME_WARNING_CODES = [
   "badColor",
   "badBool",
   "tooMany",
+  "cssTooLong",
+  "cssUnsafe",
+  "cssImport",
 ] as const;
 export type ThemeWarningCode = (typeof THEME_WARNING_CODES)[number];
 
@@ -54,6 +57,8 @@ export interface ThemeWarning {
 export interface ParsedThemes {
   /** id → 완성된 Theme(extends 병합 끝). */
   themes: Record<string, Theme>;
+  /** 이 파일이 인라인으로 들고 있는 CSS(교환용 팩). id → 원문. */
+  styles: Record<string, string>;
   /** 사람에게 보여 줄 경고. 비어 있으면 완전히 정상. */
   warnings: ThemeWarning[];
 }
@@ -83,7 +88,7 @@ export function parseUserThemes(text: string, base: Record<string, Theme>): Pars
   };
   const fallbackId = base.light ? "light" : Object.keys(base)[0];
 
-  if (!text.trim()) return { themes: {}, warnings };
+  if (!text.trim()) return { themes: {}, styles: {}, warnings };
 
   let root: unknown;
   try {
@@ -93,19 +98,29 @@ export function parseUserThemes(text: string, base: Record<string, Theme>): Pars
     const detail = e instanceof Error ? e.message : String(e);
     if (line !== null) warn("parseLine", { line });
     else warn("parseFailed", { detail: detail.slice(0, 120) });
-    return { themes: {}, warnings };
+    return { themes: {}, styles: {}, warnings };
   }
 
   if (!isRecord(root)) {
     warn("notObject");
-    return { themes: {}, warnings };
+    return { themes: {}, styles: {}, warnings };
   }
   if (root.version !== undefined && root.version !== 1) {
     warn("unknownVersion", { version: String(root.version) });
   }
   if (!Array.isArray(root.themes)) {
     warn("themesNotArray");
-    return { themes: {}, warnings };
+    return { themes: {}, styles: {}, warnings };
+  }
+
+  // 교환용 팩은 CSS 를 파일 안에 갖고 있다(id → 원문). 사이드카는 호출부가 따로 붙인다.
+  const styles: Record<string, string> = {};
+  if (root.styles !== undefined) {
+    if (!isRecord(root.styles)) warn("fieldNotObject", { where: 0, id: "root", field: "styles" });
+    else
+      for (const [k, v] of Object.entries(root.styles)) {
+        if (typeof v === "string") styles[k] = v;
+      }
   }
 
   const out: Record<string, Theme> = {};
@@ -190,5 +205,120 @@ export function parseUserThemes(text: string, base: Record<string, Theme>): Pars
   if (root.themes.length > MAX_THEMES) {
     warn("tooMany", { max: MAX_THEMES });
   }
-  return { themes: out, warnings };
+  return { themes: out, styles, warnings };
+}
+
+// ── 스타일 팩 ────────────────────────────────────────────────────────────────
+//
+// 테마는 색뿐 아니라 **모양**(CSS)도 갖는다. 전역 custom.css 로 두지 않은 이유:
+// 끄는 방법이 없고, 두 사람의 팩이 섞이며, 공유 단위가 "테마 + 그 CSS" 로 안 떨어진다.
+// 테마별로 두면 셋이 한꺼번에 풀린다 — 전환이 곧 토글이고, 한 번에 하나만 활성이다.
+
+/** CSS 한 장의 상한. 이보다 크면 통째로 버린다(부팅 캐시에도 들어가는 값이다). */
+const MAX_CSS = 64 * 1024;
+
+/** `</style` 를 찾는다. 대소문자·공백 변형까지 — 이게 유일한 진짜 탈출구다. */
+const STYLE_CLOSE_RE = /<\s*\/\s*style/i;
+
+/** 사용자 CSS 를 `<style>` 에 넣기 전에 거른다. 순수.
+ *
+ *  **CSS 파서를 넣지 않는다** — 큰 의존성이고 "검사했다"는 착각만 준다. 브라우저가 이미
+ *  모르는 규칙을 조용히 무시한다. 대신 **문서를 벗어나는 것 하나만** 확실히 막는다:
+ *  값이 `</style>` 을 품으면 스타일 요소를 닫고 임의 HTML 이 되어 버린다. 샌드박스에
+ *  스크립트가 없어 실행은 안 되지만, 미리보기에 가짜 내용을 그릴 수는 있다. */
+export function sanitizeThemeCss(
+  css: string,
+  id: string,
+): { css: string; warnings: ThemeWarning[] } {
+  const warnings: ThemeWarning[] = [];
+  if (css.length > MAX_CSS) {
+    warnings.push({ code: "cssTooLong", params: { id, max: Math.round(MAX_CSS / 1024) } });
+    return { css: "", warnings };
+  }
+  if (STYLE_CLOSE_RE.test(css)) {
+    warnings.push({ code: "cssUnsafe", params: { id } });
+    return { css: "", warnings };
+  }
+  // @import 는 CSP 가 막고, 어차피 시트 맨 앞이 아니면 무효다. 조용히 죽는 대신 알려 준다.
+  if (/@import/i.test(css)) warnings.push({ code: "cssImport", params: { id } });
+  return { css, warnings };
+}
+
+/** 디스크에서 읽어 온 테마 입력 뭉치(Rust `read_theme_bundle` 의 결과와 같은 모양). */
+export interface ThemeBundle {
+  file: string;
+  dir: string;
+  /** `themes.jsonc` — 손으로 쓰는 파일. */
+  main: string | null;
+  /** `themes/*.jsonc` — 받은 팩. 파일명 오름차순. */
+  packs: { name: string; text: string }[];
+  /** `themes/*.css` — 사이드카. name = 테마 id. */
+  styles: { name: string; text: string }[];
+}
+
+/** 뭉치 전체 → 최종 테마 목록. 순수(파일 I/O 없음).
+ *
+ *  **우선순위는 하나의 원칙에서 나온다 — 내가 손으로 쓴 것이 남이 준 것을 이긴다.**
+ *   1. 내장 테마
+ *   2. `themes/*.jsonc` (파일명 순 — 겹치면 뒤가 이긴다)
+ *   3. `themes.jsonc` (내가 쓴 것 — 최종 승자)
+ *  CSS 도 같다: 사이드카 `themes/<id>.css` 가 팩에 인라인된 것을 이긴다. */
+export function parseThemeBundle(bundle: ThemeBundle, base: Record<string, Theme>): ParsedThemes {
+  const themes: Record<string, Theme> = {};
+  const inline: Record<string, string> = {};
+  const warnings: ThemeWarning[] = [];
+
+  const absorb = (r: ParsedThemes): void => {
+    Object.assign(themes, r.themes);
+    Object.assign(inline, r.styles);
+    warnings.push(...r.warnings);
+  };
+
+  for (const pack of bundle.packs) absorb(parseUserThemes(pack.text, base));
+  if (bundle.main) absorb(parseUserThemes(bundle.main, base));
+
+  // 사이드카가 인라인을 덮는다.
+  const sidecar: Record<string, string> = {};
+  for (const s of bundle.styles) sidecar[s.name] = s.text;
+
+  for (const [id, theme] of Object.entries(themes)) {
+    const raw = sidecar[id] ?? inline[id];
+    if (raw === undefined) continue;
+    const { css, warnings: w } = sanitizeThemeCss(raw, id);
+    warnings.push(...w);
+    if (css) themes[id] = { ...theme, css };
+  }
+
+  return { themes, styles: inline, warnings };
+}
+
+/** 테마 하나 → 자기완결 팩 파일 원문(교환용). 순수.
+ *
+ *  왜 필요한가: 내 `themes.jsonc` 에는 테마가 여러 개인데 공유할 건 하나고, CSS 는
+ *  사이드카로 흩어져 있다. 하나로 모아 **파일 한 개**로 만드는 것이 내보내기의 본체다.
+ *  받는 쪽은 이 파일을 `themes/` 에 넣기만 하면 된다 — 쪼갤 필요가 없다. */
+export function buildThemePack(theme: Theme): string {
+  const tokens: Record<string, string> = {};
+  for (const [k, v] of Object.entries(theme.tokens)) tokens[k.replace(/^--/, "")] = v;
+
+  const entry: Record<string, unknown> = {
+    id: theme.id,
+    name: theme.name,
+    type: theme.type,
+    tokens,
+  };
+  if (theme.texture && theme.texture !== "none") entry.texture = theme.texture;
+  if (theme.elevation && theme.elevation !== "soft") entry.elevation = theme.elevation;
+  if (theme.prose && Object.keys(theme.prose).length) entry.prose = theme.prose;
+
+  const doc: Record<string, unknown> = { version: 1, themes: [entry] };
+  if (theme.css) doc.styles = { [theme.id]: theme.css };
+
+  // 머리말은 받는 사람이 파일만 보고도 무엇인지 알게 한다. JSONC 라 주석이 남는다.
+  const head =
+    `// README.md 테마 팩 — ${theme.name}\n` +
+    `//\n` +
+    `// 이 파일을 [설정 ▸ 테마 폴더 열기] 로 열리는 폴더에 넣으면 바로 쓸 수 있습니다.\n` +
+    `// 색은 6자리 16진수만, 주석은 써도 되고 마지막 쉼표는 안 됩니다.\n`;
+  return head + JSON.stringify(doc, null, 2) + "\n";
 }

@@ -23,6 +23,10 @@ export interface Theme {
   texture?: Texture;
   /** 카드 그림자. flat = 그림자 없는 전자잉크 화면. */
   elevation?: Elevation;
+  /** 이 테마만의 CSS(스타일 팩). 미리보기 문서에 PREVIEW_CSS **뒤**로 붙어 모양을 덮는다.
+   *  색이 아니라 모양을 담당한다 — 색은 tokens·prose 가 정한다는 관례를 지킨다.
+   *  주입 전 `sanitizeThemeCss` 를 통과한 값만 여기 들어온다. */
+  css?: string;
 }
 
 export const BUILTIN_THEMES: Readonly<Record<string, Theme>> = {
