@@ -262,6 +262,9 @@ export interface ThemeBundle {
  *   1. 내장 테마
  *   2. `themes/*.jsonc` (파일명 순 — 겹치면 뒤가 이긴다)
  *   3. `themes.jsonc` (내가 쓴 것 — 최종 승자)
+ *
+ *  같은 순서가 **`extends` 의 바탕**이기도 하다: 뒤에 읽는 것이 앞서 읽은 테마를 물려받을 수
+ *  있다(내 `themes.jsonc` 가 폴더의 한지를 바탕으로 삼는 것이 가장 흔한 쓰임이다).
  *  CSS 도 같다: 사이드카 `themes/<id>.css` 가 팩에 인라인된 것을 이긴다. */
 export function parseThemeBundle(bundle: ThemeBundle, base: Record<string, Theme>): ParsedThemes {
   const themes: Record<string, Theme> = {};
@@ -274,8 +277,17 @@ export function parseThemeBundle(bundle: ThemeBundle, base: Record<string, Theme
     warnings.push(...r.warnings);
   };
 
-  for (const pack of bundle.packs) absorb(parseUserThemes(pack.text, base));
-  if (bundle.main) absorb(parseUserThemes(bundle.main, base));
+  // **바탕은 읽으면서 자란다** — 앞서 읽은 팩을 뒤에서 `extends` 로 쓸 수 있다.
+  // v0.9.0 에서 한지·전자잉크가 파일로 내려갔으므로 이게 없으면 `"extends":"hanji"` 가
+  // 갑자기 badExtends 로 떨어진다(v0.8.0 템플릿이 그대로 쓰던 값이다). 읽는 순서가
+  // 이미 계약이므로(파일명 순 → themes.jsonc) 그 순서를 그대로 상속에 쓰면 된다.
+  let seen = base;
+  for (const pack of bundle.packs) {
+    const r = parseUserThemes(pack.text, seen);
+    absorb(r);
+    seen = { ...seen, ...r.themes };
+  }
+  if (bundle.main) absorb(parseUserThemes(bundle.main, seen));
 
   // 사이드카가 인라인을 덮는다.
   const sidecar: Record<string, string> = {};

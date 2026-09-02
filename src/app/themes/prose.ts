@@ -101,7 +101,7 @@ export const APP_SHADOW: Record<Elevation, { light: string; dark: string }> = {
 };
 
 /** 지정하지 않은 항목의 기본값. 전부 5토큰에서 파생되므로 새 테마가 prose 를 안 적어도 동작한다.
- *  대비 하한은 themes/contrast.test.ts 가 지킨다(인용문 62%는 paper 에서 4.08 로 떨어져 70%로 올렸다). */
+ *  대비 하한은 themes/prose.test.ts 가 지킨다(인용문 62%는 paper 에서 4.08 로 떨어져 70%로 올렸다). */
 export const PROSE_DEFAULT_CSS =
   ":root{" +
   "--prose-heading:color-mix(in srgb,var(--fg) 88%,var(--accent));" +

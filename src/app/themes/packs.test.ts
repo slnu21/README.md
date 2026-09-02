@@ -12,7 +12,7 @@ import {
   sanitizeThemeCss,
   type ThemeBundle,
 } from "./custom";
-import { BUILTIN_THEMES } from ".";
+import { BUILTIN_THEMES, type Theme } from ".";
 
 const bundle = (b: Partial<ThemeBundle>): ThemeBundle => ({
   file: "C:/x/themes.jsonc",
@@ -151,15 +151,73 @@ describe("sanitizeThemeCss — 문서를 벗어나지 못한다", () => {
   });
 });
 
+describe("extends 의 바탕은 읽으면서 자란다", () => {
+  // v0.9.0 에서 한지·전자잉크가 파일로 내려갔다. 이게 없으면 v0.8.0 템플릿이 쓰던
+  // `"extends":"hanji"` 가 갑자기 badExtends 로 떨어진다.
+  const donor = `{"version":1,"themes":[{"id":"donor","name":"주는 쪽","type":"light",
+    "texture":"hanji","tokens":{"bg":"#f2ecdf","accent":"#9c3a2e"}}]}`;
+
+  it("themes.jsonc 가 폴더의 팩을 바탕으로 삼을 수 있다", () => {
+    const r = parseThemeBundle(
+      bundle({
+        packs: [{ name: "10-donor", text: donor }],
+        main: `{"version":1,"themes":[{"id":"mine","extends":"donor","tokens":{"fg":"#101010"}}]}`,
+      }),
+      BUILTIN_THEMES,
+    );
+    expect(codes(r.warnings)).toEqual([]);
+    expect(r.themes.mine.tokens["--bg"]).toBe("#f2ecdf"); // 물려받았다
+    expect(r.themes.mine.texture).toBe("hanji");
+    expect(r.themes.mine.tokens["--fg"]).toBe("#101010"); // 적은 것만 바뀐다
+  });
+
+  it("팩이 **앞서 읽은** 팩을 바탕으로 삼을 수 있다(파일명 순서 그대로)", () => {
+    const r = parseThemeBundle(
+      bundle({
+        packs: [
+          { name: "10-donor", text: donor },
+          { name: "20-heir", text: `{"version":1,"themes":[{"id":"heir","extends":"donor"}]}` },
+        ],
+      }),
+      BUILTIN_THEMES,
+    );
+    expect(codes(r.warnings)).toEqual([]);
+    expect(r.themes.heir.tokens["--accent"]).toBe("#9c3a2e");
+  });
+
+  it("뒤에 오는 것은 못 물려받는다 — 순서가 곧 규칙이다", () => {
+    const r = parseThemeBundle(
+      bundle({
+        packs: [
+          { name: "10-early", text: `{"version":1,"themes":[{"id":"early","extends":"donor"}]}` },
+          { name: "20-donor", text: donor },
+        ],
+      }),
+      BUILTIN_THEMES,
+    );
+    expect(codes(r.warnings)).toEqual(["badExtends"]);
+  });
+});
+
 describe("buildThemePack — 내보내기", () => {
+  // 바탕은 가짜 테마다 — 내장 테마에 질감을 가진 것이 없다(v0.9.0 에서 한지가 파일로 내려갔다).
+  // 여기서 재는 것은 "물려받은 값이 펼쳐지는가"이지 어느 테마를 물려받았는가가 아니다.
+  const FIXTURE: Theme = {
+    id: "fixture",
+    name: "바탕",
+    type: "light",
+    texture: "hanji",
+    tokens: { ...BUILTIN_THEMES.paper.tokens, "--border": "#d9cfb8" },
+  };
+  const BASE: Record<string, Theme> = { ...BUILTIN_THEMES, fixture: FIXTURE };
   const source = parseThemeBundle(
     bundle({
-      main: `{"version":1,"themes":[{"id":"mine","name":"내 테마","extends":"hanji","type":"light",
+      main: `{"version":1,"themes":[{"id":"mine","name":"내 테마","extends":"fixture","type":"light",
         "tokens":{"bg":"#101010","accent":"#ff8800"},
         "prose":{"heading":"#ffffff","linkUnderline":true}}]}`,
       styles: [{ name: "mine", text: "h2::before{content:''}" }],
     }),
-    BUILTIN_THEMES,
+    BASE,
   ).themes.mine;
 
   it("파일 하나에 테마와 CSS 가 함께 담긴다", () => {
@@ -181,9 +239,9 @@ describe("buildThemePack — 내보내기", () => {
   it("extends 로 물려받은 값까지 펼쳐 담는다 — 받는 쪽에 그 테마가 없어도 된다", () => {
     const out = buildThemePack(source);
     expect(out).not.toContain('"extends"');
-    // 한지에서 물려받은 질감과 테두리색이 실제 값으로 들어 있다
+    // 바탕에서 물려받은 질감과 테두리색이 실제 값으로 들어 있다
     expect(out).toContain('"texture": "hanji"');
-    expect(out).toContain(BUILTIN_THEMES.hanji.tokens["--border"]);
+    expect(out).toContain(FIXTURE.tokens["--border"]);
   });
 
   it("기본값인 항목은 적지 않는다(읽을 만한 파일로)", () => {

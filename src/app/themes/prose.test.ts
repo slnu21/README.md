@@ -5,10 +5,21 @@
 // paper 에서 4.08:1, hanji 에서 4.37:1 로 **본문보다 세 배 흐렸다**. 70%로 올려 5.1:1 을 만들었다.
 import { describe, expect, it } from "vitest";
 import { contrastRatio, isHex6, mixHex } from "../lib/color";
-import { themes, type Theme, type ThemeTokens } from ".";
+import { parseUserThemes } from "./custom";
+import { SEED_FILES } from "./seeds";
+import { BUILTIN_THEMES, type Theme, type ThemeTokens } from ".";
 import { PROSE_DEFAULT_CSS, PROSE_DERIVED, PROSE_VAR, type ProseTokens } from "./prose";
 
-const all = Object.entries(themes);
+// 내장 셋 + **시드 팩 셋**을 같은 잣대로 잰다. v0.9.0 에서 한지·전자잉크가 파일로 내려갔는데
+// 그렇다고 대비 하한이 느슨해질 이유는 없다 — 앱이 넣어 주는 테마인 것은 그대로다.
+// 살아 있는 레지스트리(themes) 대신 두 출처를 직접 합치는 이유: 다른 테스트 파일이
+// setUserThemes 로 레지스트리를 흔들면 여기서 무엇을 쟀는지가 실행 순서에 달리게 된다.
+const seeded = Object.fromEntries(
+  SEED_FILES.filter((f) => f.name.endsWith(".jsonc")).flatMap((f) =>
+    Object.entries(parseUserThemes(f.text, BUILTIN_THEMES).themes),
+  ),
+);
+const all = [...Object.entries(BUILTIN_THEMES), ...Object.entries(seeded)];
 
 /** 기본 파생값을 JS 로 해석한다 — 테마가 직접 지정했으면 그 값이 이긴다(CSS 와 같은 우선순위). */
 function resolved(theme: Theme, key: keyof ProseTokens): string {
