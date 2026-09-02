@@ -167,6 +167,9 @@ interface AppState {
    *  동기라 첫 페인트 전에 동기 파싱해 까뭅임을 없애면서도, 검증을 거치지 않은 객체가 테마로
    *  승격하는 경로가 생기지 않고, Theme 모양이 바뀌어도 낡은 캐시가 표류하지 않는다. */
   customThemesText: string;
+  /** 이미 넣어 준 시드 판 번호. **지운 파일이 되살아나지 않게 하는 것이 이 필드의 전부다** —
+   *  폴더가 비었는지로 판정하면 한지를 지운 사람에게 매번 다시 들이밀게 된다. */
+  themeSeedVersion: number;
   /** 레지스트리가 바뀌었다는 신호(비영속). themeId 가 그대로여도 테마 내용은 바뀔 수 있으므로
    *  이것을 의존성에 넣어야 앱 크롬·미리보기가 다시 칠해진다. */
   themeRev: number;
@@ -207,6 +210,7 @@ interface AppState {
   favorites: string[];
 
   setCustomThemesText: (text: string) => void;
+  setThemeSeedVersion: (v: number) => void;
   bumpThemeRev: () => void;
   setTheme: (id: string) => void;
   setLanguage: (lng: string) => void;
@@ -272,6 +276,7 @@ export const useAppStore = create<AppState>()(
       themeId: defaultThemeId,
       language: "en",
       customThemesText: "",
+      themeSeedVersion: 0,
       themeRev: 0,
 
       splitRatio: 0.5,
@@ -305,6 +310,7 @@ export const useAppStore = create<AppState>()(
 
       setTheme: (id) => set({ themeId: id }),
       setCustomThemesText: (text) => set({ customThemesText: text }),
+      setThemeSeedVersion: (v) => set({ themeSeedVersion: v }),
       bumpThemeRev: () => set((s) => ({ themeRev: s.themeRev + 1 })),
       setLanguage: (lng) => set({ language: lng }),
       setSplitRatio: (r) => set({ splitRatio: clamp(r, 0.2, 0.8) }),
@@ -601,6 +607,7 @@ export const useAppStore = create<AppState>()(
         themeId: s.themeId,
         language: s.language,
         customThemesText: s.customThemesText,
+        themeSeedVersion: s.themeSeedVersion,
         expanded: s.expanded,
         splitRatio: s.splitRatio,
         editorZoom: s.editorZoom,

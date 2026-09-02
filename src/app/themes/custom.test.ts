@@ -6,9 +6,21 @@ import ko from "../locales/ko.json";
 import en from "../locales/en.json";
 import { THEME_FILE_TEMPLATE } from "./template";
 import { PROSE_KEYS } from "./prose";
-import { BUILTIN_THEMES, setUserThemes, themes } from ".";
+import { BUILTIN_THEMES, setUserThemes, themes, type Theme } from ".";
 
 const P = (text: string) => parseUserThemes(text, BUILTIN_THEMES);
+/** extends 의 바탕이 되는 가짜 테마. **내장 테마에 기대지 않는다** — v0.9.0 에서 한지·전자잉크가
+ *  파일로 내려가 내장에는 prose·texture 를 가진 테마가 하나도 없다. 어차피 여기서 재는 것은
+ *  "바탕 맵에서 물려받는가"이지 어느 테마인가가 아니다(parseUserThemes 는 base 를 인자로 받는다). */
+const FIXTURE: Theme = {
+  id: "fixture",
+  name: "바탕",
+  type: "light",
+  texture: "hanji",
+  tokens: BUILTIN_THEMES.paper.tokens,
+  prose: { markBg: "#e8d9a8", marker: "#9c3a2e" },
+};
+const BASE: Record<string, Theme> = { ...BUILTIN_THEMES, fixture: FIXTURE };
 const one = (body: string): string => `{"version":1,"themes":[${body}]}`;
 /** 경고는 구조화돼 있다 — 문구가 아니라 code 를 본다(문구는 번역되므로 테스트가 깨지면 안 된다).*/
 const codes = (w: { code: string }[]): string[] => w.map((x) => x.code);
@@ -61,9 +73,12 @@ describe("extends 병합", () => {
   });
 
   it("바탕의 prose·texture 도 물려받는다", () => {
-    const got = P(one('{"id":"a","extends":"hanji","prose":{"marker":"#000000"}}')).themes.a;
+    const got = parseUserThemes(
+      one('{"id":"a","extends":"fixture","prose":{"marker":"#000000"}}'),
+      BASE,
+    ).themes.a;
     expect(got.texture).toBe("hanji");
-    expect(got.prose?.markBg).toBe(BUILTIN_THEMES.hanji.prose?.markBg); // 안 적은 항목은 그대로
+    expect(got.prose?.markBg).toBe(FIXTURE.prose?.markBg); // 안 적은 항목은 그대로
     expect(got.prose?.marker).toBe("#000000"); // 적은 항목만 바뀐다
   });
 
@@ -172,13 +187,25 @@ describe("기본 템플릿", () => {
   // 경고 토스트를 보게 되므로, 우리 파서가 **경고 없이** 읽는지 여기서 못박는다.
   const parsed = P(THEME_FILE_TEMPLATE);
 
+  /** 예시를 감싼 블록 주석의 여닫는 줄만 걷어낸다 — 사용자가 손으로 하는 그 동작 그대로. */
+  const uncommented = THEME_FILE_TEMPLATE.split("\n")
+    .filter((l) => !l.includes("/*") && !l.includes("*/"))
+    .join("\n");
+
   it("경고 하나 없이 읽힌다", () => expect(parsed.warnings).toEqual([]));
 
-  it("쓸 수 있는 테마가 나온다", () => {
-    const t = parsed.themes["my-hanji"];
+  it("**테마를 만들지 않는다** — 열어 본 사람의 목록이 저절로 늘면 안 된다", () => {
+    // v0.8.0 에서는 예시 "내 한지" 가 켜진 채였고, [테마 파일 열기] 한 번에 목록이 늘었다(신고).
+    expect(parsed.themes).toEqual({});
+  });
+
+  it("주석을 벗기면 쓸 수 있는 테마가 나온다", () => {
+    const got = P(uncommented);
+    expect(got.warnings).toEqual([]);
+    const t = got.themes["my-theme"];
     expect(t).toBeDefined();
-    expect(t.texture).toBe("hanji");
     for (const v of Object.values(t.tokens)) expect(v).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(Object.keys(t.prose ?? {})).toHaveLength(PROSE_KEYS.length);
   });
 
   it("설명서 역할을 한다 — 모든 prose 항목이 예시로 들어 있다", () => {

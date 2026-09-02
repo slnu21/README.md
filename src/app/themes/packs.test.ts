@@ -12,7 +12,7 @@ import {
   sanitizeThemeCss,
   type ThemeBundle,
 } from "./custom";
-import { BUILTIN_THEMES } from ".";
+import { BUILTIN_THEMES, type Theme } from ".";
 
 const bundle = (b: Partial<ThemeBundle>): ThemeBundle => ({
   file: "C:/x/themes.jsonc",
@@ -152,14 +152,24 @@ describe("sanitizeThemeCss — 문서를 벗어나지 못한다", () => {
 });
 
 describe("buildThemePack — 내보내기", () => {
+  // 바탕은 가짜 테마다 — 내장 테마에 질감을 가진 것이 없다(v0.9.0 에서 한지가 파일로 내려갔다).
+  // 여기서 재는 것은 "물려받은 값이 펼쳐지는가"이지 어느 테마를 물려받았는가가 아니다.
+  const FIXTURE: Theme = {
+    id: "fixture",
+    name: "바탕",
+    type: "light",
+    texture: "hanji",
+    tokens: { ...BUILTIN_THEMES.paper.tokens, "--border": "#d9cfb8" },
+  };
+  const BASE: Record<string, Theme> = { ...BUILTIN_THEMES, fixture: FIXTURE };
   const source = parseThemeBundle(
     bundle({
-      main: `{"version":1,"themes":[{"id":"mine","name":"내 테마","extends":"hanji","type":"light",
+      main: `{"version":1,"themes":[{"id":"mine","name":"내 테마","extends":"fixture","type":"light",
         "tokens":{"bg":"#101010","accent":"#ff8800"},
         "prose":{"heading":"#ffffff","linkUnderline":true}}]}`,
       styles: [{ name: "mine", text: "h2::before{content:''}" }],
     }),
-    BUILTIN_THEMES,
+    BASE,
   ).themes.mine;
 
   it("파일 하나에 테마와 CSS 가 함께 담긴다", () => {
@@ -181,9 +191,9 @@ describe("buildThemePack — 내보내기", () => {
   it("extends 로 물려받은 값까지 펼쳐 담는다 — 받는 쪽에 그 테마가 없어도 된다", () => {
     const out = buildThemePack(source);
     expect(out).not.toContain('"extends"');
-    // 한지에서 물려받은 질감과 테두리색이 실제 값으로 들어 있다
+    // 바탕에서 물려받은 질감과 테두리색이 실제 값으로 들어 있다
     expect(out).toContain('"texture": "hanji"');
-    expect(out).toContain(BUILTIN_THEMES.hanji.tokens["--border"]);
+    expect(out).toContain(FIXTURE.tokens["--border"]);
   });
 
   it("기본값인 항목은 적지 않는다(읽을 만한 파일로)", () => {

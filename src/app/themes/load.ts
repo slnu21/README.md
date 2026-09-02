@@ -17,8 +17,9 @@ import {
 import { useAppStore } from "../store";
 import { applyTheme } from "./apply";
 import { parseThemeBundle, type ThemeBundle, type ThemeWarning } from "./custom";
+import { SEED_FILES, SEED_VERSION, seedEntries } from "./seeds";
 import { THEME_FILE_TEMPLATE, THEME_FOLDER_GUIDE } from "./template";
-import { BUILTIN_THEMES, defaultThemeId, setUserThemes, themes } from ".";
+import { BUILTIN_THEMES, defaultThemeId, setUserThemes, themes, type Theme } from ".";
 
 /** 구조화된 경고 → 현재 언어의 한 줄. 파서는 순수하게 두고 문구는 여기서 붙인다. */
 export function warningText(w: ThemeWarning): string {
@@ -49,8 +50,17 @@ function reconcileSelection(): void {
  *  경고는 내지 않는다(캐시는 이미 한 번 검증을 통과한 원문이고, 부팅 때 오류 토스트를
  *  띄우면 사용자는 무엇 때문인지 알 수 없다). 진짜 검증은 loadUserThemes 가 한다. */
 export function hydrateUserThemes(): void {
-  const raw = useAppStore.getState().customThemesText;
-  if (!raw) return;
+  const st = useAppStore.getState();
+  const raw = st.customThemesText;
+  if (!raw) {
+    // 캐시가 없다 = 첫 실행이거나 v0.8.x 에서 막 올라왔다. 아직 시드를 안 넣었다면
+    // **파일을 읽기 전에** 시드 팩을 레지스트리에 올린다 — 그러지 않으면 한지·전자잉크를
+    // 쓰던 사람이 업데이트 직후 첫 프레임에 light 를 본다(디스크 읽기는 비동기다).
+    // 한 번 시드가 끝나면(themeSeedVersion >= SEED_VERSION) 이 길은 다시 안 탄다 —
+    // 그래서 파일을 지운 사람에게 지운 테마가 되살아나 보이지도 않는다.
+    if (st.themeSeedVersion < SEED_VERSION) setUserThemes(seedThemes());
+    return;
+  }
   try {
     const bundle = JSON.parse(raw) as ThemeBundle;
     setUserThemes(parseThemeBundle(bundle, BUILTIN_THEMES).themes);
@@ -67,6 +77,7 @@ export function hydrateUserThemes(): void {
  *  @returns 읽은 개수와 경고. 경로를 못 읽었으면(= Tauri 밖) null. */
 export async function loadUserThemes(): Promise<{ count: number; warnings: ThemeWarning[] } | null> {
   const st = useAppStore.getState();
+  await seedThemeFiles();
   let bundle: ThemeBundle;
   try {
     bundle = await readThemeBundle();
@@ -94,6 +105,37 @@ function cacheable(bundle: ThemeBundle): string {
   return json.length <= MAX_CACHE ? json : "";
 }
 
+/** 시드 원문을 **디스크에서 읽은 것과 같은 경로로** 파싱한다(사이드카 CSS 결합까지 그대로). */
+function seedThemes(): Record<string, Theme> {
+  return parseThemeBundle(
+    { file: "", dir: "", main: null, packs: seedEntries(".jsonc"), styles: seedEntries(".css") },
+    BUILTIN_THEMES,
+  ).themes;
+}
+
+/** 기본 테마 팩을 `themes\` 폴더에 한 번 넣어 준다(한지·전자잉크·컬러 전자잉크).
+ *
+ *  **판 번호로 한 번만 돈다.** 폴더가 비었는지로 판정하면 한지를 지운 사람에게 매번 다시
+ *  들이밀게 된다 — 지운 것은 지운 채로 남아야 한다. 쓰기는 create_new 라 이미 있는 파일은
+ *  건드리지 않으므로, 나중에 SEED_VERSION 을 올리면 **없는 파일만** 새로 들어간다.
+ *
+ *  실패해도 조용히 넘어간다 — Tauri 밖(데모·프로브)이거나 디스크가 막힌 경우이고,
+ *  그때도 내장 테마 셋은 그대로 뜬다. */
+export async function seedThemeFiles(): Promise<void> {
+  const st = useAppStore.getState();
+  if (st.themeSeedVersion >= SEED_VERSION) return;
+  try {
+    const dir = await themeDirPath();
+    for (const f of SEED_FILES) {
+      // create_new(true) — 이미 있으면 EEXIST 로 거절되므로 사용자의 편집본을 덮지 않는다.
+      await createFile(`${dir}\\${f.name}`, f.text).catch(() => undefined);
+    }
+    st.setThemeSeedVersion(SEED_VERSION);
+  } catch (e) {
+    console.warn("[themes] 기본 테마 팩을 넣지 못했습니다", e);
+  }
+}
+
 /** 파일이 없으면 주석 달린 템플릿을 만든다. @returns 경로(만들었든 이미 있든). */
 export async function ensureThemeFile(): Promise<string> {
   const path = await themeFilePath();
@@ -113,7 +155,7 @@ export async function ensureThemeFile(): Promise<string> {
  *  @returns 실제로 연 경로. */
 export async function openThemeFolder(): Promise<string> {
   const dir = await themeDirPath();
-  const guide = `${dir}\README.md`;
+  const guide = `${dir}\\README.md`;
   if (await pathExists(guide)) {
     await revealInExplorer(guide);
     return guide;
@@ -129,7 +171,7 @@ export async function openThemeFolder(): Promise<string> {
   }
   const inside = firstFileName(bundle);
   if (inside) {
-    const target = `${dir}\${inside}`;
+    const target = `${dir}\\${inside}`;
     await revealInExplorer(target);
     return target;
   }
