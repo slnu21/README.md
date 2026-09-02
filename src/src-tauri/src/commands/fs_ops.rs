@@ -5,7 +5,6 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::Manager;
 
 #[tauri::command]
 pub fn read_file(path: String) -> Result<String, String> {
@@ -165,19 +164,17 @@ fn build_tree(p: &Path, depth: usize) -> Result<DirEntryNode, String> {
 /// **JS 쪽 `@tauri-apps/api/path` 를 안 쓰는 이유**: v0.7.1 에서 `opener` 플러그인의
 /// `open_path` 가 ACL 에 막혀 두 릴리스 동안 조용히 죽어 있었다. 앱 자신의 커맨드는
 /// ACL 대상이 아니므로, 여기 몇 줄이 그 위험을 통째로 없앱니다(capability 변경 불필요).
+///
+/// **`app_data_dir()` 을 직접 쓰지 않는다** — MSIX 패키지본에서 그것은 탐색기가 못 찾는
+/// 가상 경로일 수 있다(`crate::app_paths` 머리말). 탐색기에 넘길 경로가 여기서 나온다.
 #[tauri::command]
 pub fn theme_file_path(app: tauri::AppHandle) -> Result<String, String> {
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let dir = crate::app_paths::user_data_dir(&app)?;
     Ok(dir.join("themes.jsonc").to_string_lossy().into_owned())
 }
 
 fn theme_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("themes");
+    let dir = crate::app_paths::user_data_dir(app)?.join("themes");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
 }
@@ -193,6 +190,9 @@ pub fn theme_dir_path(app: tauri::AppHandle) -> Result<String, String> {
 pub struct NamedText {
     /// 확장자를 뗀 파일 이름. `<id>.css` 규칙에서 테마 id 로 쓰인다.
     pub name: String,
+    /// 확장자까지 붙은 진짜 파일 이름. 프런트가 **탐색기에 넘길 대상**을 만들 때 쓴다 —
+    /// stem 만으로는 `.jsonc` 인지 `.json` 인지 되살릴 수 없다.
+    pub file: String,
     pub text: String,
 }
 
@@ -215,11 +215,7 @@ pub struct ThemeBundle {
 
 #[tauri::command]
 pub fn read_theme_bundle(app: tauri::AppHandle) -> Result<ThemeBundle, String> {
-    let file = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("themes.jsonc");
+    let file = crate::app_paths::user_data_dir(&app)?.join("themes.jsonc");
     let dir = theme_dir(&app)?;
 
     let mut packs = Vec::new();
@@ -246,6 +242,7 @@ pub fn read_theme_bundle(app: tauri::AppHandle) -> Result<ThemeBundle, String> {
             };
             let item = NamedText {
                 name: stem.to_string(),
+                file: e.file_name().to_string_lossy().into_owned(),
                 text,
             };
             match ext.as_str() {

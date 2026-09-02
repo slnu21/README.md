@@ -6,7 +6,14 @@ import { useAppStore } from "../store";
 import { ensureThemeFile, loadUserThemes, openThemeFolder } from "../themes/load";
 import { buildThemePack } from "../themes/custom";
 import { themes } from "../themes";
-import { openWithDefault, revealInExplorer, saveFile, writeFile } from "../lib/tauri";
+import {
+  openWithDefault,
+  revealInExplorer,
+  saveFile,
+  themeDirPath,
+  themeFilePath,
+  writeFile,
+} from "../lib/tauri";
 import { readFonts, monoFonts, uiFonts } from "../lib/fonts";
 import { Icon } from "./Icon";
 
@@ -18,6 +25,10 @@ export function SettingsPopover() {
   const themeId = useAppStore((s) => s.themeId);
   const themeRev = useAppStore((s) => s.themeRev);
   const wrapRef = useRef<HTMLDivElement>(null);
+  // 테마 파일·폴더의 **해석된 실제 경로**. 버튼 툴팁으로 보여 준다 — MSIX 패키지본에서는
+  // 앱이 쓰는 경로가 %APPDATA% 가 아닐 수 있어(app_paths.rs), 어디를 여는지 눈에 보여야
+  // 사용자도 우리도 다음 번엔 원인을 바로 안다.
+  const [themePaths, setThemePaths] = useState<{ file: string; dir: string } | null>(null);
 
   const fontRead = useAppStore((s) => s.fontRead);
   const fontMono = useAppStore((s) => s.fontMono);
@@ -49,6 +60,9 @@ export function SettingsPopover() {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
+    void Promise.all([themeFilePath(), themeDirPath()])
+      .then(([file, dir]) => setThemePaths({ file, dir }))
+      .catch(() => setThemePaths(null)); // Tauri 밖 — 툴팁만 없어진다
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
   return () => {
@@ -74,7 +88,11 @@ export function SettingsPopover() {
     try {
       await openThemeFolder();
     } catch (e) {
-      showNotice(t("theme.fileFailed", { detail: String(e) }), "error");
+      // 경로를 함께 보여 준다 — 탐색기가 못 열었을 때 손으로 찾아갈 수 있어야 한다.
+      showNotice(
+        t("theme.folderFailed", { path: themePaths?.dir ?? "", detail: String(e) }),
+        "error",
+      );
     }
   }
 
@@ -255,13 +273,23 @@ export function SettingsPopover() {
 
           {/* 색을 직접 정하는 입구. 인앱 색상 피커 대신 파일을 둔 이유는 항목이 23개라
               팝오버가 두 배로 커지기 때문이다 — 파일 안 주석이 그대로 설명서 역할을 한다. */}
-          <button type="button" className="set-reset" onClick={() => void openThemeFile()}>
+          <button
+            type="button"
+            className="set-reset"
+            title={themePaths?.file}
+            onClick={() => void openThemeFile()}
+          >
             {t("settings.themeFile")}
           </button>
           <button type="button" className="set-reset" onClick={() => void reloadThemes()} disabled={busy}>
             {t("settings.themeReload")}
           </button>
-          <button type="button" className="set-reset" onClick={() => void revealThemeFolder()}>
+          <button
+            type="button"
+            className="set-reset"
+            title={themePaths?.dir}
+            onClick={() => void revealThemeFolder()}
+          >
             {t("settings.themeFolder")}
           </button>
           <button type="button" className="set-reset" onClick={() => void exportTheme()}>

@@ -1,3 +1,4 @@
+mod app_paths;
 mod assets;
 mod commands;
 mod db;

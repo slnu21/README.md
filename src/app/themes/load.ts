@@ -104,13 +104,16 @@ export async function ensureThemeFile(): Promise<string> {
   return path;
 }
 
-/** 테마 폴더를 탐색기에서 연다. 안내문(README.md)이 있으면 그걸 선택해 열어 **폴더 안**이
- *  보이게 한다 — revealInExplorer 는 대상을 부모에서 선택하므로, 폴더 자체를 넘기면
- *  한 단계 위가 열려 버린다. 안내문은 폴더가 비어 있을 때만 만든다(지운 사람에게 다시
- *  들이밀지 않는다). @returns 실제로 연 경로. */
+/** 테마 폴더를 탐색기에서 연다. **폴더 안의 무언가를 선택해** 연다 — revealInExplorer 는
+ *  대상을 부모에서 고르므로, 폴더 자체를 넘기면 한 단계 위가 열려 버린다.
+ *
+ *  고르는 순서: 안내문(README.md) → 폴더 안 첫 파일 → (정말 비었으면) 폴더 자체.
+ *  안내문은 폴더가 비어 있을 때만 만든다 — 지운 사람에게 다시 들이밀지 않는다. 대신
+ *  지웠더라도 팩이 남아 있으면 그 팩을 골라 "폴더 안이 열린다"는 성질은 지킨다.
+ *  @returns 실제로 연 경로. */
 export async function openThemeFolder(): Promise<string> {
   const dir = await themeDirPath();
-  const guide = `${dir}\\README.md`;
+  const guide = `${dir}\README.md`;
   if (await pathExists(guide)) {
     await revealInExplorer(guide);
     return guide;
@@ -124,6 +127,19 @@ export async function openThemeFolder(): Promise<string> {
       return guide;
     }
   }
+  const inside = firstFileName(bundle);
+  if (inside) {
+    const target = `${dir}\${inside}`;
+    await revealInExplorer(target);
+    return target;
+  }
   await revealInExplorer(dir);
   return dir;
+}
+
+/** 폴더 안에서 탐색기에 선택시킬 파일 하나. `file` 은 v0.9.0 에서 생긴 필드라 낡은
+ *  localStorage 캐시에는 없다 — stem 만으로는 `.jsonc` 인지 `.json` 인지 되살릴 수 없어
+ *  건너뛴다(이 함수는 디스크에서 갓 읽은 뭉치에만 쓰이므로 실사용에서 비지 않는다). */
+function firstFileName(bundle: ThemeBundle): string | undefined {
+  return [...bundle.packs, ...bundle.styles].map((e) => e.file).find((f): f is string => !!f);
 }

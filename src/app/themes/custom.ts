@@ -250,10 +250,10 @@ export interface ThemeBundle {
   dir: string;
   /** `themes.jsonc` — 손으로 쓰는 파일. */
   main: string | null;
-  /** `themes/*.jsonc` — 받은 팩. 파일명 오름차순. */
-  packs: { name: string; text: string }[];
+  /** `themes/*.jsonc` — 받은 팩. 파일명 오름차순. name = 확장자 뗀 이름, file = 진짜 파일명. */
+  packs: { name: string; file?: string; text: string }[];
   /** `themes/*.css` — 사이드카. name = 테마 id. */
-  styles: { name: string; text: string }[];
+  styles: { name: string; file?: string; text: string }[];
 }
 
 /** 뭉치 전체 → 최종 테마 목록. 순수(파일 I/O 없음).
