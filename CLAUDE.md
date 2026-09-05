@@ -42,7 +42,9 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
 ## 현재 상태 (2026-09-06 기준)
-- **v0.9.0 배포 준비 완료 — 제출 대기**(`develop-release-v090`). 아래 "테마 실사용 피드백 4건"을 담는다.
+- **v0.9.0 릴리스 완결 — GitHub 릴리스 + Store 제출 완료(인증·게시 대기)**(`develop-release-v090`). 아래 "테마 실사용 피드백 4건"을 담는다.
+  - **GitHub 릴리스 완료(2026-09-06)** — <https://github.com/slnu21/README.md/releases/tag/v0.9.0> · `main` push(10커밋) + 애노테이트 태그 `v0.9.0` + **자산 4종 업로드 확인**(NSIS·MSIX·zip·NOTICES, 전부 `state=uploaded` · draft/prerelease 아님).
+  - **Store 제출 완료(2026-09-06) — 사용자 직접.** 직전 v0.8.0 이 게시 완료(2026-09-02 확인)라 동시 제출 충돌 없음.
   - 버전 단일원 0.8.0→0.9.0(`package.json`·`tauri.conf.json`·`Cargo.toml`+lock·`package-lock`). **내장 테마 구성이 바뀌고(5종→3종+파일 3종) 새 테마가 하나 늘어 minor.**
   - CHANGELOG `[0.9.0]` 확정 · `release/v0.9.0/RELEASE_NOTES.md` 신규 · store-listing **기능 목록 테마 6종(ko/en)** + **업데이트 내용 v0.9.0(ko/en)** + 등록 체크리스트에 **누락돼 있던 v0.8.0** 항목과 v0.9.0 추가. **THIRD-PARTY-NOTICES 는 런타임 의존성 diff 0 확인 후 그대로 복사**(`git diff v0.8.0..HEAD` — `package.json`·`Cargo.toml`·양쪽 lock 무변경).
   - 산출물 빌드·패키징 완료(`release/v0.9.0/` · NSIS 5.50MB / MSIX 6.52MB / zip 6.41MB). **실신원 MSIX 매니페스트를 `.msix` 안에서 직접 읽어 확인** — Name=`SlnU.README.md` · Publisher=`CN=1398342C-A2D7-4B4A-BFE2-34D8CCFD7FBA` · `0.9.0.0` · x64 · PublisherDisplay=`SlnU` · `Windows.FullTrustApplication` · runFullTrust · `.md`/`.markdown` 연결. **패키지에서 exe 를 꺼내 FileVersion 0.9.0 실물 확인.**
