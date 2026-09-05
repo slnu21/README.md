@@ -42,6 +42,12 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
 ## 현재 상태 (2026-09-06 기준)
+- **[설계] v1.0 방향 — 에이전트 브리지(MCP) 결정 기록**(`develop-agent-bridge-adr`). "AI 산출물인 md 를 읽는 앱"이라는 정체성에 맞춰 v1.0 헤드라인을 에이전트 연동으로 잡고, **구현 전에 패키징 함정부터 실측으로 닫았다** — [ADR 0002](docs/design/decisions/0002-agent-bridge-mcp.md).
+  - **핵심 결정: exe 를 안 늘린다.** MCP 서버는 `md-reader.exe` 의 **모드**다(`main()` 에서 `tauri::Builder` 이전에 argv 분기). 전송은 **stdio** — 로컬 HTTP 포트를 열면 "100% 오프라인" 표명이 흔들리고, 인증 표면이 생기고, 앱이 떠 있어야만 쓸 수 있다. MSIX 는 **기존 단일 Application 에 alias Extension 하나**(`readme.exe`)만 얹어 **앱 목록이 지금 그대로**다.
+  - **왜 그게 강제되는가** — 같은 계정 Atlas 가 exe 마다 `<Application>` 을 두어 시작 메뉴 항목이 셋이 됐고(`Atlas`·`Atlas CLI`·`Atlas MCP`, 아이콘까지 같다) 둘은 눌러도 창이 안 떠 **"앱이 안 켜진다"** 리뷰를 받았다. 숨기는 길(`AppListEntry="none"`)은 Store 가 **헤드리스 앱**이라며 자동 거부한다(v1.24.0 실제 거부). 2026-09-06 프로브로 해법을 찾아 Atlas 를 **3 → 1** 로 되돌렸다(사이클 185).
+  - **실측 6항목**(버리는 프로브 패키지 Rust·.NET, 개발자 모드 등록 후 제거): windows-subsystem 바이너리도 **파이프 stdio 정상**(Tauri 바이너리 그대로 MCP 서버가 된다) · **별칭 실행이 패키지 신원을 유지**(직접 실행은 `NO_PACKAGE`) → MCP 모드가 GUI 와 **같은 물리 DB** 를 본다(v0.9.0 `app_paths.rs` 컨테이너 판정이 그대로 유효, 아니었다면 "워크스페이스가 비었다"로 보였을 것) · 네이티브는 `argv[0]` 보존(**.NET 은 dll 경로로 덮어써 `GetCommandLineW` P/Invoke 가 필요** — Atlas 쪽 함정) · alias Extension 이 부모와 **다른 `Executable`** 지정 가능 · 한 Extension 에 `ExecutionAlias` 여럿 가능. → [notes/development.md](docs/notes/development.md)
+  - **도구 표면 원칙: 파일시스템이 이미 하는 일은 주지 않는다.** 읽기 4(`search_docs`·`outline`·`read_section`·`list_workspace`) + 제어 2(`place_doc`·`open_in_app`). `write_doc`·`create_doc`·`delete` 는 **안 준다** — 에이전트가 이미 fs 로 하는 일이라 값은 0 이고 인젝션 표면만 는다. 검색은 `search_query` 의 `path_prefix` 로 **워크스페이스 루트에 스코프**(전역 검색은 머신 전체 인덱스를 본다). 제어 도구는 설정의 **에이전트 연결 패널**이 생긴 뒤에 연다.
+  - 미결: MCP 구현 크레이트 선택(**새 의존성 = 확인 게이트**) · 별칭 이름 `readme.exe` 충돌 검토 · 터미널 CLI 는 `AttachConsole` 필요(파이프 경로는 무관) · **쓰기 권한은 되돌리기(저장 스냅샷)가 전제**.
 - **v0.9.0 릴리스 완결 — GitHub 릴리스 + Store 제출 완료(인증·게시 대기)**(`develop-release-v090`). 아래 "테마 실사용 피드백 4건"을 담는다.
   - **GitHub 릴리스 완료(2026-09-06)** — <https://github.com/slnu21/README.md/releases/tag/v0.9.0> · `main` push(10커밋) + 애노테이트 태그 `v0.9.0` + **자산 4종 업로드 확인**(NSIS·MSIX·zip·NOTICES, 전부 `state=uploaded` · draft/prerelease 아님).
   - **Store 제출 완료(2026-09-06) — 사용자 직접.** 직전 v0.8.0 이 게시 완료(2026-09-02 확인)라 동시 제출 충돌 없음.
@@ -145,6 +151,7 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **Rust 설치됨** → `cargo check`/`tauri dev/build` 동작. 미리보기 iframe은 `sandbox="allow-same-origin"`(allow-scripts는 절대 미포함). CSP 하드닝 적용됨.
 
 ## 다음 단계
+- **v1.0 로드맵(제안)**: ① 에이전트 브리지(읽기 도구 4 + CLI 겸용) ② 에이전트 연결 패널 + 제어 도구 2 ③ 받은 문서함·변경 배지(감시기 재사용) ④ 저장 스냅샷·되돌리기 ⑤ 1.0 위생(성능 예산·리스팅·영상). **T7 유료화는 1.0 에 넣지 않는다** — 무료로 나간 기능을 유료로 돌리면 리뷰가 무너지고, 헤드라인 기능을 유료화하면 화제성을 스스로 죽인다. 유료화는 1.1 에서 신규 Pro 기능으로.
 - **후속(로드맵)**: T7 상업화 게이팅(export·advancedThemes Pro — Store 트래픽·Pro 기능 확보 후), 내보내기 고도화(WebView2 `PrintToPdfAsync` 무대화상자 PDF — `commands/export.rs`), 설정 localStorage↔SQLite 이중화(저가치·보류).
 
 전체 로드맵은 [docs/README.md](docs/README.md) 참고.
