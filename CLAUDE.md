@@ -41,8 +41,14 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **Store 패키징**: **MSIX → Store**(Microsoft 재서명 → 코드서명 인증서 불필요)가 기본. Tauri는 MSI/NSIS만 내므로 **MSIX 래핑 1단계** 필요. 매니페스트에 `runFullTrust`. 자세히: [docs/deployment/microsoft-store.md](docs/deployment/microsoft-store.md).
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
-## 현재 상태 (2026-09-02 기준)
-- **[미출시] 테마 실사용 피드백 4건 — 테마를 파일로 내리고, Store 경로 결함을 고쳤다**(`develop-msix-data-path` 머지 완료 · `develop-theme-seeds`). 사용자 후기 4건에서 출발: ① `내 한지`가 앱이 준 테마인데 파일 밖에 있다 ② Store 설치본에서 [테마 폴더 열기]가 실패한다 ③ 전자잉크 제목이 구분 안 된다 ④ 컬러 전자잉크 샘플을 원한다.
+## 현재 상태 (2026-09-06 기준)
+- **v0.9.0 배포 준비 완료 — 제출 대기**(`develop-release-v090`). 아래 "테마 실사용 피드백 4건"을 담는다.
+  - 버전 단일원 0.8.0→0.9.0(`package.json`·`tauri.conf.json`·`Cargo.toml`+lock·`package-lock`). **내장 테마 구성이 바뀌고(5종→3종+파일 3종) 새 테마가 하나 늘어 minor.**
+  - CHANGELOG `[0.9.0]` 확정 · `release/v0.9.0/RELEASE_NOTES.md` 신규 · store-listing **기능 목록 테마 6종(ko/en)** + **업데이트 내용 v0.9.0(ko/en)** + 등록 체크리스트에 **누락돼 있던 v0.8.0** 항목과 v0.9.0 추가. **THIRD-PARTY-NOTICES 는 런타임 의존성 diff 0 확인 후 그대로 복사**(`git diff v0.8.0..HEAD` — `package.json`·`Cargo.toml`·양쪽 lock 무변경).
+  - 산출물 빌드·패키징 완료(`release/v0.9.0/` · NSIS 5.50MB / MSIX 6.52MB / zip 6.41MB). **실신원 MSIX 매니페스트를 `.msix` 안에서 직접 읽어 확인** — Name=`SlnU.README.md` · Publisher=`CN=1398342C-A2D7-4B4A-BFE2-34D8CCFD7FBA` · `0.9.0.0` · x64 · PublisherDisplay=`SlnU` · `Windows.FullTrustApplication` · runFullTrust · `.md`/`.markdown` 연결. **패키지에서 exe 를 꺼내 FileVersion 0.9.0 실물 확인.**
+  - 검증: `tsc` · vitest **681** · `cargo test --lib` **20** · clippy 0 · `vite build`(기존 청크 경고만) · `probe:mermaid` PASS · `probe:layout` PASS · **릴리스 exe 실구동**(CDP, 사용자 DB·프로필 비켜 놓고 원복) — 테마 6종 · 시드 6파일 · 비패키지본이라 경로가 `%APPDATA%`(맞는 동작) · 제목 사다리 계산값이 개발 빌드와 동일 · paper 무변경.
+  - 곁다리: `release/README.md` 의 산출물 파일명 예시가 실제(`README_*`)와 어긋나던 것 수정.
+- **[v0.9.0 수록] 테마 실사용 피드백 4건 — 테마를 파일로 내리고, Store 경로 결함을 고쳤다**(`develop-msix-data-path` · `develop-theme-seeds` 머지 완료). 사용자 후기 4건에서 출발: ① `내 한지`가 앱이 준 테마인데 파일 밖에 있다 ② Store 설치본에서 [테마 폴더 열기]가 실패한다 ③ 전자잉크 제목이 구분 안 된다 ④ 컬러 전자잉크 샘플을 원한다.
   - **②가 진짜 결함이었고 원인은 MSIX 쓰기 가상화다.** 패키지 앱의 `%APPDATA%` 쓰기는 컨테이너(`%LOCALAPPDATA%\Packages\<PFN>\LocalCache\Roaming\`)로 돌려진다 → `app_data_dir()` 이 주는 경로는 **앱 안에서만 유효한 가상 경로**고, 컨테이너 밖인 탐색기는 못 찾는다. 사용자가 준 증상 셋이 서명이었다 — **저장 대화상자로는 폴더가 보이고, 탐색기로 가면 없고, 반복된다**(대화상자는 앱 프로세스 안 = 병합 뷰).
   - **개발기에서 재현이 안 되는 이유를 실측으로 잡았다.** 패키지 컨텍스트 안에서 직접 재 보니 **이미 있는 폴더에 쓰면 실제 AppData 로 통과하고, 새 폴더를 만들면 컨테이너로 간다**(copy-on-write). 개발기는 NSIS/dev 설치가 실제 폴더를 먼저 만들어 둬서 통과한다. 그래서 "패키지본이면 무조건 컨테이너"도 "언제나 `%APPDATA%`"도 둘 다 틀리다.
   - 해결: `src-tauri/src/app_paths.rs` `user_data_dir` — **만들어 보고 어디에 생겼는지 본다**(이미 하던 `create_dir_all` 이 곧 probe 다, 별도 probe 파일 없음). 패키지 신원은 kernel32 `GetCurrentPackageFamilyName` 직접 선언(새 의존성 0). **파일은 안 옮긴다** — 가상 경로가 가리키는 물리 파일이 곧 컨테이너 안의 그 파일이다. **DB(`db.rs`)는 안 건드린다**(같은 물리 파일이라 no-op, 잘못 건드리면 워크스페이스가 빈 것처럼 보인다). 매니페스트로 가상화를 끄는 길은 **안 쓴다** — 이미 컨테이너에 쌓인 사용자 데이터가 통째로 안 보이게 된다.

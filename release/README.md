@@ -9,11 +9,16 @@
 ## 폴더 구성(버전당)
 ```
 release/vX.Y.Z/
-├─ md-reader_X.Y.Z_x64.msix       # Store 제출용 MSIX (무서명 업로드 → MS 재서명)
-├─ md-reader_X.Y.Z_x64-setup.exe  # (선택) Win32 직접 배포용 NSIS 설치 관리자 (서명 필요)
+├─ README_X.Y.Z_x64.msix          # Store 제출용 MSIX (무서명 업로드 → MS 재서명)
+├─ README.md_X.Y.Z_x64-setup.exe  # (선택) Win32 직접 배포용 NSIS 설치 관리자 (서명 필요)
+├─ README_X.Y.Z_x64_portable.zip  # (선택) 무설치 포터블
 ├─ THIRD-PARTY-NOTICES.md         # 해당 빌드의 라이선스 고지 스냅샷
 └─ RELEASE_NOTES.md               # 해당 버전 릴리스 노트
 ```
+
+> 산출물 파일 base 는 `README_*` 다(제품 표시명이 `README.md` 라, 파일명에서는 확장자
+> 혼동을 피해 `.md` 를 뺀다). NSIS 만 Tauri 가 표시명 그대로 `README.md_*` 로 낸다.
+> **바이너리 셋은 gitignore** 대상이라 저장소에는 텍스트 둘만 남는다.
 
 ## 빌드 → 배포 절차 (권장: MSIX → Store)
 1. `cd src && npm run tauri build` (Rust 필요) → `src/src-tauri/target/release/bundle/`에서 산출물 확인. *이 경로는 git 추적 제외.*

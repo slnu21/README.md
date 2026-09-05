@@ -37,8 +37,8 @@ README.md는 가볍고 **100% 오프라인**인 마크다운 리더 & 에디터�
 - 폴더 워크스페이스 트리 + 다중 탭 편집(순서 변경)
 - CodeMirror 6 마크다운 에디터 (서식 단축키 · 자동 목록 · 우클릭 메뉴 · 찾기/바꾸기 · 실행 취소)
 - 읽기·에디터 글꼴 선택(고급 번들 폰트) · 확대·축소
-- 테마 5종 — 라이트 · 다크 · 페이퍼 · **한지**(먹빛 글자에 주사색 강조) · **전자잉크**(무채색)
-- 내 테마 만들기 — 설정 파일에 색을 직접 적고, 모양(CSS)까지 더해 남과 주고받기
+- 테마 6종 — 라이트 · 다크 · 페이퍼 · **한지**(먹빛 글자에 주사색 강조) · **전자잉크**(무채색) · **컬러 전자잉크**(무채색 바탕에 강조만 유채색)
+- 내 테마 만들기 — 테마가 폴더 안의 파일이라 열어서 고치고, 모양(CSS)까지 더해 남과 주고받기
 - 저장 · 외부 변경 자동 감지·리로드 · 최근 파일
 - 한국어 · English
 - 가볍고 빠른 실행, 작은 용량
@@ -79,8 +79,8 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 - Folder workspace tree + multi-tab editing (reorderable)
 - CodeMirror 6 Markdown editor (formatting shortcuts, auto lists, right-click menu, find & replace, undo/redo)
 - Reading/editor font selection (bundled premium fonts) · zoom
-- Five themes — Light, Dark, Paper, **Hanji** (ink on Korean mulberry paper) and **E-Paper** (fully achromatic)
-- Make your own — set colors in a config file, add shapes with CSS, and share the result as one file
+- Six themes — Light, Dark, Paper, **Hanji** (ink on Korean mulberry paper), **E-Paper** (fully achromatic) and **Color E-Paper** (achromatic page, color only on accents)
+- Make your own — themes are editable files in a folder; change colors, add shapes with CSS, and share the result as one file
 - Save, external-change auto-reload, recent files
 - Korean · English
 - Lightweight and fast, small footprint
@@ -92,6 +92,20 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 ## 업데이트 내용 (What's new)
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
+
+### v0.9.0 — ko-KR
+- **테마가 폴더 안의 파일이 되었습니다** — 한지·전자잉크가 앱 안에 박힌 값에서 **열어서 고칠 수 있는 파일**이 됐습니다. 설정 ▸ [테마 폴더 열기] 에 안내문과 함께 들어 있습니다. 색을 바꿔도 되고, 마음에 안 들면 지워도 됩니다(다시 만들어 드리지 않습니다).
+- **컬러 전자잉크** — 전자잉크의 무채색 바탕은 그대로 두고 강조에만 색이 듭니다. 제목은 먹빛에서 감청·남색·청록으로 내려가고, 목록 마커와 형광펜은 따뜻한 황토색이라 "구조"와 "표시"가 색으로 갈립니다. 이 테마 자체가 **내 테마 만들기의 본보기**입니다.
+- **전자잉크에서 제목 단계가 보입니다** — 색을 쓰지 않는 테마라 크기만으로 구분됐고, `####` 이하 세 단계는 사실상 같은 줄로 보였습니다. 이제 이중 괘선·왼쪽 막대·자간이 여섯 단을 갈라 줍니다.
+- **Microsoft Store 로 설치한 경우 [테마 폴더 열기]가 실패하던 문제를 고쳤습니다** — "폴더가 없습니다"라고 하는데 내보내기 대화상자로는 폴더가 보이던, 앞뒤가 안 맞는 증상이었습니다. 파일은 있던 자리에 그대로 있습니다.
+- [테마 파일 열기]가 예시 테마를 켜 둔 채로 만들어 목록이 저절로 늘던 것, 폴더 열기가 한 단계 위를 열던 것도 함께 고쳤습니다.
+
+### v0.9.0 — en-US
+- **Themes are now files in a folder** — Hanji and E-Paper moved out of the app's code and into **files you can open and edit**, with a short guide next to them (Settings ▸ Open theme folder). Change the colors, or delete one you do not want — it stays gone.
+- **Color E-Paper** — keeps E-Paper's achromatic page and adds color only on accents. Headings step down from ink through deep navy to teal, while list markers and highlights are a warm ochre, so structure and emphasis read apart at a glance. The theme doubles as **the worked example for making your own**.
+- **Heading levels are visible in E-Paper** — with no color to work with, levels were carried by size alone, and `####` and below were nearly identical. Double rules, left bars and letter-spacing now separate all six.
+- **Fixed: Open theme folder failed when installed from the Microsoft Store** — it said the folder did not exist, yet the export dialog could see it. Your files were never moved or lost.
+- Also fixed: opening the theme file added a sample theme to your list, and opening the folder could land one level up.
 
 ### v0.8.0 — ko-KR
 - **새 테마 둘** — **한지**는 미색 종이에 먹빛 글자, 강조는 주사(朱砂) 붉은색이라 목록 불릿과 인용 막대가 고서의 권점처럼 찍힙니다(바탕에 발簾자국도 옅게). **전자잉크**는 이북리더기처럼 색을 쓰지 않고, 그림자를 없애 화면을 평평하게 합니다.
@@ -273,3 +287,5 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.6.9 업데이트 제출** — `release/v0.6.9/README_0.6.9_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.6.9** 문구 — **제출·인증 통과(2026-08-01) · 게시 완료**(2026-08-14 확인: `Get-AppxPackage SlnU.README.md` → `0.6.9.0` · `SignatureKind=Store`). GitHub 릴리스·태그 `v0.6.9`도 같은 날 완료 — <https://github.com/slnu21/README.md/releases/tag/v0.6.9>
 - [x] **v0.7.0 업데이트 제출** — `release/v0.7.0/README_0.7.0_x64.msix`(동일 실신원 · `0.7.0.0` · runFullTrust 매니페스트 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.7.0** 문구 — **제출·인증 통과(2026-08-15) · 게시 완료**(2026-08-23 확인: `Get-AppxPackage SlnU.README.md` → `0.7.0.0` · `SignatureKind=Store`). **산출물 준비 완료(2026-08-14) · 릴리스 exe 실검증 9항목 통과**(갤러리 17종 렌더·라벨 온전·고의 오류 1건 · 새 문서 UI · 사이드바 새로고침 · single-instance 2탭 · 리딩 분할 좌우 473px + 머리띠 2 + iframe 넘침 0). **GitHub 릴리스·태그 `v0.7.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.7.0>. 직전 v0.6.9 게시 완료를 확인해 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
 - [x] **v0.7.1 업데이트 제출** — `release/v0.7.1/README_0.7.1_x64.msix`(동일 실신원 · `0.7.1.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.7.1 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.7.1** 문구 — **제출 완료(2026-08-23) · 인증·게시 대기**(같은 날 확인 시점 `Get-AppxPackage SlnU.README.md` → 아직 `0.7.0.0` · `SignatureKind=Store`). 직전 v0.7.0이 **게시 완료(2026-08-23 확인)** 라 동시 제출 충돌 없음. **산출물 준비 완료(2026-08-23) · 릴리스 exe 실구동 28항목 통과**(외부 링크가 브라우저로 · 앵커 스크롤 · Ctrl/Alt 수식어 · `.exe`/로컬 html 거절 후 탐색기 · 프레젠테이션 링크 · 배지/라이트박스). **GitHub 릴리스·태그 `v0.7.1` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.7.1>. **제출은 Partner Center 웹 — 사용자 직접.**
+- [x] **v0.8.0 업데이트 제출** — `release/v0.8.0/README_0.8.0_x64.msix`(동일 실신원 · `0.8.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.8.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.8.0** 문구 — **제출 완료(2026-08-30) · 게시 완료**(2026-09-02 확인: `Get-AppxPackage SlnU.README.md` → `0.8.0.0` · `SignatureKind=Store`). 제출 직전 직전 판(v0.7.1)이 게시 완료임을 확인해 동시 제출 충돌 없음. **GitHub 릴리스·태그 `v0.8.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.8.0>. **제출은 Partner Center 웹 — 사용자 직접.**
+- [ ] **v0.9.0 업데이트 제출** — `release/v0.9.0/README_0.9.0_x64.msix`(동일 실신원) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.9.0** 문구 — **배포 준비 완료(2026-09-06) · 제출 대기**. 직전 v0.8.0 이 게시 완료라 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
