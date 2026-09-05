@@ -59,10 +59,25 @@ npm run tauri dev  # 데스크톱 창 실행 (Rust 필요)
 - v0.8.0 [테마 폴더 열기]가 "폴더가 없다"로 죽던 정체가 이것이다. 신고된 증상 셋이 서명이다:
   **저장 대화상자**(앱 프로세스 안 = 병합 뷰)로 들어가면 폴더가 **보이고**, 탐색기로 가면
   **없고**, 그게 반복된다.
-- **개발기에서는 재현되지 않는다.** NSIS/dev 설치가 실제 `%APPDATA%\com.readme.app` 를 먼저
-  만들어 두면 쓰기가 그리로 통과한다. 실측으로 두 머신이 갈렸다 — 개발기는 실제 AppData,
+- **그냥은 개발기에서 재현되지 않는다.** NSIS/dev 설치가 실제 `%APPDATA%\com.readme.app` 를
+  먼저 만들어 두면 쓰기가 그리로 통과한다. 실측으로 두 머신이 갈렸다 — 개발기는 실제 AppData,
   Store 전용 머신은 컨테이너. 그래서 "패키지본이면 무조건 컨테이너"도 "언제나 `%APPDATA%`"도
-  둘 다 틀리다. **재현하려면 Store 설치본만 있는 깨끗한 머신이 필요하다.**
+  둘 다 틀리다.
+- **가르는 것은 폴더가 이미 있느냐다**(패키지 컨텍스트 안에서 직접 재 봤다):
+  이미 있는 폴더 **안에 파일**을 쓰면 실제 AppData 로 통과하고, **새 폴더를 만들면** 컨테이너로
+  간다. copy-on-write 다.
+- **그래서 개발기에서도 재현할 수 있다** — 실제 `com.readme.app` 를 잠시 비켜 놓고
+  (`video/capture/userdata.ps1`), 빌드한 exe 를 **설치된 패키지의 신원으로** 띄운다:
+  ```powershell
+  Invoke-CommandInDesktopPackage -PackageFamilyName 'SlnU.README.md_<hash>' -AppId 'Gyeol' `
+    -Command 'cmd.exe' -PreventBreakaway `
+    -Args '/c set "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222" && start "" "<exe>"'
+  ```
+  **`-PreventBreakaway` 가 없으면 자식 프로세스가 패키지 컨텍스트를 벗어난다** — 첫 시도가
+  조용히 비패키지본으로 돌아 "수정이 안 먹는다"는 거짓 FAIL 을 냈다(경로가 `%APPDATA%` 로
+  나왔다). 데이터가 **어디에 생기는지**를 함께 보지 않으면 못 잡는다. cmd 를 한 겹 두는 것은
+  `Invoke-CommandInDesktopPackage` 가 호출자의 환경 변수를 물려주지 않아 CDP 포트를 그 안에서
+  켜야 하기 때문이다.
 - `app_paths::user_data_dir` 은 **만들어 보고 어디에 생겼는지 본다** — 이미 하던
   `create_dir_all` 이 곧 probe 다(따로 probe 파일을 남기지 않는다). 패키지 신원은 kernel32
   `GetCurrentPackageFamilyName` 을 직접 선언해 읽는다(새 의존성 0).
