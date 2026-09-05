@@ -2,6 +2,8 @@ mod app_paths;
 mod assets;
 mod commands;
 mod db;
+/// 에이전트 브리지(MCP stdio 서버). `main` 이 Tauri 를 세우기 전에 갈라져 들어온다 — ADR 0002.
+pub mod mcp;
 
 use std::sync::Mutex;
 use tauri::Manager;

@@ -61,12 +61,21 @@ const MIGRATIONS: &[&str] = &[
 fn db_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir.join("md-reader.db"))
+    Ok(dir.join(DB_FILE))
 }
 
 /// 연결 열기 + PRAGMA(WAL/외래키/바쁨 대기). 포그라운드/백그라운드 공용.
 fn open_conn(app: &AppHandle) -> Result<Connection, String> {
-    let conn = Connection::open(db_path(app)?).map_err(|e| e.to_string())?;
+    open_at(&db_path(app)?)
+}
+
+/// DB 파일 이름. `db_path` 와 MCP 모드가 공유한다.
+pub const DB_FILE: &str = "md-reader.db";
+
+/// 경로를 직접 받아 여는 변형 — Tauri 핸들이 없는 MCP 모드가 쓴다. PRAGMA 는 앱과 같아야 한다
+/// (특히 WAL — 앱과 동시에 열리므로).
+pub fn open_at(path: &std::path::Path) -> Result<Connection, String> {
+    let conn = Connection::open(path).map_err(|e| e.to_string())?;
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          PRAGMA foreign_keys = ON;

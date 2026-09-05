@@ -10,12 +10,12 @@ use tauri::State;
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Node {
-    id: String,
-    parent_id: Option<String>,
-    kind: String,
-    name: String,
-    real_path: Option<String>,
-    sort_order: i64,
+    pub(crate) id: String,
+    pub(crate) parent_id: Option<String>,
+    pub(crate) kind: String,
+    pub(crate) name: String,
+    pub(crate) real_path: Option<String>,
+    pub(crate) sort_order: i64,
 }
 
 #[derive(Serialize)]
@@ -33,7 +33,7 @@ fn basename(path: &str) -> String {
         .unwrap_or_else(|| path.to_string())
 }
 
-fn load_nodes(conn: &Connection) -> Result<Vec<Node>, String> {
+pub(crate) fn load_nodes(conn: &Connection) -> Result<Vec<Node>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, parent_id, kind, name, real_path, sort_order
