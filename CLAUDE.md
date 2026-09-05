@@ -28,6 +28,10 @@ npm run probe:layout   # 리딩 분할 레이아웃 실측(Edge 헤드리스, �
 npm run tauri dev      # 데스크톱 실행 (Rust 필요)
 npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 ```
+> **에이전트 브리지는 앱과 같은 exe 다** — `md-reader.exe mcp` 로 창 없이 stdio MCP 서버가 뜬다
+> (별도 바이너리를 만들지 않는 이유는 MSIX 앱 목록 — [ADR 0002](docs/design/decisions/0002-agent-bridge-mcp.md)).
+> 도구 계약·연결법: [features/agent-bridge.md](docs/design/features/agent-bridge.md).
+
 > 미리보기 렌더를 건드렸으면 `npm run probe:mermaid` 까지 통과해야 한다 — 측정(앱 문서)↔표시(미리보기
 > 문서) 문맥이 어긋나면 라벨이 도형을 넘거나 잘리는데, 눈으로는 잘 안 보인다(v0.6.7·v0.6.8 연속 유출).
 > 미리보기 **패널 배치**(리딩/분할·패널 머리띠·seam)를 건드렸으면 `npm run probe:layout`. mermaid
@@ -42,6 +46,14 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
 ## 현재 상태 (2026-09-06 기준)
+- **에이전트 브리지 1단계 — MCP stdio 서버(읽기 도구 4)**(`develop-agent-bridge`). ADR 0002 를 그대로 구현했다. **새 exe·새 의존성 0** — `md-reader.exe mcp` 가 창 없이 stdio 로 MCP 를 말한다(`main()` 에서 `tauri::Builder` 이전 분기라 마이그레이션·single-instance 를 하나도 안 탄다).
+  - **도구 4개는 전부 "이 앱만 아는 것"** — `search_docs`(FTS5 bm25) · `outline` · `read_section`(섹션 단위 = 토큰 절약) · `list_workspace`(가상 배치는 디스크에 없다). `write_doc`·`create_doc`·`delete` 는 없다. 목록이 읽기 전용인지를 **테스트가 지킨다**(금지 이름이 카탈로그에 없어야 통과).
+  - **스코프가 방어다** — 경로 인자는 전부 워크스페이스 판정을 통과해야 한다(가져온 폴더 하위 전부 · 파일 참조는 그 파일만). 전역 검색이 머신 전체 색인을 보므로 안 걸면 무관한 문서가 샌다. 비교는 `search.rs` 의 `under_root`/`rel_under` 재사용 — **형제 접두어**(`C:` 가 `C:b` 를 잡는 것)를 막는다.
+  - **SDK 크레이트를 안 썼다** — 다루는 것이 `initialize`·`tools/list`·`tools/call`·알림 무시뿐이다. 의존성 트리·NOTICES 가 커지고 판올림마다 흔들린다. `serde_json` 은 이미 있다.
+  - **앵커 id 를 흉내 내지 않는다** — 미리보기 아웃라인은 markdown-it+anchor 의 진짜 id 를 쓰는데 Rust 는 소스 근사 파서다. 비슷한 슬러그는 언젠가 어긋나 *조용히 틀린* 링크가 된다 → **줄 번호**를 준다. 파서는 펜스 코드블록·frontmatter 를 건너뛴다(에이전트 산출물엔 `# 주석` 셸 예시가 흔하다).
+  - **실구동에서 결함 1건** — **첫 줄에만 BOM 이 붙어 `initialize` 가 통째로 깨졌다**(.NET `Process.StandardInput` 이 첫 쓰기에 프리앰블을 흘린다. 2·3번째 줄은 멀쩡해서 "왜 첫 줄만"이 단서였다). 하네스 탓이지만 선행 BOM 하나에 연결이 성립 못 하는 서버는 현장에서 위험하므로 파서가 흘려보내게 고쳤다(RFC 8259 도 무시를 허용). 단위 테스트는 이걸 못 잡았다 — BOM 을 붙이는 쪽이 하네스였기 때문.
+  - 검증: `tsc` · vitest **681**(프런트 무변경) · `cargo test --lib` **20 → 58** · clippy 0 · `vite build`(기존 청크 경고만) · **릴리스 exe 실구동 11항목 PASS**(진짜 MCP 핸드셰이크. 사용자 DB 는 임시 `APPDATA` 에 **사본**을 두고 원본 무접촉 — 자식의 `APPDATA` 만 바꾸면 된다). 프로브 2종은 생략(미리보기 렌더·패널 기하 무변경).
+  - **다음 단위**: MSIX App Execution Alias + 설정의 [에이전트 연결] 패널 + 제어 도구 2(`place_doc`·`open_in_app`). Store 설치본은 별칭이 있어야 붙는다.
 - **[설계] v1.0 방향 — 에이전트 브리지(MCP) 결정 기록**(`develop-agent-bridge-adr`). "AI 산출물인 md 를 읽는 앱"이라는 정체성에 맞춰 v1.0 헤드라인을 에이전트 연동으로 잡고, **구현 전에 패키징 함정부터 실측으로 닫았다** — [ADR 0002](docs/design/decisions/0002-agent-bridge-mcp.md).
   - **핵심 결정: exe 를 안 늘린다.** MCP 서버는 `md-reader.exe` 의 **모드**다(`main()` 에서 `tauri::Builder` 이전에 argv 분기). 전송은 **stdio** — 로컬 HTTP 포트를 열면 "100% 오프라인" 표명이 흔들리고, 인증 표면이 생기고, 앱이 떠 있어야만 쓸 수 있다. MSIX 는 **기존 단일 Application 에 alias Extension 하나**(`readme.exe`)만 얹어 **앱 목록이 지금 그대로**다.
   - **왜 그게 강제되는가** — 같은 계정 Atlas 가 exe 마다 `<Application>` 을 두어 시작 메뉴 항목이 셋이 됐고(`Atlas`·`Atlas CLI`·`Atlas MCP`, 아이콘까지 같다) 둘은 눌러도 창이 안 떠 **"앱이 안 켜진다"** 리뷰를 받았다. 숨기는 길(`AppListEntry="none"`)은 Store 가 **헤드리스 앱**이라며 자동 거부한다(v1.24.0 실제 거부). 2026-09-06 프로브로 해법을 찾아 Atlas 를 **3 → 1** 로 되돌렸다(사이클 185).

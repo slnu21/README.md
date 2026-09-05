@@ -25,6 +25,21 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use tauri::Manager;
 
+/// 앱 식별자. `tauri.conf.json` 의 `identifier` 와 같아야 한다 — 아래 테스트가 어긋남을 잡는다.
+pub const APP_IDENTIFIER: &str = "com.readme.app";
+
+/// Tauri 핸들 없이 앱 데이터 폴더를 찾는다 — MCP 모드는 `tauri::Builder` 를 세우기 전에 갈라지므로
+/// `AppHandle` 이 없다.
+///
+/// **여기서는 컨테이너 판정을 하지 않는다.** 아래 `user_data_dir` 이 그걸 하는 이유는 경로를
+/// **탐색기에 넘기기** 때문이다(가상 경로는 컨테이너 밖에서 해석되지 않는다). 반면 여기 쓰임새는
+/// 우리 프로세스가 자기 파일을 여는 것이라 `%APPDATA%` 그대로가 맞다 — 패키지 신원이 있으면 OS 가
+/// 같은 물리 파일로 돌려주고(그래서 `db.rs` 도 안 건드렸다), 없으면 그게 곧 실제 경로다.
+pub fn standalone_data_dir() -> Result<PathBuf, String> {
+    let appdata = std::env::var_os("APPDATA").ok_or("APPDATA 환경변수를 읽을 수 없습니다")?;
+    Ok(Path::new(&appdata).join(APP_IDENTIFIER))
+}
+
 /// 물리 앱 데이터 폴더. 프로세스당 1회 계산한다(패키지 신원은 실행 중에 바뀌지 않는다).
 pub fn user_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     static CACHE: OnceLock<PathBuf> = OnceLock::new();
@@ -110,6 +125,16 @@ fn package_family_name() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn app_identifier_matches_tauri_conf() {
+        // 상수와 tauri.conf.json 이 갈라지면 MCP 모드가 **빈 DB** 를 연다(워크스페이스가 사라진 것처럼 보인다).
+        let conf = include_str!("../tauri.conf.json");
+        assert!(
+            conf.contains(&format!("\"identifier\": \"{APP_IDENTIFIER}\"")),
+            "tauri.conf.json 의 identifier 가 APP_IDENTIFIER({APP_IDENTIFIER}) 와 다르다"
+        );
+    }
 
     #[test]
     fn container_path_is_localappdata_packages_localcache_roaming() {

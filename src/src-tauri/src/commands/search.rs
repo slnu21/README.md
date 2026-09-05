@@ -34,7 +34,7 @@ fn is_indexable(p: &Path) -> bool {
 
 /// 사용자 질의 → 안전한 FTS5 MATCH 식. 토큰을 영숫자/밑줄만 남겨 연산자/구문오류 차단,
 /// 암묵 AND, 마지막 토큰은 접두 검색(*). 빈 질의면 None.
-fn build_match(raw: &str) -> Option<String> {
+pub(crate) fn build_match(raw: &str) -> Option<String> {
     let tokens: Vec<String> = raw
         .split_whitespace()
         .map(|t| t.chars().filter(|c| c.is_alphanumeric() || *c == '_').collect::<String>())
@@ -251,6 +251,24 @@ pub fn search_query(
     let like = path_prefix.map(|p| format!("{p}%"));
     let lim = limit.unwrap_or(50) as i64;
     let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let rows = match_rows(&conn, &match_expr, like.as_deref(), lim)?;
+    Ok(rows
+        .into_iter()
+        .map(|(real_path, snippet)| {
+            let name = basename(&real_path);
+            SearchHit { real_path, name, snippet }
+        })
+        .collect())
+}
+
+/// FTS MATCH 질의의 알맹이 — 프런트 커맨드와 **MCP 모드**가 공유한다(`(경로, 스니펫)` 목록).
+/// 스니펫 하이라이트는 여기서도 센티넬 문자(STX/ETX)다 — 표시 계층이 알아서 푼다.
+pub(crate) fn match_rows(
+    conn: &Connection,
+    match_expr: &str,
+    like: Option<&str>,
+    limit: i64,
+) -> Result<Vec<(String, String)>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT real_path, snippet(file_index, 1, char(2), char(3), '…', 12) AS snip
@@ -260,15 +278,13 @@ pub fn search_query(
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(params![match_expr, like, lim], |r| {
+        .query_map(params![match_expr, like, limit], |r| {
             Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
         })
         .map_err(|e| e.to_string())?;
     let mut out = Vec::new();
     for row in rows {
-        let (real_path, snippet) = row.map_err(|e| e.to_string())?;
-        let name = basename(&real_path);
-        out.push(SearchHit { real_path, name, snippet });
+        out.push(row.map_err(|e| e.to_string())?);
     }
     Ok(out)
 }
