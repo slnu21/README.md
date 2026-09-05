@@ -87,6 +87,32 @@ npm run tauri dev  # 데스크톱 창 실행 (Rust 필요)
   이미 컨테이너에 데이터(워크스페이스 DB 포함)가 쌓인 사용자가 그것을 통째로 잃은 것처럼
   보게 된다. 이관 없이는 못 한다.
 
+## MSIX 앱 목록 항목 수 = `<Application>` 수 — exe 를 늘리면 시작 메뉴가 늘어난다
+
+에이전트 브리지(MCP)나 CLI 를 붙일 때 **새 exe 를 만들고 싶어진다.** 그러면 MSIX 에서 그 exe 를
+PATH 에 올리려고 App Execution Alias 를 달게 되고, alias 는 `<Application>` 당 1개만 허용되므로
+exe 마다 Application 이 생기고, 그게 곧 **시작 메뉴 '모든 앱' 항목**이다. 숨기는 길
+(`AppListEntry="none"`)은 Store 가 **헤드리스 앱**으로 보고 자동 거부한다. 같은 계정의 Atlas 가
+이 경로로 항목 3개가 되어 "뭘 실행해야 할지 모르겠다 / 눌러도 안 켜진다" 리뷰를 받았다.
+
+2026-09-06 실측(버리는 프로브 패키지 Rust·.NET, 개발자 모드 등록):
+
+| 잰 것 | 결과 |
+|---|---|
+| windows-subsystem exe + 파이프 stdio | **동작** — GUI 바이너리 그대로 stdio 서버가 된다 |
+| 별칭 실행 시 패키지 신원 | **유지**(직접 실행은 `NO_PACKAGE`) → GUI 와 같은 물리 데이터 폴더 |
+| 네이티브 `argv[0]` | 별칭 경로 **보존**(Rust) — .NET 은 dll 경로로 덮어써 안 보인다 |
+| alias Extension 의 `Executable=` | 부모 Application 과 **다른 exe 가능** |
+| 한 Extension 에 `ExecutionAlias` | **여러 개 가능**(같은 exe 로 해석) |
+
+그래서 이 저장소의 방침은 **exe 를 안 늘린다** — `md-reader.exe` 가 argv 로 모드를 가르고, 매니페스트는
+기존 단일 Application 에 alias Extension 하나만 얹는다. 근거·도구 표면은
+[ADR 0002](../design/decisions/0002-agent-bridge-mcp.md).
+
+확인은 설치 없이 된다: 스테이지 폴더의 `AppxManifest.xml` 에서 **Identity Name 과 별칭 이름을 임시값으로
+바꾼 뒤** `Add-AppxPackage -Register` → `Get-StartApps` 로 항목 수를 센다. 실명 그대로 등록하면 사용자의
+Store 설치본을 덮어쓴다.
+
 ## mermaid는 못 살리는 태그를 **지우지 않고 글자로 그린다**
 - `htmlLabels:false`(v0.6.9) 이후 라벨은 SVG `<text>`다. 그 경로에 HTML 해석기가 없어서, mermaid는 라벨 안의 `<b>`·`<span>` 같은 태그를 **한 단어로 취급해 그대로 그린다**(`markdownToLines`의 html 토큰 분기). 태그가 사라지는 게 아니라 **글자로 찍힌다** — 그래서 "지원 안 하니 무시되겠지"가 아니라 반드시 우리가 먼저 걷어내야 한다(`lib/mermaidText.ts`).
 - 상류의 `<br>` 처리는 **한 겹이 아니다.** `createText`는 `/<br\s*\/?>/`(대소문자 구분·속성 없음)만 정규화하고, timeline은 자기 정규식으로 **bare `<br>`만** 자른다. 그래서 `<BR>`·`<br class="x">`·`<br/>`이 다이어그램 종류마다 다르게 샜다. 한 형태로 통일해 넘기는 것이 유일하게 안정적인 방법이다.
