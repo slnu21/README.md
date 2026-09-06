@@ -62,6 +62,18 @@ CREATE TABLE file_meta (          -- 증분 재인덱싱 판단(FTS는 mtime/siz
 
 연결마다 `PRAGMA journal_mode=WAL`(백그라운드 인덱서 동시성)·`foreign_keys=ON`·`busy_timeout=5000`.
 
+### `doc_seen` (schema v2)
+
+| 컬럼 | 타입 | 뜻 |
+|---|---|---|
+| `real_path` | TEXT PK | 문서 경로 |
+| `seen_mtime` | INTEGER | 사용자가 **그 문서를 본 시점의 mtime** |
+| `seen_at` | INTEGER | 표시한 시각(ms) |
+
+`file_meta.mtime > seen_mtime` 이거나 행이 없으면 [받은 문서함](features/inbox.md)에 뜬다.
+행이 아예 없는 것은 "한 번도 본 적 없는 문서" = 새 문서다. v2 마이그레이션은 **기존 `file_meta`
+전체를 그대로 복사해** 판올림 첫 실행에 받은 문서함이 터지는 것을 막는다.
+
 ## 갱신 규칙
 - **가져오기**: `ws_import_folder` 로 imported_folder 루트 노드 추가 → 프런트가 `search_index_folder` 로 백그라운드 인덱싱(별도 연결).
 - **파일 감시(notify)**: imported 루트를 재귀 감시. 외부 변경 시 `file_index`/`file_meta` 증분 갱신(md/markdown/mdx/txt, ≤2MB), `index-updated` + `file-changed` emit. `file_meta.mtime/size` 동일하면 skip.

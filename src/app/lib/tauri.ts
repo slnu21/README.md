@@ -215,6 +215,16 @@ export const onOpenFile = (cb: (path: string) => void): Promise<UnlistenFn> =>
 export const onOpenFileBeside = (cb: (path: string) => void): Promise<UnlistenFn> =>
   listen<string>("open-file-beside", (e) => cb(e.payload));
 
+// ── 받은 문서함 ──
+export type InboxItem = { realPath: string; name: string; mtime: number; isNew: boolean };
+export type InboxSnapshot = { items: InboxItem[]; total: number };
+/** 내가 본 뒤로 바뀐 문서 목록(최신 순, 워크스페이스 안쪽만). */
+export const inboxList = (): Promise<InboxSnapshot> => invoke<InboxSnapshot>("inbox_list");
+/** 문서 하나를 본 것으로. 문서를 열 때 부른다. */
+export const inboxMarkSeen = (path: string): Promise<void> => invoke("inbox_mark_seen", { path });
+/** 전부 본 것으로([모두 읽음]). */
+export const inboxMarkAllSeen = (): Promise<void> => invoke("inbox_mark_all_seen");
+
 // ── 에이전트 브리지(MCP) ──
 export type AgentInfo = {
   exePath: string;

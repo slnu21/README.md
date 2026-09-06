@@ -20,7 +20,9 @@ import {
   wsToggleFavorite,
   wsTouchRecent,
   searchIndexFolder,
+  inboxMarkSeen,
   type DirEntryNode,
+  type InboxItem,
   type WorkspaceNode,
 } from "../lib/tauri";
 
@@ -187,7 +189,7 @@ interface AppState {
   syncScroll: boolean;
   outlinePinned: boolean;
   outlineOpacity: number;
-  activeSidebarTab: "workspace" | "recent"; // 사이드바 상단 탭
+  activeSidebarTab: "workspace" | "recent" | "inbox"; // 사이드바 상단 탭
   autosave: boolean; // 자동저장(옵트인) — 편집 후 유휴 시 디스크 저장
 
   // 리딩(집중) 모드 — 편집기를 숨기고 미리보기만 본다. 좌우 분할이면 두 문서를 나란히.
@@ -227,7 +229,11 @@ interface AppState {
   setSyncScroll: (on: boolean) => void;
   setOutlinePinned: (on: boolean) => void;
   setOutlineOpacity: (v: number) => void;
-  setSidebarTab: (tab: "workspace" | "recent") => void;
+  setSidebarTab: (tab: "workspace" | "recent" | "inbox") => void;
+  /** 받은 문서함 — 내가 본 뒤로 바뀐 문서. 비영속(부팅·변경 이벤트마다 다시 읽는다). */
+  inbox: InboxItem[];
+  inboxTotal: number;
+  setInbox: (items: InboxItem[], total: number) => void;
   setAutosave: (on: boolean) => void;
   setReaderMode: (on: boolean) => void;
   toggleReaderMode: () => void;
@@ -270,6 +276,17 @@ interface AppState {
   reloadFile: (path: string, content: string) => void;
 }
 
+/** 문서를 열면 '본 것'으로 표시하고, 받은 문서함 목록에서도 즉시 뺀다.
+ *  IPC 왕복을 기다리지 않고 화면부터 갱신한다 — 클릭하자마자 점이 사라져야 자연스럽다. */
+function markDocSeen(path: string): void {
+  useAppStore.setState((s) =>
+    s.inbox.some((i) => i.realPath === path)
+      ? { inbox: s.inbox.filter((i) => i.realPath !== path), inboxTotal: Math.max(0, s.inboxTotal - 1) }
+      : {},
+  );
+  void inboxMarkSeen(path).catch(() => {});
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -292,6 +309,8 @@ export const useAppStore = create<AppState>()(
       outlinePinned: false,
       outlineOpacity: 0.92,
       activeSidebarTab: "workspace",
+      inbox: [],
+      inboxTotal: 0,
       autosave: false,
       readerMode: false,
       readerSplit: false,
@@ -327,6 +346,7 @@ export const useAppStore = create<AppState>()(
       setOutlinePinned: (on) => set({ outlinePinned: on }),
       setOutlineOpacity: (v) => set({ outlineOpacity: clamp(v, 0.3, 1) }),
       setSidebarTab: (tab) => set({ activeSidebarTab: tab }),
+      setInbox: (items, total) => set({ inbox: items, inboxTotal: total }),
       setAutosave: (on) => set({ autosave: on }),
 
       // 리딩 모드를 꺼도 readerSplit·secondaryPath 는 남긴다 — 다시 켜면 보던 짝이 그대로 돌아온다.
@@ -347,6 +367,7 @@ export const useAppStore = create<AppState>()(
             : [...s.tabs, { path, title: baseName(path), content, dirty: false }];
           const recent = [path, ...s.recent.filter((p) => p !== path)].slice(0, 50);
           void wsTouchRecent(path).catch(() => {});
+          void markDocSeen(path);
           const next = panes.openSecondary({ ...paneStateOf(s), activePath: keepActive }, path);
           return { tabs, recent, readerMode: true, ...next };
         }),
@@ -541,6 +562,8 @@ export const useAppStore = create<AppState>()(
             : [...s.tabs, { path, title: baseName(path), content, dirty: false }];
           const recent = [path, ...s.recent.filter((p) => p !== path)].slice(0, 50);
           void wsTouchRecent(path).catch(() => {}); // SQLite 영속(데모/브라우저는 무시)
+          // 열었으면 본 것이다 — 받은 문서함에서 빠지고 트리의 점도 사라진다.
+          void markDocSeen(path);
           return { tabs, activePath: path, recent };
         }),
 

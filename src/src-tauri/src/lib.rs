@@ -4,6 +4,7 @@ mod commands;
 mod db;
 /// 에이전트 브리지(MCP stdio 서버). `main` 이 Tauri 를 세우기 전에 갈라져 들어온다 — ADR 0002.
 pub mod mcp;
+mod scope;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -85,6 +86,9 @@ pub fn run() {
             greet,
             take_pending_open,
             commands::agent::agent_info,
+            commands::inbox::inbox_list,
+            commands::inbox::inbox_mark_seen,
+            commands::inbox::inbox_mark_all_seen,
             commands::fs_ops::read_file,
             commands::fs_ops::read_file_base64,
             commands::fs_ops::write_file,

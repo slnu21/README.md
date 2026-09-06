@@ -193,6 +193,12 @@ pub(crate) fn index_file(conn: &Connection, path: &str) -> Result<bool, String> 
 ///
 /// 반환: (인덱싱한 수, 정리한 수).
 fn index_folder(conn: &Connection, root: &Path) -> Result<(u32, u32), String> {
+    let root_s = root.to_string_lossy().into_owned();
+    // 이 루트를 **처음** 가져오는가. 처음이면 그 안의 문서는 전부 이미 있던 것이므로 받은
+    // 문서함에 올리지 않는다 — 폴더를 가져오자마자 수백 건이 뜨면 신호가 아니라 소음이다.
+    // 반대로 이미 아는 루트를 다시 훑는 것(부팅 재색인)이면 바뀐 것은 알림 대상이 맞다:
+    // **앱이 꺼져 있는 동안 에이전트가 써 놓은 것**이 정확히 그 경우다.
+    let fresh_root = indexed_under(conn, &root_s)?.is_empty();
     let mut count = 0u32;
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut stack = vec![root.to_path_buf()];
@@ -218,6 +224,9 @@ fn index_folder(conn: &Connection, root: &Path) -> Result<(u32, u32), String> {
                 let ps = p.to_string_lossy().into_owned();
                 if index_file(conn, &ps).unwrap_or(false) {
                     count += 1;
+                    if fresh_root {
+                        let _ = crate::commands::inbox::mark_seen(conn, &ps, None);
+                    }
                 }
                 seen.insert(norm_key(&ps));
             }
@@ -225,9 +234,8 @@ fn index_folder(conn: &Connection, root: &Path) -> Result<(u32, u32), String> {
     }
 
     // prune — walk 에서 못 본 경로(삭제됨·확장자 변경·이제 skip 대상 폴더 아래)를 인덱스에서 뺀다.
-    let root_s = root.to_string_lossy();
     let mut removed = 0u32;
-    for stale in indexed_under(conn, root_s.as_ref())? {
+    for stale in indexed_under(conn, &root_s)? {
         if !seen.contains(&norm_key(&stale)) {
             remove_path(conn, &stale)?;
             removed += 1;
