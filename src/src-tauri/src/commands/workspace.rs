@@ -115,7 +115,7 @@ fn is_descendant(conn: &Connection, candidate: &str, ancestor: &str) -> Result<b
     Ok(false)
 }
 
-fn insert_node(
+pub(crate) fn insert_node(
     conn: &Connection,
     id: &str,
     parent_id: &Option<String>,

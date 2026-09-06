@@ -52,8 +52,11 @@ pub fn run() {
                 let _ = win.show();
                 let _ = win.set_focus();
             }
+            // 에이전트 브리지의 `open_in_app(beside)` 이 이 플래그를 달아 우리 exe 를 다시 띄운다.
+            // 콜드 스타트에는 옆 패널이라는 개념이 없으므로 여기(웜 스타트)에서만 의미가 있다.
+            let beside = argv.iter().any(|a| a.eq_ignore_ascii_case("--beside"));
             if let Some(path) = first_openable_arg(argv) {
-                let _ = app.emit("open-file", path);
+                let _ = app.emit(if beside { "open-file-beside" } else { "open-file" }, path);
             }
         }));
     }
@@ -81,6 +84,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             take_pending_open,
+            commands::agent::agent_info,
             commands::fs_ops::read_file,
             commands::fs_ops::read_file_base64,
             commands::fs_ops::write_file,

@@ -184,5 +184,6 @@
     "unsavedTabMsg": "\"{{name}}\" has unsaved changes. Save it?",
     "saveAndClose": "Save",
     "discardClose": "Don't save"
-  }
+  },
+  "agent": {"title": "Agent bridge (MCP)", "what": "Lets an AI agent such as Claude Code search and read this workspace. The app itself is the server, so there is nothing extra to install.", "statusUnknown": "Checking status…", "statusNever": "No agent has connected yet.", "statusConnected": "Last connected: {{when}}", "copyCommand": "Copy connect command", "copyJson": "Copy config (JSON)", "copied": "Copied to clipboard.", "copyFailed": "Could not copy.", "saveFailed": "Could not save the setting.", "noAlias": "This install has no short name, so the full executable path is used. Microsoft Store installs use the short name readme-md.", "control": "Allow placing and opening documents", "controlNote": "When on, an agent can add documents to your workspace and open them in the app window. It still cannot edit or delete documents."}
 }

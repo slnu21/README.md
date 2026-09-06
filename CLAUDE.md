@@ -46,6 +46,15 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
 ## 현재 상태 (2026-09-06 기준)
+- **에이전트 브리지 2단계 — 연결 패널 · MSIX 별칭 · 제어 도구 2**(`develop-agent-panel`). 1단계가 만든 서버를 **사람이 켜고 끌 수 있는 기능**으로 만들었다.
+  - **MSIX 별칭 `readme-md.exe`** — 기존 **단일 Application 에 alias Extension 하나만** 얹었다(`packaging/msix/AppxManifest.template.xml`). 새 `<Application>` 0개 → 앱 목록 항목 수 그대로. 이름은 `readme.exe` 대신 `readme-md.exe`(전역 PATH 이름치고 `readme` 는 너무 흔하고 기술 식별자와도 어긋난다).
+  - **설정 > [에이전트 연결] 패널**(`shell/AgentBridgePanel.tsx`) — 연결 명령·JSON 복사, 마지막 연결 시각, 제어 토글. 브리지는 눈에 안 보이는 기능이라 **여기가 유일한 입구**다.
+  - **제어 도구 2개는 기본 꺼짐** — `place_doc`(참조만 더한다, 파일은 안 옮긴다 · 같은 부모면 idempotent) · `open_in_app`(single-instance 로 기존 창에 전달, `--beside` 면 옆 패널). 진실원은 **SQLite `settings` 테이블**이다 — MCP 서버는 별도 프로세스라 localStorage 를 못 읽는다. 매 호출마다 읽으므로 서버 재시작 없이 토글이 먹는다.
+  - **제어 도구만 스코프를 안 본다** — 에이전트가 방금 쓴 보고서는 어느 루트에도 없기 때문이다(그게 목적이다). 그래서 **`place_doc` 한 번이 그 문서를 읽기 스코프 안으로 들인다** — 패널 안내문이 그 뜻을 그대로 적는다. `open_in_app` 은 자식에게 **표준 입출력을 안 물려준다**(안 그러면 앱이 MCP 파이프를 붙든 채로 산다).
+  - **실구동에서 결함 1건** — **BOM 붙은 md 의 첫 헤딩을 조용히 놓쳤다**(Windows 에서 흔하다: 메모장·PowerShell `Set-Content -Encoding UTF8`). 오류도 안 난다. `outline::normalize` 가 BOM+줄끝을 정규화하도록 고쳤다. 단위 테스트는 BOM 없는 문자열만 넣고 있어 못 잡았다.
+  - **검증하다 배운 것 둘**(둘 다 [notes/development.md](docs/notes/development.md)): ① **앱의 데이터 폴더는 `APPDATA` 환경변수로 못 바꾼다**(Tauri `app_data_dir` 은 OS API) — 모르고 돌렸다가 사용자 실제 DB 에 설정 한 줄이 쓰여 지우고 원복했다. 앱 검증은 `userdata.ps1` 로 폴더째 비켜 놓을 것. **반면 MCP 모드는 환경변수로 격리된다**(직접 `%APPDATA%` 를 읽으므로). ② **`cargo build --release` 로 나온 exe 는 릴리스 exe 가 아니다** — 프런트가 안 박혀 `localhost:1420` 을 본다.
+  - 검증: `tsc` · vitest **681** · `cargo test --lib` **58 → 67** · clippy 0 · `vite build` · **MCP 실구동 21항목**(읽기 11 + 제어 10) · **패널 실구동 9항목**(CDP — 토글이 SQLite 에 실제로 쓰이는지까지. `settings_set` 은 이번이 **첫 호출**이었다) · **MSIX 패킹 후 임시 신원으로 등록해 시작 메뉴 항목 1개·별칭 생성 실측**.
+  - 남은 것: `open_in_app` 의 `line` 인자(스크롤 위치) · 사람이 쓰는 CLI(`AttachConsole` 필요) · 되돌리기(스냅샷)가 생기기 전에는 쓰기 도구를 열지 않는다.
 - **에이전트 브리지 1단계 — MCP stdio 서버(읽기 도구 4)**(`develop-agent-bridge`). ADR 0002 를 그대로 구현했다. **새 exe·새 의존성 0** — `md-reader.exe mcp` 가 창 없이 stdio 로 MCP 를 말한다(`main()` 에서 `tauri::Builder` 이전 분기라 마이그레이션·single-instance 를 하나도 안 탄다).
   - **도구 4개는 전부 "이 앱만 아는 것"** — `search_docs`(FTS5 bm25) · `outline` · `read_section`(섹션 단위 = 토큰 절약) · `list_workspace`(가상 배치는 디스크에 없다). `write_doc`·`create_doc`·`delete` 는 없다. 목록이 읽기 전용인지를 **테스트가 지킨다**(금지 이름이 카탈로그에 없어야 통과).
   - **스코프가 방어다** — 경로 인자는 전부 워크스페이스 판정을 통과해야 한다(가져온 폴더 하위 전부 · 파일 참조는 그 파일만). 전역 검색이 머신 전체 색인을 보므로 안 걸면 무관한 문서가 샌다. 비교는 `search.rs` 의 `under_root`/`rel_under` 재사용 — **형제 접두어**(`C:` 가 `C:b` 를 잡는 것)를 막는다.

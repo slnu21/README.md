@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, collectImportedPaths, type TreeNode } from "../store";
 import { listThemeIds, themes } from "../themes";
-import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onWindowCloseRequested, winDestroy, revealInExplorer, openWithDefault, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
+import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onOpenFileBeside, onWindowCloseRequested, winDestroy, revealInExplorer, openWithDefault, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite, type IconName } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
@@ -316,15 +316,28 @@ export function AppShell() {
     if (isDemo) return;
     let unlisten: (() => void) | undefined;
     let cancelled = false;
+    let unlistenBeside: (() => void) | undefined;
     void onOpenFileEvent((p) => void openIncoming([p]))
       .then((fn) => {
         if (cancelled) fn();
         else unlisten = fn;
       })
       .catch(() => {});
+    // 에이전트 브리지의 open_in_app(beside) — 읽던 문서를 뺏지 않고 옆에 띄운다.
+    void onOpenFileBeside((p) => {
+      void readFile(p)
+        .then((content) => useAppStore.getState().openBeside(p, content))
+        .catch(() => void openIncoming([p]));
+    })
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlistenBeside = fn;
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
       unlisten?.();
+      unlistenBeside?.();
     };
   }, [isDemo, openIncoming]);
 

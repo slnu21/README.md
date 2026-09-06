@@ -113,6 +113,32 @@ exe 마다 Application 이 생기고, 그게 곧 **시작 메뉴 '모든 앱' �
 바꾼 뒤** `Add-AppxPackage -Register` → `Get-StartApps` 로 항목 수를 센다. 실명 그대로 등록하면 사용자의
 Store 설치본을 덮어쓴다.
 
+## 앱의 데이터 폴더는 환경변수로 못 바꾼다 — 격리는 폴더째 비켜 놓는 것뿐
+
+`APPDATA` 를 갈아 끼워 앱을 띄우면 격리된 것처럼 보이지만 **아니다.** Tauri 의 `app_data_dir()` 은
+OS API 로 실제 경로를 얻으므로 환경변수를 무시한다. 실제로 이걸 모르고 패널 검증을 돌렸다가
+사용자 실제 DB 에 설정 한 줄이 쓰였다(지우고 원복했다). 앱을 띄우는 검증은 반드시
+`video/capture/userdata.ps1` 로 `%APPDATA%`·`%LOCALAPPDATA%` 의 `com.readme.app` 을 **폴더째**
+비켜 놓고, 끝나면 `-Restore`.
+
+반대로 **MCP 모드는 환경변수로 격리된다** — `app_paths::standalone_data_dir` 이 `%APPDATA%` 를
+직접 읽기 때문이다. 그래서 서버만 검증할 때는 자식 프로세스의 `APPDATA` 만 바꾸면 DB 사본으로
+안전하게 돌릴 수 있다. **둘의 격리 방법이 다르다는 것을 기억할 것.**
+
+## `cargo build --release` 로 나온 exe 는 릴리스 exe 가 아니다
+
+프런트가 안 박히고 `devUrl`(`http://localhost:1420`)을 본다. 그대로 띄우면 버튼 하나짜리 오류
+페이지가 뜬다(CDP 로 `document.title` 이 `localhost` 면 이걸 의심할 것). Rust 만 고쳤을 때 MCP 처럼
+**웹뷰와 무관한 경로**를 재는 데는 충분하지만, 화면을 보려면 `npm run tauri build` 이거나
+Vite dev 서버(`npx vite --port 1420`)를 띄워 놓아야 한다.
+
+## md 파일의 BOM 이 첫 헤딩을 조용히 삼킨다
+
+Windows 에서 BOM 붙은 UTF-8 은 드물지 않다(메모장, PowerShell `Set-Content -Encoding UTF8`).
+그러면 첫 줄이 `\u{feff}# 제목` 이 되어 ATX 판정이 실패하고 **오류 없이** 첫 헤딩이 사라진다.
+`mcp::outline::normalize` 가 BOM 을 떼고 줄끝을 통일한다 — 파일에서 읽은 원문은 반드시 이걸
+통과시킬 것. (실구동 검증에서만 잡혔다. 단위 테스트는 BOM 없는 문자열만 넣고 있었다.)
+
 ## mermaid는 못 살리는 태그를 **지우지 않고 글자로 그린다**
 - `htmlLabels:false`(v0.6.9) 이후 라벨은 SVG `<text>`다. 그 경로에 HTML 해석기가 없어서, mermaid는 라벨 안의 `<b>`·`<span>` 같은 태그를 **한 단어로 취급해 그대로 그린다**(`markdownToLines`의 html 토큰 분기). 태그가 사라지는 게 아니라 **글자로 찍힌다** — 그래서 "지원 안 하니 무시되겠지"가 아니라 반드시 우리가 먼저 걷어내야 한다(`lib/mermaidText.ts`).
 - 상류의 `<br>` 처리는 **한 겹이 아니다.** `createText`는 `/<br\s*\/?>/`(대소문자 구분·속성 없음)만 정규화하고, timeline은 자기 정규식으로 **bare `<br>`만** 자른다. 그래서 `<BR>`·`<br class="x">`·`<br/>`이 다이어그램 종류마다 다르게 샜다. 한 형태로 통일해 넘기는 것이 유일하게 안정적인 방법이다.

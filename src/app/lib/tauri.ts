@@ -210,6 +210,21 @@ export const takePendingOpen = (): Promise<string | null> => invoke<string | nul
 export const onOpenFile = (cb: (path: string) => void): Promise<UnlistenFn> =>
   listen<string>("open-file", (e) => cb(e.payload));
 
+/** 에이전트가 `open_in_app({beside:true})` 로 보낸 문서 — 활성 탭은 그대로 두고 옆 패널에 연다.
+ *  콜드 스타트에는 옆 패널이라는 개념이 없으므로 이 이벤트는 웜 스타트에서만 온다. */
+export const onOpenFileBeside = (cb: (path: string) => void): Promise<UnlistenFn> =>
+  listen<string>("open-file-beside", (e) => cb(e.payload));
+
+// ── 에이전트 브리지(MCP) ──
+export type AgentInfo = {
+  exePath: string;
+  /** 별칭이 실제로 깔렸으면 그 경로. Store 설치본이 아니거나 사용자가 별칭을 꺼 두면 null. */
+  aliasPath: string | null;
+  aliasName: string;
+};
+/** 설정 [에이전트 연결] 패널이 쓰는 정보. */
+export const agentInfo = (): Promise<AgentInfo> => invoke<AgentInfo>("agent_info");
+
 /** 시스템 파일 탐색기에서 해당 파일 위치를 파일 선택 상태로 연다(탭 우클릭 메뉴). */
 export const revealInExplorer = (path: string): Promise<void> => revealItemInDir(path);
 
