@@ -1184,7 +1184,8 @@ export function AppShell() {
               onClick={() => setSidebarTab("inbox")}
               title={t("inbox.title")}
             >
-              <Icon name="star" />
+              {/* 별표는 사이드바의 즐겨찾기와 겹쳐 보인다 — 목록 아이콘을 쓴다. */}
+              <Icon name="list" />
               <span>{t("sidebar.inbox")}</span>
               {inboxTotal > 0 && <span className="sb-badge">{inboxTotal > 99 ? "99+" : inboxTotal}</span>}
             </button>
@@ -1199,7 +1200,7 @@ export function AppShell() {
                   <button type="button" className="inbox-clear" onClick={() => void onMarkAllSeen()}>
                     {t("inbox.markAll")}
                   </button>
-                  <ul className="tree">
+                  <ul className="tree inbox-tree">
                     {inbox.map((it) => (
                       <li key={it.realPath}>
                         <div

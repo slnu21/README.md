@@ -467,12 +467,18 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .sb-tab {
-  flex: 1;
+  /* 탭이 셋이 되면서 좁아졌다. 한국어 이름("워크스페이스"·"받은 문서함")이 줄바꿈되면
+     탭 줄이 통째로 무너지므로 한 줄로 고정하고, 넘치면 줄임표로 자른다(데모 캡처에서 잡았다). */
+  flex: 1 1 0;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   height: 30px;
+  padding: 0 4px;
+  overflow: hidden;
+  white-space: nowrap;
   border: 0;
   border-radius: var(--r-sm) var(--r-sm) 0 0;
   background: transparent;
@@ -484,8 +490,13 @@ body {
   transition: color 0.14s ease, background-color 0.14s ease;
 }
 .sb-tab .ic {
+  flex: 0 0 auto;
   width: 14px;
   height: 14px;
+}
+.sb-tab > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sb-tab:hover {
   color: var(--fg);
@@ -498,6 +509,7 @@ body {
 
 /* 받은 문서함 — 안 본 것이 있을 때만 배지가 나온다(0을 띄우면 늘 붉은 점이 있는 셈이다). */
 .sb-badge {
+  flex: 0 0 auto;
   min-width: 15px;
   height: 15px;
   padding: 0 4px;
@@ -525,6 +537,19 @@ body {
 .inbox-clear:hover {
   color: var(--accent);
   border-color: var(--accent);
+}
+/* 받은 문서함 목록은 워크스페이스 트리와 달리 **가로로 자라지 않는다**.
+   `.tree` 는 `width:max-content`(v0.6.4, 긴 이름을 가로 스크롤로 보여 주려고)인데, 그러면
+   `margin-left:auto` 인 '새 문서/변경됨' 라벨이 사이드바 밖으로 밀려나 아예 안 보인다.
+   여기서는 이름을 줄임표로 자르고 라벨을 오른쪽 끝에 붙인다(전체 경로는 title 로 뜬다). */
+.tree.inbox-tree {
+  width: 100%;
+  min-width: 0;
+}
+.tree.inbox-tree .name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .inbox-kind {
   flex: 0 0 auto;
