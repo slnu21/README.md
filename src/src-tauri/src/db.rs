@@ -56,6 +56,20 @@ const MIGRATIONS: &[&str] = &[
     );
     INSERT INTO workspace (id, name, created_at) VALUES ('default', 'Workspace', 0);
     "#,
+    // v2 — 받은 문서함: 사용자가 그 문서를 **본 시점의 mtime**. `file_meta.mtime` 과 비교하면
+    // "내가 본 뒤로 바뀐 것"이 그대로 나온다(앱이 꺼져 있는 동안 바뀐 것 포함 — 부팅 재색인이
+    // mtime 을 올려 주므로).
+    r#"
+    CREATE TABLE doc_seen (
+      real_path  TEXT PRIMARY KEY,
+      seen_mtime INTEGER NOT NULL,
+      seen_at    INTEGER NOT NULL
+    );
+    -- 이미 색인돼 있던 것은 전부 '본 것'으로 친다. 안 그러면 판올림 첫 실행에 받은 문서함이
+    -- 수천 건으로 터지고, 그 순간 이 기능은 신호가 아니라 소음이 된다.
+    INSERT INTO doc_seen (real_path, seen_mtime, seen_at)
+      SELECT real_path, mtime, CAST(strftime('%s','now') AS INTEGER) * 1000 FROM file_meta;
+    "#,
 ];
 
 fn db_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -98,10 +112,16 @@ pub fn open_side_conn(app: &AppHandle) -> Result<Connection, String> {
 }
 
 fn migrate(conn: &mut Connection) -> Result<(), String> {
+    migrate_upto(conn, MIGRATIONS.len())
+}
+
+/// 지정한 단계까지만 적용한다. 판올림 동작(기존 데이터가 어떻게 넘어오는지)을 테스트가
+/// 재현할 수 있어야 해서 갈라 두었다.
+fn migrate_upto(conn: &mut Connection, upto: usize) -> Result<(), String> {
     let current: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .map_err(|e| e.to_string())?;
-    let target = MIGRATIONS.len() as i64;
+    let target = upto as i64;
     for v in current..target {
         let tx = conn.transaction().map_err(|e| e.to_string())?;
         tx.execute_batch(MIGRATIONS[v as usize]).map_err(|e| e.to_string())?;
@@ -120,6 +140,18 @@ pub fn now_ms() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
+}
+
+/// 테스트 전용 — 다른 모듈의 테스트가 진짜 스키마를 쓰게 한다(손으로 베낀 표는 언젠가 어긋난다).
+#[cfg(test)]
+pub(crate) fn migrate_for_test(conn: &mut Connection) -> Result<(), String> {
+    migrate(conn)
+}
+
+/// 테스트 전용 — 판올림 이전 상태를 만든다.
+#[cfg(test)]
+pub(crate) fn migrate_to_for_test(conn: &mut Connection, upto: usize) -> Result<(), String> {
+    migrate_upto(conn, upto)
 }
 
 #[cfg(test)]

@@ -46,6 +46,13 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
 ## 현재 상태 (2026-09-06 기준)
+- **받은 문서함 — 에이전트가 만지고 간 문서를 알아채게**(`develop-doc-inbox`). 브리지의 반대 방향이다: 밤새 써 놓은 것을 아침에 눈에 띄게 한다. **브리지 없이도 값이 있다**(감시기는 누가 고쳤든 본다). 문서: [features/inbox.md](docs/design/features/inbox.md).
+  - **새 상태는 하나뿐** — 색인이 이미 mtime 을 들고 있으므로(`file_meta`) 필요한 건 **본 시점의 mtime**(`doc_seen`, 마이그레이션 v2)이다. `file_meta.mtime > seen_mtime` 이거나 행이 없으면 받은 문서함. 행이 없는 것 = **새 문서**. 앱이 꺼져 있던 동안의 변경도 부팅 재색인이 mtime 을 올려 함께 잡힌다.
+  - **신호를 죽이지 않는 규칙 셋**(하나만 어겨도 소음이 된다): ① 판올림 때 **기존 색인 전체를 본 것으로 복사**(안 하면 첫 실행에 수천 건) ② **폴더를 처음 가져올 때는 전부 본 것으로**(`index_folder` 의 `fresh_root` — 이미 아는 루트를 다시 훑는 것은 알림 대상이 맞다) ③ **앱이 쓴 것은 즉시 본 것으로**(`write_file`·`create_file`). ③에서 mtime 은 **디스크에서 다시 읽는다** — 색인 값은 낡아서 그걸 박으면 곧 재색인이 새 mtime 을 넣어 결국 뜬다.
+  - 화면: 사이드바 세 번째 탭 + **0이면 안 나오는 배지** · 트리의 점(원천은 목록 그 자체 — 상태를 둘로 두면 어긋난다) · 열면 즉시 빠짐(IPC 왕복을 안 기다린다) · [모두 읽음].
+  - **스코프는 브리지와 공유**한다 — `Scope` 를 `mcp::tools` 에서 `scope.rs` 로 올렸다. 판정이 두 벌이 되면 한쪽만 샌다.
+  - **단위 테스트가 결함 1건을 잡았다** — SQLite 는 `INSERT ... SELECT ... ON CONFLICT` 를 파싱하지 못한다(`ON` 을 조인으로 읽는다). `SELECT ... WHERE true ON CONFLICT` 로 갈라야 한다. [모두 읽음]이 통째로 죽어 있었을 자리다.
+  - 검증: `tsc` · vitest **681** · `cargo test --lib` **67 → 72** · clippy 0 · `vite build` · **실구동 7항목**(CDP — 새 가져오기 비어 있음 → 밖에서 고침/새로 만듦 → 배지 → 열면 빠짐 → **앱 저장은 안 들어옴** → 모두 읽음) · MCP 스위트 무회귀 확인.
 - **에이전트 브리지 2단계 — 연결 패널 · MSIX 별칭 · 제어 도구 2**(`develop-agent-panel`). 1단계가 만든 서버를 **사람이 켜고 끌 수 있는 기능**으로 만들었다.
   - **MSIX 별칭 `readme-md.exe`** — 기존 **단일 Application 에 alias Extension 하나만** 얹었다(`packaging/msix/AppxManifest.template.xml`). 새 `<Application>` 0개 → 앱 목록 항목 수 그대로. 이름은 `readme.exe` 대신 `readme-md.exe`(전역 PATH 이름치고 `readme` 는 너무 흔하고 기술 식별자와도 어긋난다).
   - **설정 > [에이전트 연결] 패널**(`shell/AgentBridgePanel.tsx`) — 연결 명령·JSON 복사, 마지막 연결 시각, 제어 토글. 브리지는 눈에 안 보이는 기능이라 **여기가 유일한 입구**다.

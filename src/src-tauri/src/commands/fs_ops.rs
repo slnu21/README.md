@@ -20,8 +20,19 @@ pub fn read_file_base64(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn write_file(path: String, contents: String) -> Result<(), String> {
-    fs::write(&path, contents).map_err(|e| e.to_string())
+pub fn write_file(state: tauri::State<crate::db::Db>, path: String, contents: String) -> Result<(), String> {
+    fs::write(&path, contents).map_err(|e| e.to_string())?;
+    mark_written(&state, &path);
+    Ok(())
+}
+
+/// 앱이 쓴 파일은 곧바로 **본 것**으로 표시한다. 안 그러면 감시기가 재색인하면서 내가 방금
+/// 저장한 문서가 받은 문서함에 뜬다 — 받은 문서함의 신호가 그 순간 죽는다.
+/// 실패는 무시한다(저장 자체는 이미 끝났고, 알림 하나 때문에 저장을 실패시킬 이유가 없다).
+fn mark_written(state: &tauri::State<crate::db::Db>, path: &str) {
+    if let Ok(conn) = state.0.lock() {
+        let _ = crate::commands::inbox::mark_seen(&conn, path, None);
+    }
 }
 
 /// base64 바이트를 파일로 저장(클립보드 이미지 붙여넣기). read_file_base64 의 대칭.
@@ -43,7 +54,11 @@ pub fn write_file_base64(path: String, b64: String) -> Result<(), String> {
 /// 벌어져(TOCTOU) 완전하지 않다 — `create_new(true)` 는 OS 가 원자적으로 보장한다.
 /// 이미 있을 때만 "EEXIST" 를 돌려준다(프런트가 이 문자열로 분기해 지역화 메시지를 낸다).
 #[tauri::command]
-pub fn create_file(path: String, contents: Option<String>) -> Result<(), String> {
+pub fn create_file(
+    state: tauri::State<crate::db::Db>,
+    path: String,
+    contents: Option<String>,
+) -> Result<(), String> {
     let p = Path::new(&path);
     if let Some(dir) = p.parent() {
         if !dir.as_os_str().is_empty() {
@@ -63,7 +78,11 @@ pub fn create_file(path: String, contents: Option<String>) -> Result<(), String>
         })?;
     use std::io::Write;
     f.write_all(contents.unwrap_or_default().as_bytes())
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    // 내가 앱에서 만든 새 문서다 — 받은 문서함은 '남이 만진 것'만 모은다.
+    drop(f);
+    mark_written(&state, &path);
+    Ok(())
 }
 
 /// 경로 존재 여부 — 이미지 저장 시 파일명 충돌을 피해 뒤 번호를 올리는 데 쓴다.

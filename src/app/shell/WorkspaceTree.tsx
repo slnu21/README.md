@@ -88,6 +88,9 @@ function TreeList({
   const activePath = useAppStore((s) => s.activePath);
   const favorites = useAppStore((s) => s.favorites);
   const toggleFavorite = useAppStore((s) => s.toggleFavorite);
+  // 안 본 문서 경로 집합. 받은 문서함 목록에서 **파생**한다 — 상태를 둘로 두면 반드시 어긋난다.
+  const inbox = useAppStore((s) => s.inbox);
+  const unseen = useMemo(() => new Set(inbox.map((i) => i.realPath)), [inbox]);
 
   return (
     <ul className={(depth === 0 ? "tree" : "children") + (imported ? " imported" : "")}>
@@ -150,6 +153,10 @@ function TreeList({
               <span className="name" onMouseEnter={(e) => showFullNameOnClip(e, n.name)}>
                 {n.name}
               </span>
+              {/* 받은 문서함과 같은 신호를 트리에서도 — 폴더를 펼쳐 둔 사람은 여기서 먼저 본다. */}
+              {n.realPath && unseen.has(n.realPath) && (
+                <span className="unseen-dot" title={t("inbox.title")} aria-label={t("inbox.title")} />
+              )}
               {importedRoot &&
                 (n.missing ? (
                   // 원본 폴더를 못 읽었다. 빈 폴더로 보이면 원인을 못 찾으므로 여기서 말해 준다.
@@ -194,6 +201,7 @@ function TreeList({
 }
 
 export function WorkspaceTree() {
+
   const { t } = useTranslation();
   const roots = useAppStore((s) => s.roots);
   const favorites = useAppStore((s) => s.favorites);
