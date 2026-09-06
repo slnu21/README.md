@@ -36,9 +36,16 @@ Store 가 헤드리스 앱이라며 거부한다. → [notes/development.md](../
 claude mcp add --scope user readme-md -- "<설치 경로>\md-reader.exe" mcp
 ```
 
-> **Store 설치본은 아직 이 방법을 못 쓴다.** 패키지 안의 exe 경로는 잠겨 있고 버전마다 바뀌므로
-> App Execution Alias 가 필요하다. 별칭과 설정의 [에이전트 연결] 패널은 다음 작업 단위다.
-> 그때까지는 NSIS 설치본·포터블·개발 빌드에서 절대 경로로 연결한다.
+**Store 설치본은 짧은 이름을 쓴다** — MSIX 가 App Execution Alias `readme-md.exe` 를 PATH 에 올린다
+(패키지 안 exe 경로는 잠겨 있고 버전마다 바뀌어 설정에 적을 수 없다). 별칭은 **기존 단일
+Application 이 그대로 단다** — 새 `<Application>` 을 만들면 시작 메뉴 항목이 늘고, 숨기면 Store 가
+헤드리스 앱이라며 거부한다.
+
+> 별칭은 사용자가 **설정 > 앱 > 고급 앱 설정 > 앱 실행 별칭**에서 끌 수 있다. 그러면 패널이
+> 절대 경로로 안내한다.
+
+**설정 > [에이전트 연결] 패널**이 위 두 줄을 그대로 복사해 준다 — 브리지는 눈에 안 보이는
+기능이라 거기가 유일한 입구다. 마지막 연결 시각도 거기서 본다(서버가 `initialize` 때 기록한다).
 
 ## 도구 — 공개 계약
 
@@ -51,6 +58,10 @@ claude mcp add --scope user readme-md -- "<설치 경로>\md-reader.exe" mcp
 | `outline` | `path` | `{path, lines, headings[] = {level, text, line}}` | 큰 문서를 통째로 안 읽고 고르게 한다 |
 | `read_section` | `path` · `heading?` · `fromLine?` · `toLine?` | `{path, fromLine, toLine, totalLines, truncated, text}` | 섹션 단위 읽기 = 토큰 절약 |
 | `list_workspace` | 없음 | `{tree[]}` — `{id, kind, name, path?, children[], childrenFromDisk?}` | **가상 배치**는 디스크에 없다 |
+| `place_doc` ⚑ | `path` · `folder?` | `{id, name, created}` | 파일을 **안 옮기고** 참조만 더한다 |
+| `open_in_app` ⚑ | `path` · `beside?` | `{opened, beside}` | 사람의 **화면**에 띄운다 |
+
+⚑ = **제어 도구**. 기본은 꺼짐이고, 설정의 [에이전트 연결]에서 켜야 동작한다.
 
 - `heading` 은 정확히 일치 → 없으면 대소문자 무시 부분일치. 섹션은 **같거나 더 높은 레벨의 다음
   헤딩 직전**까지라 하위 절이 함께 온다.
@@ -81,12 +92,29 @@ ATX(`#`)만 본다. **펜스 코드블록 안과 YAML frontmatter 안은 건너�
 읽기는 `.md`·`.markdown`·`.mdx`·`.txt` 만, 파일당 4MB 까지. 응답 본문은 60,000자에서 자르고
 `truncated: true` 로 알린다.
 
+## 제어 도구 — 켜야 동작한다
+
+`place_doc`·`open_in_app` 은 **기본이 꺼짐**이다. 진실원은 앱 설정(SQLite `settings` 테이블의
+`agentControlEnabled`)이라 서버를 다시 띄우지 않아도 토글이 즉시 먹는다 — 매 호출마다 읽는다.
+꺼져 있으면 도구는 "설정 > 에이전트 연결에서 켜 주세요"라고 답한다(에이전트가 사용자에게
+그대로 옮길 수 있는 문구여야 한다).
+
+**이 둘만 스코프를 안 본다.** 에이전트가 방금 쓴 보고서는 아직 어느 루트에도 없기 때문이다 —
+워크스페이스 *밖* 문서를 들이는 것이 도구의 목적이다. 대신 존재하는 읽을 수 있는 문서만 받는다.
+그래서 **`place_doc` 한 번은 그 문서를 읽기 도구의 스코프 안으로 들인다**(참조가 곧 스코프다).
+패널의 안내 문구가 이 뜻을 그대로 적어 둔다.
+
+`place_doc` 은 같은 부모 아래 같은 문서면 **새로 만들지 않고 있던 것을 돌려준다**(`created:false`).
+에이전트는 재시도한다.
+
+`open_in_app` 은 우리 exe 를 다시 띄우고 single-instance 가 경로를 기존 창으로 넘긴다. 앱이 꺼져
+있으면 실행한다(그때는 `beside` 가 의미 없다). 띄울 때 **표준 입출력을 물려주지 않는다** — 안
+그러면 앱이 우리 MCP 파이프를 붙든 채로 산다.
+
 ## 안 하는 것 (설계상)
 
 - **쓰기 도구 없음** — `write_doc`·`create_doc`·`delete`. 에이전트가 이미 fs 로 하는 일이라 값은 0
   이고 프롬프트 인젝션 표면만 는다. 되돌리기(저장 스냅샷)가 생기기 전에는 열지 않는다.
-- **제어 도구 없음** — `place_doc`(워크스페이스에 배치)·`open_in_app`(앱에 띄우기)은 설정의
-  [에이전트 연결] 패널이 생긴 뒤에 연다. 사용자가 상태를 보고 끌 수 없는 원격 제어는 열지 않는다.
 - **resources·prompts 없음** — `tools` 능력만 선언하고 나머지는 `-32601` 로 답한다.
 - **사람이 쓰는 CLI 없음** — 릴리스 빌드는 windows-subsystem 이라 터미널에 출력이 안 보인다
   (`AttachConsole(ATTACH_PARENT_PROCESS)` 가 필요하다). 파이프로 붙는 MCP 경로에는 무관하다.
@@ -107,8 +135,11 @@ ATX(`#`)만 본다. **펜스 코드블록 안과 YAML frontmatter 안은 건너�
 
 ## 검증
 
-- 단위 테스트 38종(`cargo test --lib`) — JSON-RPC 프레이밍·프로토콜 협상·아웃라인 파서·스코프 판정·
-  도구 목록이 읽기 전용인지.
-- **릴리스 exe 실구동 11항목** — MCP 클라이언트처럼 파이프로 띄워 `initialize` → `tools/list` →
-  `tools/call` 을 실제로 주고받는다. 사용자 DB 는 임시 `APPDATA` 에 **사본**을 두고 원본을 안 건드린다
-  (자식 프로세스의 `APPDATA` 만 바꾸면 된다).
+- 단위 테스트 47종(`cargo test --lib`) — JSON-RPC 프레이밍·프로토콜 협상·아웃라인 파서·문서 정규화·
+  스코프 판정·폴더 해석·제어 게이트·도구 목록에 쓰기 도구가 없는지.
+- **exe 실구동 21항목** — MCP 클라이언트처럼 파이프로 띄워 `initialize` → `tools/list` → `tools/call`
+  을 실제로 주고받는다(읽기 11 + 제어 10). MCP 서버는 `%APPDATA%` 를 환경변수로 읽으므로 자식의
+  `APPDATA` 만 바꾸면 DB 사본으로 격리된다.
+- **설정 패널 실구동 9항목**(WebView2 CDP) — 패널이 그려지는지, 연결 명령이 실제 경로를 담는지,
+  그리고 **토글이 SQLite 에 실제로 쓰이는지**(`settings_set` 은 이 작업 전까지 한 번도 호출된 적 없는
+  커맨드였다). **앱 쪽 격리는 환경변수로 안 된다** — `video/capture/userdata.ps1` 로 폴더째 비켜 놓는다.

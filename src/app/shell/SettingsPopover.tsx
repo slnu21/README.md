@@ -16,6 +16,7 @@ import {
 } from "../lib/tauri";
 import { readFonts, monoFonts, uiFonts } from "../lib/fonts";
 import { Icon } from "./Icon";
+import { AgentBridgePanel } from "./AgentBridgePanel";
 
 export function SettingsPopover() {
   const { t } = useTranslation();
@@ -295,6 +296,8 @@ export function SettingsPopover() {
           <button type="button" className="set-reset" onClick={() => void exportTheme()}>
             {t("settings.themeExport")}
           </button>
+
+          <AgentBridgePanel />
         </div>
       )}
     </div>

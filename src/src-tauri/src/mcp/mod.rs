@@ -97,11 +97,22 @@ fn dispatch(
     params: &Value,
 ) -> Result<Value, (i64, String)> {
     match method {
-        "initialize" => Ok(json!({
+        "initialize" => {
+            // 패널이 "붙었다"를 보여 줄 유일한 근거다 — 서버는 별도 프로세스라 앱이 달리 알 길이 없다.
+            // 실패해도 무시한다(연결 자체를 막을 이유가 없다).
+            if let Ok(c) = conn {
+                let _ = c.execute(
+                    "INSERT INTO settings (key, value) VALUES ('agentLastConnectedAt', ?1)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    rusqlite::params![crate::db::now_ms().to_string()],
+                );
+            }
+            Ok(json!({
             "protocolVersion": negotiate(params.get("protocolVersion").and_then(Value::as_str)),
             "capabilities": { "tools": {} },
             "serverInfo": { "name": SERVER_NAME, "version": SERVER_VERSION },
-        })),
+            }))
+        }
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({ "tools": tools::catalog() })),
         "tools/call" => {
@@ -198,7 +209,7 @@ mod tests {
         // 목록은 DB 와 무관해야 한다 — 앱을 한 번도 안 켠 사용자도 연결은 성공해야 붙었는지 안다.
         let req = r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#;
         let v: Value = serde_json::from_str(&respond(&no_db(), req).unwrap()).unwrap();
-        assert_eq!(v["result"]["tools"].as_array().unwrap().len(), 4);
+        assert_eq!(v["result"]["tools"].as_array().unwrap().len(), 6);
     }
 
     #[test]

@@ -7,6 +7,23 @@
 //! **id 를 흉내 내지 않는다.** 비슷하게 만든 슬러그는 언젠가 진짜 앵커와 어긋나 *조용히 틀린*
 //! 링크가 된다. 대신 **줄 번호**(1-based)를 준다 — `read_section` 도 그걸로 자른다.
 
+/// 파일에서 읽은 원문을 파서가 보는 형태로 맞춘다.
+///
+/// **선행 BOM 을 뗀다** — 안 떼면 첫 줄이 `\u{feff}# 제목` 이 되어 **첫 헤딩을 통째로 놓친다**
+/// (아무 오류도 안 난다. 실구동 검증에서 잡았다). Windows 에서는 메모장·PowerShell
+/// `Set-Content -Encoding UTF8` 이 BOM 을 붙이므로 드문 파일이 아니다.
+///
+/// 줄끝은 LF 로 통일한다 — 줄 번호가 편집기·미리보기(`data-line`)와 같은 기준이어야 한다.
+/// 프런트의 `readFile` 도 같은 정규화를 하므로 두 쪽의 줄 번호가 어긋나지 않는다.
+/// (홑 `\r` 은 Rust `str::lines()` 가 줄바꿈으로 안 보므로 여기서 줄 수가 늘 수 있다 —
+/// 그게 앱이 보는 줄 수와 맞는 쪽이다.)
+pub fn normalize(raw: &str) -> String {
+    raw.strip_prefix('\u{feff}')
+        .unwrap_or(raw)
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Heading {
     pub level: u8,
@@ -141,6 +158,29 @@ mod tests {
 
     fn levels(src: &str) -> Vec<(u8, String, usize)> {
         headings(src).into_iter().map(|h| (h.level, h.text, h.line)).collect()
+    }
+
+    #[test]
+    fn bom_does_not_swallow_the_first_heading() {
+        // 안 떼면 첫 줄이 헤딩으로 안 잡히고, 아무 오류도 안 난다.
+        let raw = "\u{feff}# 보고서\n본문\n";
+        assert_eq!(levels(&normalize(raw)), vec![(1, "보고서".into(), 1)]);
+        assert_eq!(levels(raw), Vec::new(), "정규화 전에는 못 잡는 것이 맞다");
+    }
+
+    #[test]
+    fn crlf_becomes_lf_without_changing_line_count() {
+        let raw = "# A\r\n본문\r\n";
+        let n = normalize(raw);
+        assert_eq!(n, "# A\n본문\n");
+        assert_eq!(raw.lines().count(), n.lines().count());
+    }
+
+    #[test]
+    fn lone_cr_becomes_a_line_break() {
+        // 앱의 readFile 과 같은 규칙 — 줄 번호를 두 쪽이 같게 세려면 이래야 한다.
+        assert_eq!(normalize("a\rb"), "a\nb");
+        assert_eq!(normalize("a\rb").lines().count(), 2);
     }
 
     #[test]

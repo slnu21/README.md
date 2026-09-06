@@ -403,6 +403,25 @@ body {
   border-color: var(--accent);
 }
 
+/* 에이전트 연결 — 눈에 안 보이는 기능이라 설명이 곧 UI 다. 설정 행보다 한 단 낮은 톤. */
+.set-row.agent-head {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.set-row.agent-head > span {
+  font-weight: 700;
+}
+.agent-note {
+  margin: 0 0 2px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.agent-note.dim {
+  opacity: 0.75;
+}
+
 .wctl {
   display: flex;
   align-items: center;
