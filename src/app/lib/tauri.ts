@@ -215,6 +215,16 @@ export const onOpenFile = (cb: (path: string) => void): Promise<UnlistenFn> =>
 export const onOpenFileBeside = (cb: (path: string) => void): Promise<UnlistenFn> =>
   listen<string>("open-file-beside", (e) => cb(e.payload));
 
+// ── 문서 기록(스냅샷) ──
+export type HistoryEntry = { id: number; mtime: number; takenAt: number; bytes: number };
+/** 이 문서의 이전 판 목록(최신 순). 내용은 안 실려 온다. */
+export const historyList = (path: string): Promise<HistoryEntry[]> =>
+  invoke<HistoryEntry[]>("history_list", { path });
+/** 한 판의 내용(미리보기). */
+export const historyGet = (id: number): Promise<string> => invoke<string>("history_get", { id });
+/** 그 판으로 되돌리고 되돌린 내용을 받는다. 되돌리기 직전 내용도 기록에 남는다(되돌리기의 되돌리기). */
+export const historyRestore = (id: number): Promise<string> => invoke<string>("history_restore", { id });
+
 // ── 받은 문서함 ──
 export type InboxItem = { realPath: string; name: string; mtime: number; isNew: boolean };
 export type InboxSnapshot = { items: InboxItem[]; total: number };

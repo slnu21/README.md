@@ -10,6 +10,7 @@ import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
 import { OutlineOverlay } from "./OutlineOverlay";
 import { SearchResults } from "./SearchResults";
+import { HistoryModal } from "./HistoryModal";
 import { Editor, type EditorHandle } from "./Editor";
 import type { SelState } from "../features/editor";
 import { Presentation } from "./Presentation";
@@ -92,6 +93,7 @@ export function AppShell() {
   const recent = useAppStore((s) => s.recent);
   const activeSidebarTab = useAppStore((s) => s.activeSidebarTab);
   const setSidebarTab = useAppStore((s) => s.setSidebarTab);
+  const [historyPath, setHistoryPath] = useState<string | null>(null);
   const inbox = useAppStore((s) => s.inbox);
   const inboxTotal = useAppStore((s) => s.inboxTotal);
   const setInbox = useAppStore((s) => s.setInbox);
@@ -503,6 +505,7 @@ export function AppShell() {
     };
     add("new-doc", t("menu.newFile"), () => void onNewDoc());
     add("open-file", t("menu.openFile"), () => void onOpenFile());
+    if (activePath) add("doc-history", t("history.title"), () => setHistoryPath(activePath));
     add("open-folder", t("menu.openFolder"), () => void onOpenFolder());
     add("resync", t("ws.resyncAll"), () => void useAppStore.getState().resyncWorkspace());
     add("find-replace", t("find.title"), () => setFindOpen(true));
@@ -660,6 +663,9 @@ export function AppShell() {
   // 탭 우클릭 메뉴 항목. 저장 경로 있는 탭만 워크스페이스 추가·위치 열기·경로 복사 노출.
   function tabMenuItems(path: string): MenuItem[] {
     const items: MenuItem[] = [];
+    if (path) {
+      items.push({ label: t("history.title"), onClick: () => setHistoryPath(path) });
+    }
     // 활성 문서 자신을 옆에 두는 건 의미가 없다 — 다른 탭일 때만 노출.
     if (path && path !== activePath) {
       items.push({
@@ -1473,6 +1479,7 @@ export function AppShell() {
         </footer>
       </div>
       {/* 셸 밖(fragment 최상위) — position:fixed 라 프레젠테이션 오버레이 위에도 뜬다. */}
+      {historyPath && <HistoryModal path={historyPath} onClose={() => setHistoryPath(null)} />}
       <Toast />
     </>
   );

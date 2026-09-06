@@ -695,6 +695,75 @@ body {
   outline: none;
   border-color: var(--accent);
 }
+/* 문서 기록 — 왼쪽에 판 목록, 오른쪽에 그 판의 내용. */
+.history-modal {
+  width: min(760px, 92vw);
+}
+.history-body {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 10px;
+  height: min(420px, 55vh);
+  margin: 8px 0;
+}
+.history-list {
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  list-style: none;
+}
+.history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.history-item:hover {
+  background: var(--bg-hover, rgba(127, 127, 127, 0.08));
+}
+.history-item.active {
+  background: var(--bg-hover, rgba(127, 127, 127, 0.12));
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.history-when {
+  font-size: 12px;
+}
+.history-size {
+  color: var(--muted);
+  font-size: 10px;
+}
+.history-preview {
+  overflow: auto;
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.history-hint {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.history-hint.warn {
+  color: var(--accent);
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
