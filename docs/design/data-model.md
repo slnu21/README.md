@@ -74,6 +74,20 @@ CREATE TABLE file_meta (          -- 증분 재인덱싱 판단(FTS는 mtime/siz
 행이 아예 없는 것은 "한 번도 본 적 없는 문서" = 새 문서다. v2 마이그레이션은 **기존 `file_meta`
 전체를 그대로 복사해** 판올림 첫 실행에 받은 문서함이 터지는 것을 막는다.
 
+### `doc_snapshot` (schema v3)
+
+| 컬럼 | 타입 | 뜻 |
+|---|---|---|
+| `id` | INTEGER PK | |
+| `real_path` | TEXT | 문서 경로 |
+| `mtime` | INTEGER | **그 내용이 디스크에 있던 시각**(목록에 보여 주는 값) |
+| `taken_at` | INTEGER | 우리가 뜬 시각 |
+| `content` | TEXT | 그때의 전체 내용 |
+
+`UNIQUE(real_path, mtime)` — 저장 경로와 색인 경로가 같은 판을 노리므로 중복을 인덱스로 막는다.
+재색인이 옛 내용을 덮기 **직전**에 뜬다(남의 쓰기를 가로챌 수 없으므로 그때가 마지막 기회다).
+상한·합치기 창은 [문서 기록](features/history.md).
+
 ## 갱신 규칙
 - **가져오기**: `ws_import_folder` 로 imported_folder 루트 노드 추가 → 프런트가 `search_index_folder` 로 백그라운드 인덱싱(별도 연결).
 - **파일 감시(notify)**: imported 루트를 재귀 감시. 외부 변경 시 `file_index`/`file_meta` 증분 갱신(md/markdown/mdx/txt, ≤2MB), `index-updated` + `file-changed` emit. `file_meta.mtime/size` 동일하면 skip.

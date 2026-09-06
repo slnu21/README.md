@@ -70,6 +70,20 @@ const MIGRATIONS: &[&str] = &[
     INSERT INTO doc_seen (real_path, seen_mtime, seen_at)
       SELECT real_path, mtime, CAST(strftime('%s','now') AS INTEGER) * 1000 FROM file_meta;
     "#,
+    // v3 — 문서 기록(로컬 스냅샷). 바뀌기 **전** 내용을 남겨 되돌릴 수 있게 한다.
+    // 색인이 파일 내용을 통째로 들고 있으므로(file_index), 재색인이 그것을 덮기 직전이
+    // 남의 쓰기에 대해 우리가 가진 마지막 기회다. 상세: commands/history.rs
+    r#"
+    CREATE TABLE doc_snapshot (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      real_path  TEXT NOT NULL,
+      mtime      INTEGER NOT NULL,   -- 그 내용이 디스크에 있던 시각
+      taken_at   INTEGER NOT NULL,   -- 우리가 뜬 시각
+      content    TEXT NOT NULL
+    );
+    CREATE INDEX idx_snapshot_path ON doc_snapshot(real_path, taken_at DESC);
+    CREATE UNIQUE INDEX idx_snapshot_version ON doc_snapshot(real_path, mtime);
+    "#,
 ];
 
 fn db_path(app: &AppHandle) -> Result<PathBuf, String> {

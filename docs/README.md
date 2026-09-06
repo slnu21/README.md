@@ -6,7 +6,7 @@
 - [개요·목표·범위](design/overview.md)
 - [아키텍처](design/architecture.md)
 - [데이터 모델 (SQLite)](design/data-model.md)
-- 기능 상세: [렌더링](design/features/rendering.md) · [워크스페이스](design/features/workspace.md) · [검색](design/features/search.md) · [내보내기](design/features/export.md) · [테마](design/features/themes.md) · [파일 시스템](design/features/file-system.md) · [에이전트 브리지(MCP)](design/features/agent-bridge.md) · [받은 문서함](design/features/inbox.md)
+- 기능 상세: [렌더링](design/features/rendering.md) · [워크스페이스](design/features/workspace.md) · [검색](design/features/search.md) · [내보내기](design/features/export.md) · [테마](design/features/themes.md) · [파일 시스템](design/features/file-system.md) · [에이전트 브리지(MCP)](design/features/agent-bridge.md) · [받은 문서함](design/features/inbox.md) · [문서 기록](design/features/history.md)
 - [설계 결정 기록 (ADR)](design/decisions/)
 
 ## 배포 (deployment)

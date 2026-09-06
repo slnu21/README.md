@@ -117,7 +117,28 @@ fn indexed_under(conn: &Connection, root: &str) -> Result<Vec<String>, String> {
     Ok(out)
 }
 
+/// 색인이 들고 있는 (mtime, 내용). 기록을 뜨기 직전에만 쓴다.
+fn last_indexed(conn: &Connection, path: &str) -> Option<(i64, String)> {
+    let mtime: i64 = conn
+        .query_row("SELECT mtime FROM file_meta WHERE real_path = ?1", params![path], |r| r.get(0))
+        .optional()
+        .ok()
+        .flatten()?;
+    let text: String = conn
+        .query_row("SELECT content FROM file_index WHERE real_path = ?1", params![path], |r| r.get(0))
+        .optional()
+        .ok()
+        .flatten()?;
+    Some((mtime, text))
+}
+
 pub(crate) fn remove_path(conn: &Connection, path: &str) -> Result<(), String> {
+    // 문서가 사라진다 — 색인이 들고 있던 마지막 내용을 여기서 한 판 떠 둔다. 지워진 문서야말로
+    // 되돌리고 싶은 것이고, 색인이 비워지면 우리에게 남는 사본이 없다(commands/history.rs).
+    // 실패는 무시 — 기록 하나 때문에 색인 정리를 실패시킬 이유가 없다.
+    if let Some((last_mtime, last_text)) = last_indexed(conn, path) {
+        let _ = crate::commands::history::capture(conn, path, &last_text, last_mtime);
+    }
     conn.execute("DELETE FROM file_index WHERE real_path = ?1", params![path])
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM file_meta WHERE real_path = ?1", params![path])
@@ -168,6 +189,11 @@ pub(crate) fn index_file(conn: &Connection, path: &str) -> Result<bool, String> 
             return Ok(false);
         }
     };
+    // **덮기 직전이 마지막 기회다.** 남이 쓴 변경은 우리가 가로챌 수 없으므로, 색인이 들고
+    // 있던 옛 내용이 새 내용으로 덮이기 전에 한 판 떠 둔다(commands/history.rs).
+    if let Some((last_mtime, last_text)) = last_indexed(conn, path) {
+        let _ = crate::commands::history::capture(conn, path, &last_text, last_mtime);
+    }
     conn.execute("DELETE FROM file_index WHERE real_path = ?1", params![path])
         .map_err(|e| e.to_string())?;
     conn.execute(

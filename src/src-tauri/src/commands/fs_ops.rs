@@ -21,6 +21,11 @@ pub fn read_file_base64(path: String) -> Result<String, String> {
 
 #[tauri::command]
 pub fn write_file(state: tauri::State<crate::db::Db>, path: String, contents: String) -> Result<(), String> {
+    // 덮어쓰기 **전** 내용을 한 판 떠 둔다 — 내 편집도 되돌릴 수 있어야 한다.
+    // 자동저장이 도는 동안 쏟아지지 않도록 합치기 창은 history 쪽이 건다.
+    if let Ok(conn) = state.0.lock() {
+        let _ = crate::commands::history::capture_from_disk(&conn, &path);
+    }
     fs::write(&path, contents).map_err(|e| e.to_string())?;
     mark_written(&state, &path);
     Ok(())
