@@ -155,7 +155,7 @@ function TreeList({
               </span>
               {/* 받은 문서함과 같은 신호를 트리에서도 — 폴더를 펼쳐 둔 사람은 여기서 먼저 본다. */}
               {n.realPath && unseen.has(n.realPath) && (
-                <span className="unseen-dot" title={t("inbox.title")} aria-label={t("inbox.title")} />
+                <span className="unseen-dot" title={t("inbox.dot")} aria-label={t("inbox.dot")} />
               )}
               {importedRoot &&
                 (n.missing ? (

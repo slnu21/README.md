@@ -30,6 +30,7 @@ export type IconName =
   | "present"
   | "refresh"
   | "swap"
+  | "bell"
   | "md";
 
 export function Icon({ name, className }: { name: IconName; className?: string }) {
@@ -46,6 +47,10 @@ export function IconSprite() {
       <defs>
         <symbol id="i-folder" viewBox="0 0 24 24">
           <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        </symbol>
+        <symbol id="i-bell" viewBox="0 0 24 24">
+          <path d="M18 16V11a6 6 0 1 0-12 0v5l-1.6 2.2A.5.5 0 0 0 4.8 19h14.4a.5.5 0 0 0 .4-.8z" />
+          <path d="M10 22h4" />
         </symbol>
         <symbol id="i-refresh" viewBox="0 0 24 24">
           <path d="M20 12a8 8 0 1 1-2.4-5.7" />
