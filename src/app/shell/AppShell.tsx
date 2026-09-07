@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, collectImportedPaths, type TreeNode } from "../store";
 import { listThemeIds, themes } from "../themes";
-import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onOpenFileBeside, inboxList, inboxMarkAllSeen, onWindowCloseRequested, winDestroy, revealInExplorer, openWithDefault, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
+import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onOpenFileBeside, inboxList, onWindowCloseRequested, winDestroy, revealInExplorer, openWithDefault, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite, type IconName } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
@@ -18,6 +18,7 @@ import { Seam } from "./Seam";
 import { PaneHeader } from "./PaneHeader";
 import { splitTemplate } from "../lib/layout";
 import { SettingsPopover } from "./SettingsPopover";
+import { InboxPopover } from "./InboxPopover";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
 import { CommandPalette, type PaletteItem } from "./CommandPalette";
@@ -94,8 +95,6 @@ export function AppShell() {
   const activeSidebarTab = useAppStore((s) => s.activeSidebarTab);
   const setSidebarTab = useAppStore((s) => s.setSidebarTab);
   const [historyPath, setHistoryPath] = useState<string | null>(null);
-  const inbox = useAppStore((s) => s.inbox);
-  const inboxTotal = useAppStore((s) => s.inboxTotal);
   const setInbox = useAppStore((s) => s.setInbox);
   const openFile = useAppStore((s) => s.openFile);
   const setActive = useAppStore((s) => s.setActive);
@@ -360,12 +359,6 @@ export function AppShell() {
   // 읽기 시간(근사): 라틴 단어 200 wpm + CJK 글자 500자/분(≈단어 2.5개 상당).
   const cjk = active ? (active.content.match(/[぀-ヿㄱ-힝一-鿿]/g) || []).length : 0;
   const readMin = active ? Math.max(1, Math.ceil((words + cjk / 2.5) / 200)) : 0;
-
-  /** 받은 문서함 [모두 읽음]. 낙관적으로 비우고 서버에도 알린다. */
-  async function onMarkAllSeen() {
-    setInbox([], 0);
-    await inboxMarkAllSeen().catch(() => {});
-  }
 
   async function onOpenFile() {
     const path = await pickFile();
@@ -1059,6 +1052,7 @@ export function AppShell() {
             </button>
           </div>
 
+          <InboxPopover />
           <SettingsPopover />
 
           <div className="wctl">
@@ -1175,64 +1169,11 @@ export function AppShell() {
               <Icon name="clock" />
               <span>{t("sidebar.recent")}</span>
             </button>
-            {/* 받은 문서함 — 배지는 안 본 것이 있을 때만 나온다(0을 띄우면 늘 붉은 점이 있는 셈). */}
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeSidebarTab === "inbox"}
-              className={"sb-tab" + (activeSidebarTab === "inbox" ? " active" : "")}
-              onClick={() => setSidebarTab("inbox")}
-              title={t("inbox.title")}
-            >
-              {/* 별표는 사이드바의 즐겨찾기와 겹쳐 보인다 — 목록 아이콘을 쓴다. */}
-              <Icon name="list" />
-              <span>{t("sidebar.inbox")}</span>
-              {inboxTotal > 0 && <span className="sb-badge">{inboxTotal > 99 ? "99+" : inboxTotal}</span>}
-            </button>
           </div>
 
           <div className="sidebar-body">
             {activeSidebarTab === "workspace" ? (
               <WorkspaceTree />
-            ) : activeSidebarTab === "inbox" ? (
-              inbox.length > 0 ? (
-                <>
-                  <button type="button" className="inbox-clear" onClick={() => void onMarkAllSeen()}>
-                    {t("inbox.markAll")}
-                  </button>
-                  <ul className="tree inbox-tree">
-                    {inbox.map((it) => (
-                      <li key={it.realPath}>
-                        <div
-                          className={"node file" + (activePath === it.realPath ? " active" : "")}
-                          tabIndex={0}
-                          onClick={() => onOpenRecent(it.realPath)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              onOpenRecent(it.realPath);
-                            }
-                          }}
-                          title={it.realPath}
-                        >
-                          <Icon name="file" />
-                          <span
-                            className="name"
-                            onMouseEnter={(e) => showFullNameOnClip(e, it.name)}
-                          >
-                            {it.name}
-                          </span>
-                          <span className={"inbox-kind" + (it.isNew ? " is-new" : "")}>
-                            {t(it.isNew ? "inbox.new" : "inbox.changed")}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <p className="tree-hint">{t("inbox.empty")}</p>
-              )
             ) : recent.length > 0 ? (
               <ul className="tree">
                 {recent.map((p) => (

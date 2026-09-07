@@ -189,7 +189,7 @@ interface AppState {
   syncScroll: boolean;
   outlinePinned: boolean;
   outlineOpacity: number;
-  activeSidebarTab: "workspace" | "recent" | "inbox"; // 사이드바 상단 탭
+  activeSidebarTab: "workspace" | "recent"; // 사이드바 상단 탭
   autosave: boolean; // 자동저장(옵트인) — 편집 후 유휴 시 디스크 저장
 
   // 리딩(집중) 모드 — 편집기를 숨기고 미리보기만 본다. 좌우 분할이면 두 문서를 나란히.
@@ -229,7 +229,7 @@ interface AppState {
   setSyncScroll: (on: boolean) => void;
   setOutlinePinned: (on: boolean) => void;
   setOutlineOpacity: (v: number) => void;
-  setSidebarTab: (tab: "workspace" | "recent" | "inbox") => void;
+  setSidebarTab: (tab: "workspace" | "recent") => void;
   /** 받은 문서함 — 내가 본 뒤로 바뀐 문서. 비영속(부팅·변경 이벤트마다 다시 읽는다). */
   inbox: InboxItem[];
   inboxTotal: number;

@@ -467,8 +467,8 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .sb-tab {
-  /* 탭이 셋이 되면서 좁아졌다. 한국어 이름("워크스페이스"·"받은 문서함")이 줄바꿈되면
-     탭 줄이 통째로 무너지므로 한 줄로 고정하고, 넘치면 줄임표로 자른다(데모 캡처에서 잡았다). */
+  /* 한국어 라벨이 줄바꿈되면 탭 줄이 통째로 무너진다 — 한 줄로 고정하고 넘치면 줄임표.
+     (탭을 셋으로 늘렸다가 실제로 무너지는 것을 캡처에서 보고 넣은 규칙이다.) */
   flex: 1 1 0;
   min-width: 0;
   display: inline-flex;
@@ -507,63 +507,149 @@ body {
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
-/* 받은 문서함 — 안 본 것이 있을 때만 배지가 나온다(0을 띄우면 늘 붉은 점이 있는 셈이다). */
-.sb-badge {
-  flex: 0 0 auto;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 4px;
+/* 받은 문서함 — 알림 종. 탐색 탭이 아니라 소식이므로 사이드바가 아니라 툴바에 둔다. */
+.inbox-wrap {
+  position: relative;
+}
+.inbox-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.14s ease;
+}
+.inbox-bell:hover {
+  color: var(--fg);
+}
+.inbox-bell.has-unread {
+  color: var(--accent);
+}
+/* 배지는 안 본 것이 있을 때만 나온다 — 0을 띄우면 늘 붉은 점이 있는 셈이다. */
+.inbox-count {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
   border-radius: 999px;
   background: var(--accent);
   color: var(--bg);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  line-height: 15px;
+  line-height: 14px;
   text-align: center;
 }
-.inbox-clear {
-  width: 100%;
-  height: 26px;
-  margin-bottom: 4px;
+.inbox-pop {
+  /* 이 팝오버는 툴바의 `.seg` 안에 있다 — `.seg button` 이 가운데 정렬·고정 높이를 주므로
+     안쪽 항목에는 명시적으로 되돌려 준다(캡처에서 글자가 가운데로 몰린 것을 보고 잡았다). */
+  text-align: left;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 12px;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--bg);
+  border-radius: var(--r-md);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+.inbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.inbox-heading {
+  font-size: 12px;
+  font-weight: 700;
+}
+.inbox-pop .inbox-mark {
+  height: auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--muted);
   font: inherit;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
 }
-.inbox-clear:hover {
+.inbox-pop .inbox-mark:hover {
   color: var(--accent);
-  border-color: var(--accent);
 }
-/* 받은 문서함 목록은 워크스페이스 트리와 달리 **가로로 자라지 않는다**.
-   `.tree` 는 `width:max-content`(v0.6.4, 긴 이름을 가로 스크롤로 보여 주려고)인데, 그러면
-   `margin-left:auto` 인 '새 문서/변경됨' 라벨이 사이드바 밖으로 밀려나 아예 안 보인다.
-   여기서는 이름을 줄임표로 자르고 라벨을 오른쪽 끝에 붙인다(전체 경로는 title 로 뜬다). */
-.tree.inbox-tree {
+.inbox-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.inbox-note.dim {
+  opacity: 0.8;
+}
+.inbox-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+/* 명시도 주의: 이 버튼들은 툴바의 `.seg` 안에 있어 `.seg button`(0,1,1) 이 적용된다.
+   클래스 하나(0,1,0)로는 못 이겨 가운데 정렬·24px 고정 높이가 그대로 남는다(두 번 데었다). */
+.inbox-pop .inbox-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 2px;
   width: 100%;
+  height: auto;
   min-width: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.tree.inbox-tree .name {
+.inbox-pop .inbox-item:hover {
+  background: var(--bg-hover, rgba(127, 127, 127, 0.1));
+}
+.inbox-name {
+  max-width: 100%;
   overflow: hidden;
+  font-size: 12px;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.inbox-kind {
-  flex: 0 0 auto;
-  margin-left: auto;
-  padding-left: 6px;
-  color: var(--muted);
+.inbox-meta {
+  display: flex;
+  gap: 6px;
   font-size: 10px;
-  opacity: 0.85;
+}
+.inbox-kind {
+  color: var(--muted);
 }
 .inbox-kind.is-new {
   color: var(--accent);
   font-weight: 700;
-  opacity: 1;
 }
+.inbox-when {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
 /* 트리 안의 같은 신호 — 폴더를 펼쳐 둔 사람은 목록보다 여기서 먼저 본다. */
 .unseen-dot {
   flex: 0 0 auto;
