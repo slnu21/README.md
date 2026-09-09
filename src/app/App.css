@@ -875,6 +875,116 @@ body {
   color: var(--accent);
 }
 
+/* 테마 고르기 창 — 카드 격자. 개수에 상한이 없으므로(파일에서 온다) 줄바꿈되고 스크롤된다. */
+.theme-modal {
+  width: min(640px, 92vw);
+}
+.tp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+  gap: 8px;
+  max-height: min(420px, 52vh);
+  overflow-y: auto;
+  margin: 4px 0 0;
+  padding: 2px;
+  list-style: none;
+}
+.tp-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+.tp-card:hover {
+  border-color: var(--accent);
+}
+.tp-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+.tp-card.active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* 견본은 테마 자신의 5토큰으로 칠한다(인라인 style) — 여기서는 배치만 정한다. */
+.tp-swatch {
+  position: relative;
+  display: block;
+  height: 56px;
+  border: 1px solid;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.tp-bar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 12px;
+  border-bottom: 1px solid;
+}
+.tp-head {
+  position: absolute;
+  left: 8px;
+  top: 21px;
+  width: 46%;
+  height: 6px;
+  border-radius: 2px;
+}
+.tp-line {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 33px;
+  height: 4px;
+  border-radius: 2px;
+  opacity: 0.6;
+}
+.tp-line.short {
+  top: 42px;
+  right: 38%;
+}
+.tp-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tp-id {
+  font-size: 10.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tp-hint {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+/* 테마를 만드는 쪽 버튼들. 고르는 격자와 줄로 갈라 둔다. */
+.tp-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.tp-tools .modal-btn {
+  flex: 1 1 auto;
+  padding: 0 10px;
+  font-weight: 500;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

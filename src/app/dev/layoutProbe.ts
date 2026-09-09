@@ -8,6 +8,7 @@
 // 이 파일은 **진짜 앱**(main.tsx)이 마운트된 문서에서 store 를 직접 몰아 세 모드를 오가며 잰다.
 // 실행: `cd src; npm run probe:layout`
 import { useAppStore } from "../store";
+import { BUILTIN_THEMES, listThemeIds, setUserThemes, type Theme } from "../themes";
 
 interface ProbeResult {
   ok: boolean;
@@ -151,6 +152,60 @@ async function run(): Promise<ProbeResult> {
   if (q(".pane-head")) fail("[restore] 분할을 닫았는데 패널 머리띠가 남아 있다.");
   checkFrameFits(".pane-a", "restore");
   lines.push(`  restore      iframe 동일=${frameA2 === frameA}`);
+
+  // ── (5) 테마가 늘어도 툴바는 안 늘어난다 ─────────────────────────────────
+  // 테마는 파일에서 오므로 개수에 상한이 없다. 예전에는 전부를 타이틀바에 이어 붙여
+  // 여섯 개째부터 다른 컨트롤을 밀어냈다 — 그 회귀를 여기서 못박는다.
+  const fake = (id: string): Theme => ({
+    id,
+    name: `가짜 ${id}`,
+    type: "light",
+    tokens: { "--bg": "#ffffff", "--fg": "#111111", "--accent": "#aa3366", "--surface": "#eeeeee", "--border": "#cccccc" },
+  });
+  const quick = Object.keys(BUILTIN_THEMES).length;
+  setUserThemes({ probeA: fake("probeA"), probeB: fake("probeB"), probeC: fake("probeC") });
+  st().bumpThemeRev();
+  await settle();
+
+  const seg = q<HTMLElement>(".seg.theme");
+  const segButtons = seg ? seg.querySelectorAll("button").length : -1;
+  if (segButtons !== quick + 1) {
+    fail(
+      `[theme] 툴바 테마 버튼이 ${segButtons}개다(내장 ${quick} + 고르기 1 = ${quick + 1}개여야 한다). ` +
+        `사용자 테마가 다시 툴바로 새어 나왔다.`,
+    );
+  }
+
+  // 고르기 창: 목록 전부가 여기 있어야 한다.
+  seg?.querySelector<HTMLButtonElement>("button:last-child")?.click();
+  await settle();
+  const cards = document.querySelectorAll<HTMLButtonElement>(".theme-modal .tp-card");
+  const all = listThemeIds().length;
+  if (cards.length !== all) fail(`[theme] 고르기 창의 카드가 ${cards.length}개다(테마 ${all}개 전부여야 한다).`);
+
+  // 카드를 누르면 그 테마가 즉시 켜지고, 창은 닫히지 않는다(뒤의 앱이 곧 미리보기다).
+  const before = st().themeId;
+  const target = Array.from(cards).find((c) => c.querySelector(".tp-id")?.textContent === "probeB");
+  target?.click();
+  await settle();
+  if (st().themeId !== "probeB") fail(`[theme] 카드를 눌렀는데 테마가 ${st().themeId} 다(probeB 여야 한다).`);
+  if (!q(".theme-modal")) fail("[theme] 카드를 누르자 창이 닫혔다(고르며 비교할 수 없다).");
+  // 파일에서 온 테마를 쓰는 중이면 툴바의 마지막 버튼이 그것을 가리켜야 한다.
+  const more = seg?.querySelector<HTMLButtonElement>("button:last-child");
+  if (more?.getAttribute("aria-pressed") !== "true") {
+    fail("[theme] 사용자 테마가 켜졌는데 툴바 고르기 버튼이 눌린 상태가 아니다(지금 테마가 툴바에서 사라진다).");
+  }
+
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+  await settle();
+  if (q(".theme-modal")) fail("[theme] Esc 로 고르기 창이 안 닫힌다.");
+  lines.push(`  themes       툴바 ${segButtons}버튼 · 창 ${cards.length}카드(테마 ${all}개)`);
+
+  // 원상복구 — 뒤에 다른 검사가 붙어도 가짜 테마를 물려주지 않는다.
+  st().setTheme(before);
+  setUserThemes({});
+  st().bumpThemeRev();
+  await settle();
 
   return { ok: failures.length === 0, failures, lines };
 }
