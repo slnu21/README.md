@@ -37,11 +37,9 @@ export function InboxPopover() {
     };
   }, [open]);
 
-  // 마지막 하나를 열어 목록이 비면 팝오버를 닫는다 — 빈 상자를 띄워 둘 이유가 없다.
-  useEffect(() => {
-    if (open && inbox.length === 0) setOpen(false);
-  }, [open, inbox.length]);
-
+  // **"비면 자동으로 닫는다"를 넣지 말 것.** 목록이 원래 0일 때 여는 순간 같이 걸려서
+  // 종을 눌러도 아무 일이 안 일어나는 것처럼 보인다(실제로 그렇게 내보냈다가 바로 잡혔다).
+  // 마지막 항목을 열거나 [모두 읽음] 을 누르는 경우는 그 자리에서 이미 닫고 있다.
   const when = (ms: number) =>
     new Date(ms).toLocaleString(i18n.language === "ko" ? "ko-KR" : "en-US", {
       month: "numeric",
