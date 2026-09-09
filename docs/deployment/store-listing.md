@@ -39,6 +39,9 @@ README.md는 가볍고 **100% 오프라인**인 마크다운 리더 & 에디터�
 - 읽기·에디터 글꼴 선택(고급 번들 폰트) · 확대·축소
 - 테마 6종 — 라이트 · 다크 · 페이퍼 · **한지**(먹빛 글자에 주사색 강조) · **전자잉크**(무채색) · **컬러 전자잉크**(무채색 바탕에 강조만 유채색)
 - 내 테마 만들기 — 테마가 폴더 안의 파일이라 열어서 고치고, 모양(CSS)까지 더해 남과 주고받기
+- **에이전트 브리지** — AI 에이전트(Claude Code 등)가 내 워크스페이스를 검색·목차·섹션 단위로 조회(읽기 전용 · 워크스페이스 안으로 범위 제한 · 설정에서 켜고 끄기)
+- **받은 문서함** — 밖에서 바뀐 문서를 알림 종에 모아 표시(앱이 꺼져 있던 동안의 변경도)
+- **문서 기록 · 되돌리기** — 덮어쓰기 직전 내용을 남겨 이전 판으로 복원
 - 저장 · 외부 변경 자동 감지·리로드 · 최근 파일
 - 한국어 · English
 - 가볍고 빠른 실행, 작은 용량
@@ -81,6 +84,9 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 - Reading/editor font selection (bundled premium fonts) · zoom
 - Six themes — Light, Dark, Paper, **Hanji** (ink on Korean mulberry paper), **E-Paper** (fully achromatic) and **Color E-Paper** (achromatic page, color only on accents)
 - Make your own — themes are editable files in a folder; change colors, add shapes with CSS, and share the result as one file
+- **Agent bridge** — an AI agent (Claude Code and the like) can search, outline and read sections of your workspace (read-only · scoped to your workspace · toggled in Settings)
+- **Inbox** — documents changed outside the app collect under the toolbar bell, including changes made while the app was closed
+- **Document history · restore** — the version from just before an overwrite is kept, so you can go back
 - Save, external-change auto-reload, recent files
 - Korean · English
 - Lightweight and fast, small footprint
@@ -92,6 +98,20 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 ## 업데이트 내용 (What's new)
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
+
+### v0.10.0 — ko-KR
+- **에이전트 브리지** — Claude Code 같은 AI 에이전트가 README.md 의 워크스페이스를 **직접 들여다볼 수 있습니다.** 따로 설치할 것이 없습니다(앱과 같은 프로그램이 서버를 겸합니다). 에이전트가 얻는 것은 이 앱만 아는 넷입니다: 전문 검색 · 문서 목차 · 섹션만 읽기 · 내가 손으로 만든 워크스페이스 배치. **볼 수 있는 범위는 내가 워크스페이스에 넣어 둔 폴더·파일뿐이고, 문서를 고치거나 지우는 도구는 주지 않습니다.** 연결법은 설정 ▸ [에이전트 연결] 에서 버튼 하나로 복사합니다.
+- **받은 문서함** — 내가 안 보는 사이에 **누군가 만지고 간 문서**가 툴바의 알림 종에 모입니다. 앱이 꺼져 있던 동안 바뀐 것도 잡히니, 아침에 앱을 열면 밤새 늘어난 문서가 거기 있습니다. 열면 목록에서 빠지고, 내가 앱에서 저장한 문서는 들어오지 않습니다.
+- **문서 기록 · 되돌리기** — 문서가 바뀔 때마다 **바뀌기 전 내용**을 한 벌 남깁니다. 탭 우클릭 ▸ [문서 기록] 에서 이전 판을 보고 되돌릴 수 있고, 되돌린 것을 다시 되돌릴 수도 있습니다.
+- **테마 고르기 창** — 툴바에 가로로 늘어놓던 테마를 창으로 옮겼습니다. 색 견본과 함께 전부 보여 주고, 고르면 바로 적용됩니다. 테마 파일·폴더 버튼도 이 창에 모였습니다.
+- **창을 좁히면 상단 버튼 글자가 겹쳐 찍히던 문제를 고쳤습니다** — 이제 좁아지면 아이콘만 남고, 더 좁아지면 [⋯] 메뉴 하나로 접힙니다.
+
+### v0.10.0 — en-US
+- **Agent bridge** — an AI agent such as Claude Code can now **look into your README.md workspace directly**. Nothing extra to install: the app itself doubles as the server. The agent gets the four things only this app knows: full-text search, document outlines, section-only reads, and the virtual workspace layout you arranged by hand. **It can only see the folders and files you put in your workspace, and it is given no tools that change or delete documents.** Copy the exact connect command from Settings ▸ Agent connection.
+- **Inbox** — documents that **something else touched while you were away** collect under the bell in the toolbar, including changes made while the app was closed. Open one and it leaves the list; documents you saved yourself never show up there.
+- **Document history · restore** — every time a document changes, the app quietly keeps **the version from just before**. Right-click the tab ▸ Document history to look through earlier versions and restore one — and the state right before a restore is kept too, so a restore can be undone.
+- **Theme window** — themes moved out of the toolbar row into a window that shows all of them with color previews. Picking one applies it immediately; the theme file and folder buttons live there now too.
+- **Fixed: toolbar labels printed on top of each other in a narrow window** — the buttons now collapse in steps: icons first, then into a single [⋯] menu.
 
 ### v0.9.0 — ko-KR
 - **테마가 폴더 안의 파일이 되었습니다** — 한지·전자잉크가 앱 안에 박힌 값에서 **열어서 고칠 수 있는 파일**이 됐습니다. 설정 ▸ [테마 폴더 열기] 에 안내문과 함께 들어 있습니다. 색을 바꿔도 되고, 마음에 안 들면 지워도 됩니다(다시 만들어 드리지 않습니다).
@@ -289,3 +309,4 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.7.1 업데이트 제출** — `release/v0.7.1/README_0.7.1_x64.msix`(동일 실신원 · `0.7.1.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.7.1 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.7.1** 문구 — **제출 완료(2026-08-23) · 인증·게시 대기**(같은 날 확인 시점 `Get-AppxPackage SlnU.README.md` → 아직 `0.7.0.0` · `SignatureKind=Store`). 직전 v0.7.0이 **게시 완료(2026-08-23 확인)** 라 동시 제출 충돌 없음. **산출물 준비 완료(2026-08-23) · 릴리스 exe 실구동 28항목 통과**(외부 링크가 브라우저로 · 앵커 스크롤 · Ctrl/Alt 수식어 · `.exe`/로컬 html 거절 후 탐색기 · 프레젠테이션 링크 · 배지/라이트박스). **GitHub 릴리스·태그 `v0.7.1` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.7.1>. **제출은 Partner Center 웹 — 사용자 직접.**
 - [x] **v0.8.0 업데이트 제출** — `release/v0.8.0/README_0.8.0_x64.msix`(동일 실신원 · `0.8.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.8.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.8.0** 문구 — **제출 완료(2026-08-30) · 게시 완료**(2026-09-02 확인: `Get-AppxPackage SlnU.README.md` → `0.8.0.0` · `SignatureKind=Store`). 제출 직전 직전 판(v0.7.1)이 게시 완료임을 확인해 동시 제출 충돌 없음. **GitHub 릴리스·태그 `v0.8.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.8.0>. **제출은 Partner Center 웹 — 사용자 직접.**
 - [x] **v0.9.0 업데이트 제출** — `release/v0.9.0/README_0.9.0_x64.msix`(동일 실신원 · `0.9.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.9.0 을 `.msix` 안에서 꺼내 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.9.0** 문구 — **제출 완료(2026-09-06, 사용자 직접) · 인증·게시 대기**. 직전 v0.8.0 이 게시 완료(2026-09-02 확인)라 동시 제출 충돌 없음. **GitHub 릴리스·태그 `v0.9.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.9.0> · 자산 4종(NSIS·MSIX·zip·NOTICES).
+- [ ] **v0.10.0 업데이트 제출** — `release/v0.10.0/README_0.10.0_x64.msix`(동일 실신원 · `0.10.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.10.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.10.0** 문구 — **산출물 준비 완료(2026-09-09)** — NSIS 5.56MB / MSIX 6.61MB / zip 6.49MB · **릴리스 exe 실구동 통과**(CDP, 사용자 DB·프로필 비켜 놓고 원복: 툴바 3단계 1684 full / 1184 icons / 934 menu — 어느 폭에서도 겹침 0·넘침 0 · [⋯] 메뉴 9항목 · 테마 창 6카드에서 한지 적용 · 1380px 에서 한국어 full / 영어 icons · 탭 우클릭에 [문서 기록] · 미리보기 렌더·에이전트 연결 패널 정상). 직전 v0.9.0 이 **게시 완료**(2026-09-09 확인: `Get-AppxPackage SlnU.README.md` → `0.9.0.0` · `SignatureKind=Store`)라 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
