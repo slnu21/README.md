@@ -1,9 +1,9 @@
 // 앱 셸 — 시안(docs/mockups/md-reader-shell.html) 이식 + 파일/폴더 열기·워크스페이스 트리(WBS 510).
 // 에디터는 현재 원문 표시(읽기 전용). 실제 편집=WBS 522, 미리보기 렌더=WBS 511.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, collectImportedPaths, type TreeNode } from "../store";
-import { listThemeIds, themes } from "../themes";
+import { BUILTIN_THEMES, listThemeIds, themes } from "../themes";
 import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onOpenFileBeside, inboxList, onWindowCloseRequested, winDestroy, revealInExplorer, openWithDefault, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite, type IconName } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
@@ -18,6 +18,7 @@ import { Seam } from "./Seam";
 import { PaneHeader } from "./PaneHeader";
 import { splitTemplate } from "../lib/layout";
 import { SettingsPopover } from "./SettingsPopover";
+import { ThemePicker } from "./ThemePicker";
 import { InboxPopover } from "./InboxPopover";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
@@ -45,6 +46,10 @@ const THEME_ICON: Record<string, IconName> = {
   epaper: "epaper",
 };
 const themeIcon = (id: string): IconName => THEME_ICON[id] ?? "swatch";
+// 툴바에 그대로 남는 것은 **내장 셋뿐**이다(light·dark·paper). 나머지는 파일에서 오고
+// 개수에 상한이 없으므로(themes\ 폴더에 떨어뜨리는 것이 곧 가져오기) 44px 툴바에 계속
+// 이어 붙일 수 없다 — 여섯이 되자 실제로 다른 컨트롤을 밀어냈다. 전부는 테마 고르기 창에서.
+const QUICK_THEMES = Object.keys(BUILTIN_THEMES);
 const OPENABLE = READABLE_RE; // 드롭·파일연결에서 열 수 있는 문서 판별(공용 규칙)
 
 /** 워크스페이스 트리의 파일 노드 수집(퀵오픈용) — 열 수 있는 문서만, realPath→name, 중복 경로 제거. */
@@ -143,6 +148,7 @@ export function AppShell() {
   const [paletteMode, setPaletteMode] = useState<"command" | "file" | "split" | null>(null);
   const [findOpen, setFindOpen] = useState(false); // 워크스페이스 전역 찾기·바꾸기
   const [keysOpen, setKeysOpen] = useState(false); // 단축키 도움말(F1)
+  const [themesOpen, setThemesOpen] = useState(false); // 테마 고르기 창
   // ≤900px에서는 편집/미리보기가 세로 스택 → 리사이저 축 전환.
   const [vertical, setVertical] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches,
@@ -351,9 +357,9 @@ export function AppShell() {
   const themeLabel = (id: string): string =>
     t(`theme.${id}`, { defaultValue: themes[id]?.name ?? id });
   const themeName = themeLabel(themeId);
-  // themeRev 가 바뀔 때만 다시 읽는다 — themes 는 제자리에서 고쳐지는 객체라 참조가 안 변한다.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const themeIds: string[] = useMemo(() => listThemeIds(), [themeRev]);
+  // 테마 이름은 파일을 다시 불러오면 id 가 그대로여도 바뀔 수 있다 → themeRev 를 읽어 둔다
+  // (전체 목록은 이제 테마 고르기 창이 가지고, 여기는 지금 테마의 표시명만 쓴다).
+  void themeRev;
   const active = tabs.find((tb) => tb.path === activePath) ?? null;
   const words = active && active.content.trim() ? active.content.trim().split(/\s+/).length : 0;
   // 읽기 시간(근사): 라틴 단어 200 wpm + CJK 글자 500자/분(≈단어 2.5개 상당).
@@ -514,6 +520,7 @@ export function AppShell() {
       !!active && tabs.length > 1,
     );
     add("present", t("view.present"), () => setPresenting(true), !!active);
+    add("theme-pick", `${t("cmd.theme")}: ${t("theme.pickerTitle")}…`, () => setThemesOpen(true));
     listThemeIds().forEach((id) =>
       add(`theme-${id}`, `${t("cmd.theme")}: ${themeLabel(id)}`, () => setTheme(id)),
     );
@@ -910,6 +917,7 @@ export function AppShell() {
       <IconSprite />
       {confirm && <ConfirmDialog spec={confirm} onClose={() => setConfirm(null)} />}
       {keysOpen && <ShortcutHelp onClose={() => setKeysOpen(false)} />}
+      {themesOpen && <ThemePicker onClose={() => setThemesOpen(false)} />}
       {tabMenu && (
         <ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems(tabMenu.path)} onClose={() => setTabMenu(null)} />
       )}
@@ -1029,7 +1037,7 @@ export function AppShell() {
           </div>
 
           <div className="seg theme" role="group" aria-label="theme">
-            {themeIds.map((id) => (
+            {QUICK_THEMES.map((id) => (
               <button
                 key={id}
                 type="button"
@@ -1041,6 +1049,18 @@ export function AppShell() {
                 <Icon name={themeIcon(id)} />
               </button>
             ))}
+            {/* 파일에서 온 테마를 쓰는 중이면 이 버튼이 그 테마를 대신 보여 준다 —
+                안 그러면 "지금 무슨 테마인지"가 툴바에서 사라진다. */}
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-pressed={!QUICK_THEMES.includes(themeId)}
+              title={themeLabel(themeId) + " · " + t("theme.pickerMore")}
+              aria-label={t("theme.pickerMore")}
+              onClick={() => setThemesOpen(true)}
+            >
+              <Icon name={QUICK_THEMES.includes(themeId) ? "swatch" : themeIcon(themeId)} />
+            </button>
           </div>
 
           <div className="seg lang" role="group" aria-label="language">
@@ -1053,7 +1073,7 @@ export function AppShell() {
           </div>
 
           <InboxPopover />
-          <SettingsPopover />
+          <SettingsPopover onOpenThemes={() => setThemesOpen(true)} />
 
           <div className="wctl">
             <button type="button" aria-label="Minimize" onClick={() => void winMinimize()}>
