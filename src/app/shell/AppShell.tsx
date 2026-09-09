@@ -19,6 +19,7 @@ import { PaneHeader } from "./PaneHeader";
 import { splitTemplate } from "../lib/layout";
 import { SettingsPopover } from "./SettingsPopover";
 import { ThemePicker } from "./ThemePicker";
+import { useToolbarFit } from "./useToolbarFit";
 import { InboxPopover } from "./InboxPopover";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
@@ -119,6 +120,7 @@ export function AppShell() {
   const secondaryPath = useAppStore((s) => s.secondaryPath);
   const readerRatio = useAppStore((s) => s.readerRatio);
   const fontRead = useAppStore((s) => s.fontRead);
+  const fontUi = useAppStore((s) => s.fontUi); // 라벨 폭이 달라진다 → 툴바 측정 초기화 키
   const previewZoom = useAppStore((s) => s.previewZoom);
   const autosave = useAppStore((s) => s.autosave);
 
@@ -149,6 +151,8 @@ export function AppShell() {
   const [findOpen, setFindOpen] = useState(false); // 워크스페이스 전역 찾기·바꾸기
   const [keysOpen, setKeysOpen] = useState(false); // 단축키 도움말(F1)
   const [themesOpen, setThemesOpen] = useState(false); // 테마 고르기 창
+  const [barMenu, setBarMenu] = useState<{ x: number; y: number } | null>(null); // 좁을 때의 툴바 메뉴
+  const titlebarRef = useRef<HTMLElement>(null);
   // ≤900px에서는 편집/미리보기가 세로 스택 → 리사이저 축 전환.
   const [vertical, setVertical] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches,
@@ -351,6 +355,9 @@ export function AppShell() {
     };
   }, [isDemo, openIncoming]);
 
+  // 툴바는 좁아지면 단계적으로 접힌다 — 라벨을 버리고(icons), 그래도 모자라면 버튼들을
+  // 메뉴 하나로(menu). px 중단점이 아니라 실제로 재서 정한다(lib/toolbarFit.ts 의 주석).
+  const density = useToolbarFit(titlebarRef, `${language}/${fontUi}`);
   const ko = language === "ko";
   // 테마 표시명은 ko/en 번역을 쓰되, 번역 키가 없으면 레지스트리의 name 으로 떨어진다
   // (사용자 테마는 번역 키가 없다). 상태바·팔레트·타이틀바 세 곳이 같은 규칙을 본다.
@@ -931,7 +938,7 @@ export function AppShell() {
       )}
       <div className="app" role="application" aria-label="md-reader">
         {/* 상단바 */}
-        <header className="titlebar" data-tauri-drag-region="">
+        <header className="titlebar" data-density={density} data-tauri-drag-region="" ref={titlebarRef}>
           <div className="brand" data-tauri-drag-region="">
             <svg className="logo" viewBox="0 0 208 128" aria-hidden="true">
               <rect x="6" y="6" width="196" height="116" rx="16" fill="none" stroke="var(--accent)" strokeWidth="14" />
@@ -939,77 +946,121 @@ export function AppShell() {
             </svg>
             <span>{t("app.name")}</span>
           </div>
-          <span className="sep" />
-          <div className="tgroup actions">
-            <button className="tbtn" type="button" onClick={onOpenFile}>
-              <Icon name="file" />
-              <span className="lbl">{t("menu.openFile")}</span>
-            </button>
-            <button className="tbtn" type="button" onClick={onOpenFolder}>
-              <Icon name="folder" />
-              <span className="lbl">{t("menu.openFolder")}</span>
-            </button>
-          </div>
-          <span className="sep" />
-          <div className="tgroup actions">
-            <button className="tbtn" type="button" onClick={() => void saveActive()} disabled={!active}>
-              <Icon name="save" />
-              <span className="lbl">{t("menu.save")}</span>
-            </button>
-            <button
-              className="tbtn"
-              type="button"
-              disabled={!active}
-              aria-haspopup="menu"
-              onClick={(e) => {
-                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                setExportMenu({ x: r.left, y: r.bottom + 4 });
-              }}
-            >
-              <Icon name="export" />
-              <span className="lbl">{t("menu.export")}</span>
-            </button>
-          </div>
-          <span className="sep" />
-          <div className="tgroup actions">
-            <button
-              className={"tbtn" + (readerMode ? " on" : "")}
-              type="button"
-              disabled={!active}
-              aria-pressed={readerMode}
-              title={t("view.reader")}
-              onClick={() => useAppStore.getState().toggleReaderMode()}
-            >
-              <Icon name="read" />
-              <span className="lbl">{t("view.reader")}</span>
-            </button>
-            {/* 나란히 보기 — 리딩 모드에서 열린 탭이 둘 이상일 때만 의미가 있다. */}
-            <button
-              className={"tbtn" + (dual ? " on" : "")}
-              type="button"
-              disabled={!readerMode || tabs.length < 2}
-              aria-pressed={dual}
-              title={t("view.readerSplit")}
-              aria-label={t("view.readerSplit")}
-              onClick={() => {
-                if (dual) useAppStore.getState().closeSecondary();
-                else setPaletteMode("split");
-              }}
-            >
-              <Icon name="swap" />
-            </button>
-            <button
-              className="tbtn"
-              type="button"
-              disabled={!active}
-              title={t("view.present")}
-              aria-label={t("view.present")}
-              onClick={() => setPresenting(true)}
-            >
-              <Icon name="present" />
-            </button>
-          </div>
-
+          {/* 좁아지면 이 셋이 메뉴 하나로 접힌다(useToolbarFit). 아이콘만 남기는 단계를
+              먼저 거친다 — 아이콘 버튼은 눌러 보면 알지만 메뉴는 열어야 알기 때문이다. */}
+          {density === "menu" ? (
+            <>
+              <span className="sep" />
+              <button
+                className="tbtn more"
+                type="button"
+                aria-haspopup="menu"
+                title={t("menu.more")}
+                aria-label={t("menu.more")}
+                onClick={(e) => {
+                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setBarMenu({ x: r.left, y: r.bottom + 4 });
+                }}
+              >
+                <Icon name="more" />
+              </button>
+            </>
+          ) : (
+            <>
+            <span className="sep" />
+            <div className="tgroup actions">
+              <button
+                className="tbtn"
+                type="button"
+                aria-label={t("menu.openFile")}
+                title={density === "full" ? undefined : t("menu.openFile")}
+                onClick={onOpenFile}
+              >
+                <Icon name="file" />
+                <span className="lbl">{t("menu.openFile")}</span>
+              </button>
+              <button
+                className="tbtn"
+                type="button"
+                aria-label={t("menu.openFolder")}
+                title={density === "full" ? undefined : t("menu.openFolder")}
+                onClick={onOpenFolder}
+              >
+                <Icon name="folder" />
+                <span className="lbl">{t("menu.openFolder")}</span>
+              </button>
+            </div>
+            <span className="sep" />
+            <div className="tgroup actions">
+              <button
+                className="tbtn"
+                type="button"
+                aria-label={t("menu.save")}
+                title={density === "full" ? undefined : t("menu.save")}
+                onClick={() => void saveActive()}
+                disabled={!active}
+              >
+                <Icon name="save" />
+                <span className="lbl">{t("menu.save")}</span>
+              </button>
+              <button
+                className="tbtn"
+                type="button"
+                disabled={!active}
+                aria-haspopup="menu"
+                aria-label={t("menu.export")}
+                title={density === "full" ? undefined : t("menu.export")}
+                onClick={(e) => {
+                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setExportMenu({ x: r.left, y: r.bottom + 4 });
+                }}
+              >
+                <Icon name="export" />
+                <span className="lbl">{t("menu.export")}</span>
+              </button>
+            </div>
+            <span className="sep" />
+            <div className="tgroup actions">
+              <button
+                className={"tbtn" + (readerMode ? " on" : "")}
+                type="button"
+                disabled={!active}
+                aria-pressed={readerMode}
+                aria-label={t("view.reader")}
+                title={t("view.reader")}
+                onClick={() => useAppStore.getState().toggleReaderMode()}
+              >
+                <Icon name="read" />
+                <span className="lbl">{t("view.reader")}</span>
+              </button>
+              {/* 나란히 보기 — 리딩 모드에서 열린 탭이 둘 이상일 때만 의미가 있다. */}
+              <button
+                className={"tbtn" + (dual ? " on" : "")}
+                type="button"
+                disabled={!readerMode || tabs.length < 2}
+                aria-pressed={dual}
+                title={t("view.readerSplit")}
+                aria-label={t("view.readerSplit")}
+                onClick={() => {
+                  if (dual) useAppStore.getState().closeSecondary();
+                  else setPaletteMode("split");
+                }}
+              >
+                <Icon name="swap" />
+              </button>
+              <button
+                className="tbtn"
+                type="button"
+                disabled={!active}
+                title={t("view.present")}
+                aria-label={t("view.present")}
+                onClick={() => setPresenting(true)}
+              >
+                <Icon name="present" />
+              </button>
+            </div>
+            </>
+          )}
           <span className="spacer" data-tauri-drag-region="" />
 
           <div className="search-wrap">
@@ -1037,18 +1088,20 @@ export function AppShell() {
           </div>
 
           <div className="seg theme" role="group" aria-label="theme">
-            {QUICK_THEMES.map((id) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={themeId === id}
-                title={themeLabel(id)}
-                aria-label={themeLabel(id)}
-                onClick={() => setTheme(id)}
-              >
-                <Icon name={themeIcon(id)} />
-              </button>
-            ))}
+            {density === "menu"
+              ? null
+              : QUICK_THEMES.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={themeId === id}
+                    title={themeLabel(id)}
+                    aria-label={themeLabel(id)}
+                    onClick={() => setTheme(id)}
+                  >
+                    <Icon name={themeIcon(id)} />
+                  </button>
+                ))}
             {/* 파일에서 온 테마를 쓰는 중이면 이 버튼이 그 테마를 대신 보여 준다 —
                 안 그러면 "지금 무슨 테마인지"가 툴바에서 사라진다. */}
             <button
@@ -1059,7 +1112,11 @@ export function AppShell() {
               aria-label={t("theme.pickerMore")}
               onClick={() => setThemesOpen(true)}
             >
-              <Icon name={QUICK_THEMES.includes(themeId) ? "swatch" : themeIcon(themeId)} />
+              <Icon
+                name={
+                  density !== "menu" && QUICK_THEMES.includes(themeId) ? "swatch" : themeIcon(themeId)
+                }
+              />
             </button>
           </div>
 
@@ -1129,6 +1186,51 @@ export function AppShell() {
             files={workspaceFilePaths()}
             activePath={activePath}
             onClose={() => setFindOpen(false)}
+          />
+        )}
+
+        {/* 좁은 툴바의 [더 보기] — 접힌 버튼들이 여기 이름표를 달고 다시 나온다.
+            못 쓰는 항목도 흐리게 남긴다(항목이 사라지면 자리를 다시 못 찾는다). */}
+        {barMenu && (
+          <ContextMenu
+            x={barMenu.x}
+            y={barMenu.y}
+            onClose={() => setBarMenu(null)}
+            items={[
+              { label: t("menu.openFile"), onClick: () => void onOpenFile() },
+              { label: t("menu.openFolder"), onClick: () => void onOpenFolder() },
+              { label: t("menu.save"), onClick: () => void saveActive(), disabled: !active },
+              {
+                label: t("menu.exportHtml"),
+                disabled: !active,
+                onClick: () =>
+                  active && void exportHtml(exportParamsOf(active), active.title).catch(() => {}),
+              },
+              {
+                label: t("menu.exportPdf"),
+                disabled: !active,
+                onClick: () => active && void exportToPdf(exportParamsOf(active)).catch(() => {}),
+              },
+              {
+                label: t("menu.copyHtml"),
+                disabled: !active,
+                onClick: () => active && void copyHtml(exportParamsOf(active)).catch(() => {}),
+              },
+              {
+                label: t("view.reader"),
+                disabled: !active,
+                onClick: () => useAppStore.getState().toggleReaderMode(),
+              },
+              {
+                label: t("view.readerSplit"),
+                disabled: !readerMode || tabs.length < 2,
+                onClick: () => {
+                  if (dual) useAppStore.getState().closeSecondary();
+                  else setPaletteMode("split");
+                },
+              },
+              { label: t("view.present"), disabled: !active, onClick: () => setPresenting(true) },
+            ]}
           />
         )}
 

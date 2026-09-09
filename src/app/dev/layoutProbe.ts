@@ -9,6 +9,7 @@
 // 실행: `cd src; npm run probe:layout`
 import { useAppStore } from "../store";
 import { BUILTIN_THEMES, listThemeIds, setUserThemes, type Theme } from "../themes";
+import { requiredWidth } from "../lib/toolbarFit";
 
 interface ProbeResult {
   ok: boolean;
@@ -57,6 +58,21 @@ function checkFrameFits(paneSel: string, tag: string) {
   if (f.height < 50) {
     fail(`[fit] ${tag} ${paneSel}: iframe 높이가 ${round(f.height)}px 뿐이다(레이아웃이 무너졌다).`);
   }
+}
+
+/** 지금 단계의 툴바가 **실제로 요구하는 폭**. 늘어나는 칸(.spacer)은 남는 폭을 통째로
+ *  먹으므로 최소폭(8px)으로 바꿔 놓고 잰다 — 안 그러면 항상 clientWidth 가 나온다. */
+function needNow(bar: HTMLElement): number {
+  const cs = getComputedStyle(bar);
+  return requiredWidth(
+    Array.from(bar.children).map((c) => {
+      const m = getComputedStyle(c);
+      const outer = (parseFloat(m.marginLeft) || 0) + (parseFloat(m.marginRight) || 0);
+      return (c.classList.contains("spacer") ? 8 : c.getBoundingClientRect().width) + outer;
+    }),
+    parseFloat(cs.columnGap) || 0,
+    (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0),
+  );
 }
 
 async function run(): Promise<ProbeResult> {
@@ -206,6 +222,110 @@ async function run(): Promise<ProbeResult> {
   setUserThemes({});
   st().bumpThemeRev();
   await settle();
+
+  // ── (6) 툴바가 좁아져도 겹치지 않는다 ────────────────────────────────────
+  // v0.9.0 의 실제 증상: 1120px 창에서 "폴더 열기"와 "저장" 라벨이 겹쳐 찍혔다(1024px
+  // 중단점은 그보다 좁아져야 걸린다). 이제는 중단점이 아니라 **재서** 접으므로, 여기서도
+  // 앱 격자의 폭을 직접 바꿔 가며 잰다(뷰포트가 아니라 컨테이너를 줄이는 것이라
+  // @media 는 안 걸린다 — 그게 이 방식의 요점이다).
+  const app = q<HTMLElement>(".app");
+  const bar = q<HTMLElement>(".titlebar");
+  if (!app || !bar) {
+    fail("[bar] .app 또는 .titlebar 를 찾지 못했다.");
+  } else {
+    const seen: string[] = [];
+    for (const w of [1600, 1240, 1120, 1000, 880, 780]) {
+      app.style.width = `${w}px`;
+      // 한 번의 관측은 한 칸만 움직인다 — 안정될 때까지 몇 프레임 준다.
+      let density = "";
+      for (let i = 0; i < 6; i++) {
+        await settle();
+        const now = bar.dataset.density ?? "";
+        if (now === density) break;
+        density = now;
+      }
+      seen.push(`${w}:${density}(${round(needNow(bar))} 필요)`);
+
+      // 겹침은 **버튼 단위**로 본다. 그룹 상자끼리는 겹치지 않으면서 그 안의 버튼이 상자를
+      // 넘어 옆 그룹 위에 찍히는 것이 실제 증상이었다("폴더 열기"+"저장" → "폴더 열Save").
+      const btns = Array.from(bar.querySelectorAll("button"))
+        .map((b) => ({ el: b, r: b.getBoundingClientRect() }))
+        .filter((b) => b.r.width > 0);
+      for (let i = 1; i < btns.length; i++) {
+        const over = btns[i - 1].r.right - btns[i].r.left;
+        if (over > 0.5) {
+          fail(
+            `[bar] ${w}px(${density}): 버튼이 ${round(over)}px 겹친다 ` +
+              `(${btns[i - 1].el.getAttribute("aria-label") ?? btns[i - 1].el.textContent?.trim()} · ` +
+              `${btns[i].el.getAttribute("aria-label") ?? btns[i].el.textContent?.trim()}). ` +
+              `아이템이 다시 줄어들고 있다(.titlebar > * 의 flex:none 이 풀렸다).`,
+          );
+        }
+      }
+      const barRect = bar.getBoundingClientRect();
+      const last = bar.lastElementChild?.getBoundingClientRect();
+      if (last && last.right > barRect.right + 0.5) {
+        fail(
+          `[bar] ${w}px(${density}): 창 조절 버튼이 툴바 오른쪽으로 ${round(last.right - barRect.right)}px ` +
+            `밀려났다(더 접을 단계가 필요하다).`,
+        );
+      }
+      // 접혀도 길은 남아야 한다 — 파일 열기는 버튼이거나 [더 보기] 메뉴 안이거나.
+      const openable =
+        bar.querySelectorAll(".tgroup.actions .tbtn").length > 0 ||
+        !!bar.querySelector(".tbtn.more");
+      if (!openable) fail(`[bar] ${w}px(${density}): 파일 열기로 가는 길이 아예 사라졌다.`);
+    }
+
+    // 가장 좁은 폭에서는 테마 버튼도 고르기 하나로 접혀야 한다.
+    const segNow = q<HTMLElement>(".seg.theme")?.querySelectorAll("button").length ?? -1;
+    if (bar.dataset.density === "menu" && segNow !== 1) {
+      fail(`[bar] 가장 좁은 단계인데 테마 버튼이 ${segNow}개다(고르기 1개여야 한다).`);
+    }
+    lines.push(`  titlebar     ${seen.join(" · ")}`);
+
+    // 언어를 바꾸면 라벨 폭이 달라진다. 여태 잰 것을 안 버리면 한쪽 언어에서 잰 폭 때문에
+    // 다른 언어에서 필요 이상으로 접힌 채 남는다(useToolbarFit 의 resetKey).
+    const langBefore = st().language;
+    const needFor = async (lang: "ko" | "en") => {
+      st().setLanguage(lang);
+      app.style.width = "1600px";
+      for (let i = 0; i < 8; i++) await settle();
+      return needNow(bar);
+    };
+    const needKo = await needFor("ko");
+    const needEn = await needFor("en");
+    lines.push(`  labels       ko ${round(needKo)}px · en ${round(needEn)}px (full 단계 요구폭)`);
+    if (Math.abs(needKo - needEn) > 12) {
+      const roomy = needKo < needEn ? "ko" : "en"; // 이 언어면 라벨이 들어가는 폭
+      const tight = roomy === "ko" ? "en" : "ko";
+      app.style.width = `${Math.round((needKo + needEn) / 2)}px`;
+      for (const [lang, want] of [
+        [tight, "icons"],
+        [roomy, "full"],
+      ] as const) {
+        st().setLanguage(lang);
+        for (let i = 0; i < 8; i++) await settle();
+        if (bar.dataset.density !== want) {
+          fail(
+            `[bar] ${lang} 로 바꾸자 단계가 ${bar.dataset.density} 다(${want} 여야 한다). ` +
+              `언어가 바뀌면 라벨 폭이 달라지는데 예전 관측을 그대로 쓰고 있다.`,
+          );
+        }
+      }
+    }
+    st().setLanguage(langBefore);
+    await settle();
+
+    // 넓히면 도로 펴진다(한 방향으로만 접히면 창을 키운 뒤에도 아이콘만 남는다).
+    app.style.width = "1600px";
+    for (let i = 0; i < 6 && bar.dataset.density !== "full"; i++) await settle();
+    if (bar.dataset.density !== "full") {
+      fail(`[bar] 창을 다시 넓혔는데 단계가 ${bar.dataset.density} 에 머문다(되돌아오지 않는다).`);
+    }
+    app.style.width = "";
+    await settle();
+  }
 
   return { ok: failures.length === 0, failures, lines };
 }

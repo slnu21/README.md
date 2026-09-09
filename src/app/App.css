@@ -151,17 +151,34 @@ body {
   min-width: 8px;
 }
 
-/* 상단바 축소 허용(#118) — 좁은 폭 겹침 방지 */
-.titlebar,
-.tgroup,
-.brand {
+/* 좁은 폭 겹침 방지 — **아이템을 줄이지 않는다**.
+   줄이게 두면(예전의 .tgroup{min-width:0}) 상자만 0 으로 눌리고 안의 글자는 그대로 남아
+   옆 그룹과 겹쳐 찍힌다("폴더 열기"+"저장" → "폴더 열Save"). 그래서 안 줄이고 **넘치게**
+   두고, 그 넘침을 JS 가 보고 단계를 내린다(shell/useToolbarFit.ts).
+   .titlebar 자신의 min-width:0 은 남긴다 — 그리드 아이템이라, 이게 없으면 넘치는 대신
+   앱 격자 자체가 넓어져 사이드바·본문이 밀린다. */
+.titlebar {
   min-width: 0;
+}
+.titlebar > * {
+  flex: none;
+}
+.titlebar > .spacer {
+  flex: 1 1 auto;
 }
 .tbtn .lbl,
 .brand span {
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 밀도 단계(useToolbarFit): full → icons(라벨 버림) → menu(버튼들을 [더 보기]로).
+   px 중단점이 아니라 실제 폭을 재서 정한다 — 라벨 폭이 언어·글꼴마다 다르기 때문이다. */
+.titlebar[data-density="icons"] .tgroup.actions .tbtn .lbl {
+  display: none;
+}
+.titlebar[data-density="icons"] .tbtn,
+.titlebar[data-density="menu"] .tbtn {
+  padding: 0 8px;
 }
 
 .search {
@@ -752,6 +769,13 @@ body {
 }
 .ctx-item.danger {
   color: #c0392b;
+}
+.ctx-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ctx-item:disabled:hover {
+  background: transparent;
 }
 .ctx-item.danger:hover {
   background: color-mix(in srgb, #c0392b 12%, transparent);
@@ -2587,15 +2611,10 @@ body {
   }
 }
 
-/* ── 반응형 (#118: 상단바 단계적 축소 — 1024/900/760px) ── */
-@media (max-width: 1024px) {
-  .tgroup.actions .tbtn .lbl {
-    display: none;
-  }
-  .tbtn {
-    padding: 0 8px;
-  }
-}
+/* ── 반응형 (900/760px) ──
+   상단바의 단계적 축소는 여기 없다 — 중단점이 아니라 **측정**이 정한다(useToolbarFit).
+   1024px 중단점은 1120px 창에서 이미 겹치는 것을 못 막았다. 아래 둘은 툴바가 아니라
+   레이아웃 전체에 대한 판단이라 남는다(사이드바를 접고 패널을 세로로 쌓는다). */
 
 /* ── 반응형 (≤ 900px: 사이드바 접힘, 패널 세로 스택) ── */
 @media (max-width: 900px) {
