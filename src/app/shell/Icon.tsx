@@ -22,6 +22,7 @@ export type IconName =
   | "min"
   | "max"
   | "list"
+  | "more"
   | "gear"
   | "type"
   | "zoom"
@@ -51,6 +52,9 @@ export function IconSprite() {
         <symbol id="i-bell" viewBox="0 0 24 24">
           <path d="M18 16V11a6 6 0 1 0-12 0v5l-1.6 2.2A.5.5 0 0 0 4.8 19h14.4a.5.5 0 0 0 .4-.8z" />
           <path d="M10 22h4" />
+        </symbol>
+        <symbol id="i-more" viewBox="0 0 24 24">
+          <path strokeWidth="2.6" d="M5 12h.01M12 12h.01M19 12h.01" />
         </symbol>
         <symbol id="i-refresh" viewBox="0 0 24 24">
           <path d="M20 12a8 8 0 1 1-2.4-5.7" />

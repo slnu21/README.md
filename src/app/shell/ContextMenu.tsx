@@ -7,6 +7,9 @@ export interface MenuItem {
   danger?: boolean;
   /** 우측에 흐리게 표시하는 단축키(예: "Ctrl+B"). features/editor/actions.ts keyHint 결과. */
   hint?: string;
+  /** 지금은 못 쓰는 항목(문서가 없을 때의 [저장] 등). 항목을 빼는 대신 흐리게 남긴다 —
+   *  메뉴 모양이 상황마다 달라지면 "아까 거기 있던 것"을 다시 못 찾는다. */
+  disabled?: boolean;
 }
 
 export function ContextMenu({
@@ -48,6 +51,7 @@ export function ContextMenu({
           type="button"
           role="menuitem"
           className={"ctx-item" + (it.danger ? " danger" : "")}
+          disabled={it.disabled}
           onClick={() => {
             it.onClick();
             onClose();

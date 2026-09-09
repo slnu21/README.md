@@ -34,8 +34,10 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 
 > 미리보기 렌더를 건드렸으면 `npm run probe:mermaid` 까지 통과해야 한다 — 측정(앱 문서)↔표시(미리보기
 > 문서) 문맥이 어긋나면 라벨이 도형을 넘거나 잘리는데, 눈으로는 잘 안 보인다(v0.6.7·v0.6.8 연속 유출).
-> 미리보기 **패널 배치**(리딩/분할·패널 머리띠·seam)를 건드렸으면 `npm run probe:layout`. mermaid
-> 프로브는 자기 iframe 을 직접 만들어 앱 셸을 로드하지 않으므로 패널 기하는 그쪽으로 안 잡힌다.
+> 미리보기 **패널 배치**(리딩/분할·패널 머리띠·seam)나 **타이틀바**(버튼·테마·밀도)를 건드렸으면
+> `npm run probe:layout`. mermaid 프로브는 자기 iframe 을 직접 만들어 앱 셸을 로드하지 않으므로
+> 패널 기하는 그쪽으로 안 잡힌다. 레이아웃 프로브는 `.app` 의 width 를 바꿔 가며 툴바가 접히는
+> 단계·버튼 겹침·넘침도 함께 잰다(툴바 접기는 @media 가 아니라 측정이라 창을 안 띄우고도 잡힌다).
 
 ## 규약 / 결정사항
 - **파일 I/O**: JS의 fs 플러그인이 아니라 **Rust 커맨드(`src-tauri/src/commands/fs_ops.rs`, `std::fs`)** 로 임의 경로 풀 접근. 프론트는 `src/app/lib/tauri.ts` 래퍼 사용.
