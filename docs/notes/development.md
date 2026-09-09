@@ -226,6 +226,22 @@ Windows 에서 BOM 붙은 UTF-8 은 드물지 않다(메모장, PowerShell `Set-
 **측정식 접기는 컨테이너 폭만 보므로 프로브가 창을 안 만들고도 잰다** — `.app` 의 width 를
 바꿔 가며 단계·겹침·넘침을 검사한다(`@media` 는 뷰포트라 안 걸리는데, 그게 이 방식의 요점이다).
 
+## `tauri dev` 는 남의 프런트를 띄울 수 있다 — 1420 은 우리만 쓰는 포트가 아니다
+
+같은 계정의 다른 Tauri 앱이 이미 vite 를 1420 에 띄워 두면, 우리 앱은 **그 앱의 화면을**
+로드한다. 창 제목·아이콘은 우리 것이라(그건 Rust 쪽이다) 눈으로는 멀쩡해 보이고, CDP 로
+붙어서야 `.titlebar` 가 없는 것을 알게 된다. `beforeDevCommand` 는 "Port 1420 is already
+in use" 로 죽지만, `cargo run --no-default-features` 로 셸만 띄우면 그 경고조차 없다.
+
+우회: 빈 포트로 vite 를 띄우고(`npx vite --port 1421 --strictPort`) `tauri.conf.json` 의
+`devUrl` 을 임시로 그쪽에 붙인다(**원복 잊지 말 것** — 설정이 바뀌면 Rust 가 다시 빌드된다).
+`cargo run` 을 기본 피처로 돌려도 소용없다 — **디버그 빌드는 언제나 `devUrl` 을 본다**
+(번들된 dist 로 뜨는 것은 릴리스 빌드다. 위의 "`cargo build --release` 로 나온 exe" 절 참고).
+
+CDP 포트도 마찬가지다. `--remote-debugging-port=9222` 가 이미 남의 WebView2 것이면 우리
+앱은 조용히 CDP 없이 뜬다. `Get-NetTCPConnection -LocalPort <p> -State Listen` 으로 주인을
+먼저 확인할 것.
+
 ## 배시 heredoc 은 백슬래시를 한 겹 먹는다
 
 `<<'PY'` 로 따옴표를 씌워도 백슬래시가 한 겹 줄어든다(`\\` → `\`). 이번에 **세 번** 당했다 —
