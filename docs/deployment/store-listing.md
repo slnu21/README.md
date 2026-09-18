@@ -43,7 +43,7 @@ README.md는 가볍고 **100% 오프라인**인 마크다운 리더 & 에디터�
 - **받은 문서함** — 밖에서 바뀐 문서를 알림 종에 모아 표시(앱이 꺼져 있던 동안의 변경도)
 - **문서 기록 · 되돌리기** — 덮어쓰기 직전 내용을 남겨 이전 판으로 복원
 - 저장 · 외부 변경 자동 감지·리로드 · 최근 파일
-- 한국어 · English
+- 한국어 · English UI · **본문은 오른쓰기 언어(페르시아어·아랍어·히브리어)도** — 문단마다 방향 자동 판정, 코드는 항상 왼쓰기
 - 가볍고 빠른 실행, 작은 용량
 
 **검색어 (search terms, 최대 7):** 마크다운, markdown, 에디터, 미리보기, 오프라인, 노트, README
@@ -88,7 +88,7 @@ It starts fast, uses little memory, and stays out of your way — perfect for RE
 - **Inbox** — documents changed outside the app collect under the toolbar bell, including changes made while the app was closed
 - **Document history · restore** — the version from just before an overwrite is kept, so you can go back
 - Save, external-change auto-reload, recent files
-- Korean · English
+- Korean · English UI · **right-to-left scripts (Persian, Arabic, Hebrew) in documents** — direction per paragraph, code always left-to-right
 - Lightweight and fast, small footprint
 
 **Search terms (max 7):** markdown, editor, preview, offline, notes, README, md
@@ -105,6 +105,7 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - **문서 기록 · 되돌리기** — 문서가 바뀔 때마다 **바뀌기 전 내용**을 한 벌 남깁니다. 탭 우클릭 ▸ [문서 기록] 에서 이전 판을 보고 되돌릴 수 있고, 되돌린 것을 다시 되돌릴 수도 있습니다.
 - **테마 고르기 창** — 툴바에 가로로 늘어놓던 테마를 창으로 옮겼습니다. 색 견본과 함께 전부 보여 주고, 고르면 바로 적용됩니다. 테마 파일·폴더 버튼도 이 창에 모였습니다.
 - **창을 좁히면 상단 버튼 글자가 겹쳐 찍히던 문제를 고쳤습니다** — 이제 좁아지면 아이콘만 남고, 더 좁아지면 [⋯] 메뉴 하나로 접힙니다.
+- **오른쪽에서 왼쪽으로 쓰는 언어(페르시아어·아랍어·히브리어)를 지원합니다** — 후기로 요청해 주신 기능입니다. 설정 ▸ 글 방향(자동 / 왼→오 / 오→왼). 기본 **자동**은 문단마다 방향을 정하므로 페르시아어 문서는 아무것도 건드리지 않아도 오른쪽에서 시작하고 목록·인용문·표도 따라갑니다. 편집기도 함께 따라가며, 코드 블록·수식·다이어그램은 언제나 왼→오입니다. 한국어·영어만 쓰시면 바뀌는 것이 없습니다. 원어민 분들의 피드백을 기다립니다.
 
 ### v0.10.0 — en-US
 - **Agent bridge** — an AI agent such as Claude Code can now **look into your README.md workspace directly**. Nothing extra to install: the app itself doubles as the server. The agent gets the four things only this app knows: full-text search, document outlines, section-only reads, and the virtual workspace layout you arranged by hand. **It can only see the folders and files you put in your workspace, and it is given no tools that change or delete documents.** Copy the exact connect command from Settings ▸ Agent connection.
@@ -112,6 +113,7 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - **Document history · restore** — every time a document changes, the app quietly keeps **the version from just before**. Right-click the tab ▸ Document history to look through earlier versions and restore one — and the state right before a restore is kept too, so a restore can be undone.
 - **Theme window** — themes moved out of the toolbar row into a window that shows all of them with color previews. Picking one applies it immediately; the theme file and folder buttons live there now too.
 - **Fixed: toolbar labels printed on top of each other in a narrow window** — the buttons now collapse in steps: icons first, then into a single [⋯] menu.
+- **Right-to-left scripts (Persian, Arabic, Hebrew) are now supported** — requested in a review. Settings ▸ Text direction (Auto / LTR / RTL). The default **Auto** decides per paragraph, so a Persian document starts from the right with no setup, and lists, quotes and tables follow. The editor follows too; code blocks, math and diagrams always stay left-to-right. Nothing changes if you only write Korean or English. Feedback from native readers is very welcome.
 
 ### v0.9.0 — ko-KR
 - **테마가 폴더 안의 파일이 되었습니다** — 한지·전자잉크가 앱 안에 박힌 값에서 **열어서 고칠 수 있는 파일**이 됐습니다. 설정 ▸ [테마 폴더 열기] 에 안내문과 함께 들어 있습니다. 색을 바꿔도 되고, 마음에 안 들면 지워도 됩니다(다시 만들어 드리지 않습니다).
@@ -309,4 +311,4 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.7.1 업데이트 제출** — `release/v0.7.1/README_0.7.1_x64.msix`(동일 실신원 · `0.7.1.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.7.1 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.7.1** 문구 — **제출 완료(2026-08-23) · 인증·게시 대기**(같은 날 확인 시점 `Get-AppxPackage SlnU.README.md` → 아직 `0.7.0.0` · `SignatureKind=Store`). 직전 v0.7.0이 **게시 완료(2026-08-23 확인)** 라 동시 제출 충돌 없음. **산출물 준비 완료(2026-08-23) · 릴리스 exe 실구동 28항목 통과**(외부 링크가 브라우저로 · 앵커 스크롤 · Ctrl/Alt 수식어 · `.exe`/로컬 html 거절 후 탐색기 · 프레젠테이션 링크 · 배지/라이트박스). **GitHub 릴리스·태그 `v0.7.1` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.7.1>. **제출은 Partner Center 웹 — 사용자 직접.**
 - [x] **v0.8.0 업데이트 제출** — `release/v0.8.0/README_0.8.0_x64.msix`(동일 실신원 · `0.8.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.8.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.8.0** 문구 — **제출 완료(2026-08-30) · 게시 완료**(2026-09-02 확인: `Get-AppxPackage SlnU.README.md` → `0.8.0.0` · `SignatureKind=Store`). 제출 직전 직전 판(v0.7.1)이 게시 완료임을 확인해 동시 제출 충돌 없음. **GitHub 릴리스·태그 `v0.8.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.8.0>. **제출은 Partner Center 웹 — 사용자 직접.**
 - [x] **v0.9.0 업데이트 제출** — `release/v0.9.0/README_0.9.0_x64.msix`(동일 실신원 · `0.9.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.9.0 을 `.msix` 안에서 꺼내 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.9.0** 문구 — **제출 완료(2026-09-06, 사용자 직접) · 인증·게시 대기**. 직전 v0.8.0 이 게시 완료(2026-09-02 확인)라 동시 제출 충돌 없음. **GitHub 릴리스·태그 `v0.9.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.9.0> · 자산 4종(NSIS·MSIX·zip·NOTICES).
-- [ ] **v0.10.0 업데이트 제출** — `release/v0.10.0/README_0.10.0_x64.msix`(동일 실신원 · `0.10.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.10.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.10.0** 문구 — **산출물 준비 완료(2026-09-09)** — NSIS 5.56MB / MSIX 6.61MB / zip 6.49MB · **릴리스 exe 실구동 통과**(CDP, 사용자 DB·프로필 비켜 놓고 원복: 툴바 3단계 1684 full / 1184 icons / 934 menu — 어느 폭에서도 겹침 0·넘침 0 · [⋯] 메뉴 9항목 · 테마 창 6카드에서 한지 적용 · 1380px 에서 한국어 full / 영어 icons · 탭 우클릭에 [문서 기록] · 미리보기 렌더·에이전트 연결 패널 정상). 직전 v0.9.0 이 **게시 완료**(2026-09-09 확인: `Get-AppxPackage SlnU.README.md` → `0.9.0.0` · `SignatureKind=Store`)라 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
+- [ ] **v0.10.0 업데이트 제출** — `release/v0.10.0/README_0.10.0_x64.msix`(동일 실신원 · `0.10.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.10.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.10.0** 문구 — **산출물 준비 완료(2026-09-09) → RTL 수록으로 재빌드(2026-09-19)** — NSIS 5.56MB / MSIX 6.61MB / zip 6.49MB · 재빌드 MSIX 매니페스트 재확인(동일 실신원 · `0.10.0.0` · alias `readme-md.exe` · `<Application>` 1개 · 꺼낸 exe 0.10.0) · **릴리스 exe 실구동 통과**(CDP, 사용자 DB·프로필 비켜 놓고 원복: **RTL 픽스처를 argv 로 열어 설정 창 버튼으로 자동→오→왼→왼→오→자동 — 문서 루트 dir·문단 정렬·목록 여백·표 열 순서·편집기 줄 방향·거터 위치·영속 전부 프로브와 동일** · 툴바 3단계 1684 full / 1184 icons / 934 menu — 어느 폭에서도 겹침 0·넘침 0 · [⋯] 메뉴 9항목 · 테마 창 6카드에서 한지 적용 · 1380px 에서 한국어 full / 영어 icons · 탭 우클릭에 [문서 기록] · 미리보기 렌더·에이전트 연결 패널 정상). 직전 v0.9.0 이 **게시 완료**(2026-09-09 확인: `Get-AppxPackage SlnU.README.md` → `0.9.0.0` · `SignatureKind=Store`)라 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
