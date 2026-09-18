@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "probe:mermaid": "node tools/mermaid-probe.mjs",
     "probe:layout": "node tools/layout-probe.mjs",
+    "probe:rtl": "node tools/rtl-probe.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

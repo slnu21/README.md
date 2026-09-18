@@ -9,6 +9,7 @@ import { buildDoc } from "../../lib/renderDoc";
 import { readStack, BASE_READER_PX, bundledWoff2For } from "../../lib/fonts";
 import { dirOf, inlineImages } from "../../lib/previewImages";
 import { bytesToBase64 } from "../../lib/bytes";
+import type { TextDirection } from "../../lib/bidi";
 
 export interface ExportParams {
   content: string;
@@ -16,6 +17,7 @@ export interface ExportParams {
   themeId: string;
   fontRead: string;
   previewZoom: number;
+  textDirection: TextDirection; // 화면과 같은 방향으로 내보낸다
 }
 
 // 같은 오리진 자산을 base64로. CSP connect-src 'self' 내에서 fetch 가능(woff2는 앱 번들).
@@ -48,5 +50,5 @@ export async function buildExportHtml(p: ExportParams, extraCss = ""): Promise<s
   const withMermaid = await renderMermaid(withImages, p.themeId);
   const fontFaceCss = await embedFontCss(p.fontRead);
   const font = { readStack: readStack(p.fontRead), readerPx: BASE_READER_PX * p.previewZoom };
-  return buildDoc(withMermaid, p.themeId, font, { fontFaceCss, extraCss });
+  return buildDoc(withMermaid, p.themeId, font, { fontFaceCss, extraCss, textDirection: p.textDirection });
 }

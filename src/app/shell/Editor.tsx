@@ -8,6 +8,7 @@ import {
   editorExtensions,
   selStateOf,
   contentSync,
+  setTextDirection,
   type SelState,
   type CompletionSources,
   type SaveImage,
@@ -62,6 +63,7 @@ export const Editor = forwardRef<EditorHandle, {
   // 글꼴/줌은 :root CSS 변수로 적용(App.tsx) → CM 높이 캐시 재측정 필요(커서/거터 정렬 유지).
   const fontMono = useAppStore((s) => s.fontMono);
   const editorZoom = useAppStore((s) => s.editorZoom);
+  const textDir = useAppStore((s) => s.textDirection);
   const { t } = useTranslation();
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -80,6 +82,7 @@ export const Editor = forwardRef<EditorHandle, {
             headings: () => completeRef.current?.headings() ?? [],
           },
           (data, ext) => saveImageRef.current?.(data, ext) ?? Promise.resolve(null),
+          useAppStore.getState().textDirection,
         ),
       }),
       parent: host.current,
@@ -104,6 +107,12 @@ export const Editor = forwardRef<EditorHandle, {
       });
     }
   }, [content]);
+
+  // 글 방향 설정 변경 → 컴파트먼트 리컨피그(재마운트 없음 — 커서·되돌리기 기록이 산다).
+  useEffect(() => {
+    const view = viewRef.current;
+    if (view) setTextDirection(view, textDir);
+  }, [textDir]);
 
   // 글꼴/줌(CSS 변수) 변경 후 다음 프레임에 재측정 — 변수 적용 완료 시점 보장 + 메트릭 강제 갱신.
   useEffect(() => {

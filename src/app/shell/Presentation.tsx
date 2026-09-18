@@ -41,6 +41,7 @@ export function Presentation({
   const { t } = useTranslation();
   const themeRev = useAppStore((s) => s.themeRev);
   const fontRead = useAppStore((s) => s.fontRead);
+  const textDirection = useAppStore((s) => s.textDirection);
   const slides = useMemo(() => splitSlides(content), [content]);
   const [idx, setIdx] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -57,12 +58,12 @@ export function Presentation({
       const body = await renderMermaid(body0, themeId);
       if (cancelled) return;
       const font = { readStack: readStack(fontRead), readerPx: BASE_READER_PX * 1.35 };
-      iframe.srcdoc = buildDoc(body, themeId, font, { extraCss: SLIDE_CSS });
+      iframe.srcdoc = buildDoc(body, themeId, font, { extraCss: SLIDE_CSS, textDirection });
     })();
     return () => {
       cancelled = true;
     };
-  }, [slides, cur, themeId, themeRev, fontRead, path]);
+  }, [slides, cur, themeId, themeRev, fontRead, path, textDirection]);
 
   // 키보드 내비게이션: ←/→ ·Space·PageUp/Down·Home/End·Esc.
   useEffect(() => {

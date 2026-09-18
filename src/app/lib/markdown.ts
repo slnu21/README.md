@@ -35,6 +35,7 @@ import sql from "highlight.js/lib/languages/sql";
 import markdownLang from "highlight.js/lib/languages/markdown";
 import diff from "highlight.js/lib/languages/diff";
 import { slugify } from "./slugify";
+import { firstStrongDir, type StrongDir } from "./bidi";
 
 // 코드블록 언어(지연 로드 대신 큐레이션 세트 번들 — 번들 크기 절제). 별칭(ts/js/sh/html…)은 각 언어가 등록.
 const LANGS: Record<string, LanguageFn> = {
@@ -53,6 +54,50 @@ function registerLanguages(): void {
 }
 
 const CALLOUTS = ["note", "warning", "tip"] as const;
+
+// ── 글 방향(bidi) 속성 ──────────────────────────────────────────────────────
+// 설정과 무관하게 **항상** 박는다 — 워커의 렌더 결과가 설정에 묶이지 않고, 자동/강제 전환은
+// buildDoc 이 문서 루트에 적는 `dir`+`data-dir-mode` 와 CSS 만으로 된다(테마 바꾸듯 즉시).
+//   · 잎 블록(p·h1~h6·td…) = `dir="auto"` — 브라우저가 첫 강한 글자로 방향을 정한다.
+//   · 컨테이너(ul·ol·li·blockquote·table·dl·콜아웃) = `data-dir="ltr|rtl"` 을 **우리가 계산**한다.
+//     dir="auto" 는 dir 속성을 가진 자식을 통째로 건너뛰므로 컨테이너에 auto 를 달면 볼 텍스트가
+//     없어 항상 LTR 로 떨어진다(목록 여백·인용문 막대·표 열 순서가 왼쪽에 남는다). lib/bidi.ts.
+const BIDI_LEAF = new Set(["p", "h1", "h2", "h3", "h4", "h5", "h6", "th", "td", "dt", "dd", "caption"]);
+const BIDI_CONTAINER = new Set(["ul", "ol", "li", "blockquote", "table", "dl", "div"]);
+
+interface Tok {
+  type: string;
+  tag: string;
+  nesting: number;
+  content: string;
+  children: Tok[] | null;
+  attrSet(name: string, value: string): void;
+  attrGet(name: string): string | null;
+}
+
+/** 컨테이너 여는 토큰부터 짝이 되는 닫는 토큰까지 훑어 첫 강한 글자의 방향을 찾는다.
+ *  브라우저의 dir=auto 가 보는 것과 같은 텍스트만 본다 — 원시 HTML 태그·이미지 alt 는 건너뛴다.
+ *  첫 글자에서 멈추므로 중첩이 깊어도 비용은 사실상 상수다. */
+function containerDir(toks: Tok[], open: number): StrongDir | null {
+  let depth = 0;
+  for (let j = open; j < toks.length; j++) {
+    const t = toks[j];
+    depth += t.nesting;
+    if (depth <= 0 && j > open) break;
+    if (t.type === "inline" && t.children) {
+      for (const c of t.children) {
+        if (c.type === "text" || c.type === "code_inline" || c.type === "math_inline") {
+          const d = firstStrongDir(c.content);
+          if (d) return d;
+        }
+      }
+    } else if (t.type === "fence" || t.type === "code_block" || t.type === "math_block") {
+      const d = firstStrongDir(t.content);
+      if (d) return d;
+    }
+  }
+  return null;
+}
 
 /** mermaid 소스 → base64(UTF-8). data-src 속성에 안전하게 싣기 위함(lib/mermaid.ts decodeMermaidSrc 와 짝).
  *  원문의 `-->`·`->>`·`<|--` 등 `<`/`>` 포함 시 DOMPurify의 mXSS 방지 스크러빙이 data-src를 통째로
@@ -103,8 +148,11 @@ export function createMarkdown(): MarkdownIt {
   // 콜아웃(admonition) 컨테이너 — ::: note / warning / tip
   for (const name of CALLOUTS) {
     md.use(container, name, {
-      render(tokens: Array<{ nesting: number }>, idx: number) {
-        return tokens[idx].nesting === 1 ? `<div class="callout ${name}">\n` : "</div>\n";
+      render(tokens: Tok[], idx: number) {
+        if (tokens[idx].nesting !== 1) return "</div>\n";
+        // 방향은 bidi_dir 코어 룰이 토큰에 적어 둔 것(아래) — 커스텀 렌더라 여기서 직접 찍는다.
+        const dir = tokens[idx].attrGet("data-dir");
+        return `<div class="callout ${name}"${dir ? ` data-dir="${dir}"` : ""}>\n`;
       },
     });
   }
@@ -126,6 +174,20 @@ export function createMarkdown(): MarkdownIt {
     for (const token of state.tokens) {
       if (token.map && token.nesting >= 0 && token.type !== "inline") {
         token.attrSet("data-line", String(token.map[0]));
+      }
+    }
+  });
+
+  // 글 방향 속성(위 BIDI_* 주석). 인라인 파싱이 끝난 뒤라 children 이 있다.
+  md.core.ruler.push("bidi_dir", (state) => {
+    const toks = state.tokens as unknown as Tok[];
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      if (t.nesting !== 1) continue;
+      if (BIDI_LEAF.has(t.tag)) t.attrSet("dir", "auto");
+      else if (BIDI_CONTAINER.has(t.tag)) {
+        const d = containerDir(toks, i);
+        if (d) t.attrSet("data-dir", d);
       }
     }
   });

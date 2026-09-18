@@ -7,6 +7,7 @@ import { themes, defaultThemeId, type Theme } from "../themes";
 import { CARD_SHADOW, PROSE_DEFAULT_CSS, PROSE_VAR, TEXTURE_CSS } from "../themes/prose";
 import { isHex6 } from "./color";
 import { FONT_FACE_CSS, BASE_READER_PX } from "./fonts";
+import { docDirection, type TextDirection } from "./bidi";
 
 /** 다이어그램 전용 글꼴. mermaid 기본 스택("trebuchet ms",verdana,arial,sans-serif)에는 **한글
  *  글리프가 없어** 한글이 전부 문서별 폴백으로 해결됐다 → 측정 문서와 표시 문서가 서로 다른 face를
@@ -31,13 +32,24 @@ export const DIAGRAM_FONT_PX = 16;
  *  사라지는 순간 측정은 --ui-font, 표시는 --read-font(세리프!)가 되어 조용히 크게 어긋난다.
  *  여기서 못박아 두면 그 단일 실패점이 사라진다(#mmd-N 이 살아 있으면 특이도상 그쪽이 이겨 무해).
  *
+ *  direction 도 고정한다 — 문서 루트가 RTL 이면(글 방향 설정) 래퍼가 그 값을 상속해 원본 모드의
+ *  flex 시작점·가로 스크롤 원점이 오른쪽으로 가고, LTR 배치인 다이어그램의 앞부분이 가려진다.
+ *  (SVG <text> 자체는 unicode-bidi 없이는 direction 을 무시한다 — SVG 명세. 그래서 라벨 상자는
+ *  안 어긋나지만 래퍼는 어긋난다. probe:mermaid 가 paper 설정 넷을 루트 RTL 로 띄워 잰다.)
+ *  mermaid 는 LTR 배치 엔진이고 라벨 안의 RTL 글자는 Chromium 이 알아서 묶어 그린다.
+ *
  *  **한쪽만 바뀌면 버그가 재발하므로 lib/mermaid.ts 측정 스테이지와 이 상수를 반드시 공유한다.** */
 export const DIAGRAM_CTX_CSS =
   "line-height:normal;text-rendering:auto;letter-spacing:normal;word-spacing:normal;" +
   "font-kerning:auto;font-variant-ligatures:normal;-webkit-font-smoothing:antialiased;" +
-  `font-family:${DIAGRAM_FONT};font-size:${DIAGRAM_FONT_PX}px`;
+  `font-family:${DIAGRAM_FONT};font-size:${DIAGRAM_FONT_PX}px;direction:ltr`;
 
 // iframe/문서 내부(리더) 스타일. 색은 주입된 5토큰 사용, 폰트는 --read-font(주입) + 시스템 폴백.
+//
+// **좌우는 논리 속성으로 쓴다**(padding-inline-start·border-inline-start·text-align:start). 글 방향이
+// RTL 인 블록에서 목록 여백·인용문 막대·표 정렬이 반대편으로 따라가야 한다 — 물리 속성(-left)
+// 하나가 남으면 그 자리만 왼쪽에 박힌다. lib/renderDoc.test.ts 가 물리 속성이 없는지 지킨다.
+// 예외는 코드·수식·다이어그램: 항상 LTR(아래 direction 규칙).
 export const PREVIEW_CSS = `
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -62,13 +74,14 @@ h6{font-size:.92em;color:var(--prose-muted)}
 p{margin:0 0 1em}
 a{color:var(--prose-link);text-decoration:var(--prose-link-deco)}
 a:hover{text-decoration:underline}
-ul,ol{padding-left:1.5em;margin:0 0 1em}
+ul,ol{padding-inline-start:1.5em;margin:0 0 1em}
 li{margin:.25em 0}
 li::marker{color:var(--prose-marker)}
 /* 이탤릭을 쓰지 않는다 — 한글에는 기울임 자형이 없어 브라우저가 가짜 기울임을 합성하고,
    그 합성체는 한국어 본문에서 가독성을 오히려 깎는다. 구분은 막대+바탕색이 맡는다. */
-blockquote{margin:0 0 1em;padding:.45em .9em .45em 1em;
-  border-left:3px solid var(--prose-quote-bar);border-radius:0 6px 6px 0;
+blockquote{margin:0 0 1em;padding-block:.45em;padding-inline:1em .9em;
+  border-inline-start:3px solid var(--prose-quote-bar);
+  border-start-end-radius:6px;border-end-end-radius:6px;
   background:var(--prose-quote-bg);color:var(--prose-quote)}
 blockquote>:first-child{margin-top:0}
 blockquote>:last-child{margin-bottom:0}
@@ -80,25 +93,25 @@ pre{background:var(--prose-pre-bg);border:1px solid var(--prose-rule);
 pre code{background:none;color:inherit;padding:0;font-size:.85em}
 table{border-collapse:collapse;width:100%;margin:0 0 1em;
   font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;font-size:.95em}
-th,td{border:1px solid var(--prose-rule);padding:7px 11px;text-align:left}
+th,td{border:1px solid var(--prose-rule);padding:7px 11px;text-align:start}
 thead th{background:var(--prose-table-head)}
 tbody tr:nth-child(even){background:var(--prose-table-zebra)}
-caption{color:var(--prose-muted);font-size:.92em;padding-bottom:.4em;text-align:left}
+caption{color:var(--prose-muted);font-size:.92em;padding-bottom:.4em;text-align:start}
 img{max-width:100%;height:auto;border-radius:6px}
 hr{border:none;border-top:1px solid var(--prose-rule);margin:1.6em 0}
 h1:first-child,h2:first-child,h3:first-child,h4:first-child,h5:first-child,h6:first-child{margin-top:0}
 .task-list-item{list-style:none}
-.task-list-item-checkbox{margin:0 .5em 0 -1.4em;accent-color:var(--prose-marker)}
+.task-list-item-checkbox{margin:0;margin-inline:-1.4em .5em;accent-color:var(--prose-marker)}
 .footnotes{font-size:.9em;color:var(--prose-muted);border-top:1px solid var(--prose-rule);margin-top:2.4em;padding-top:.4em}
-.footnotes ol{padding-left:1.4em}
+.footnotes ol{padding-inline-start:1.4em}
 .footnote-ref a,.footnote-backref{text-decoration:none;color:var(--prose-link)}
 mark{background:var(--prose-mark-bg);color:inherit;padding:.05em .2em;border-radius:3px}
 ins{text-decoration:underline}
 sub,sup{font-size:.75em;line-height:0}
 abbr[title]{text-decoration:underline dotted;cursor:help}
 dl dt{font-weight:600;margin-top:.7em;color:var(--prose-heading)}
-dl dd{margin:0 0 .4em 1.3em}
-.callout{border-left:4px solid var(--prose-note);border-radius:0 6px 6px 0;padding:.4em 1em;margin:1em 0;background:color-mix(in srgb,var(--prose-note) 8%,var(--bg))}
+dl dd{margin:0 0 .4em;margin-inline-start:1.3em}
+.callout{border-inline-start:4px solid var(--prose-note);border-start-end-radius:6px;border-end-end-radius:6px;padding:.4em 1em;margin:1em 0;background:color-mix(in srgb,var(--prose-note) 8%,var(--bg))}
 .callout>:first-child{margin-top:0}
 .callout>:last-child{margin-bottom:0}
 .callout.warning{border-color:var(--prose-warn);background:color-mix(in srgb,var(--prose-warn) 8%,var(--bg))}
@@ -125,6 +138,18 @@ eq{padding:0 .1em}
 .diagram-natural .mermaid-rendered{justify-content:flex-start}
 .diagram-natural .mermaid-rendered svg{flex:none;max-width:none;width:var(--diagram-w,auto)}
 .mermaid-error{color:var(--prose-error)}
+/* ── 글 방향 ──
+   렌더러(lib/markdown.ts bidi_dir)가 잎 블록에 dir="auto", 컨테이너에 data-dir 을 박고, 문서 루트
+   .md 는 buildDoc 이 dir(자동이면 첫 강한 글자)과 data-dir-mode 를 적는다. dir 속성은 UA 수준
+   표현 힌트라 저자 CSS 의 direction 이 이긴다 → 강제 모드는 규칙 두 줄로 전부 뒤집는다.
+   코드·수식·다이어그램(DIAGRAM_CTX_CSS)은 어느 모드에서도 LTR — 코드는 코드다. 인라인 코드만
+   문단에서 격리해 자기 첫 글자로 정한다(plaintext): RTL 문장 속 'foo_bar()' 가 뒤집히지 않는다. */
+.md [data-dir=ltr]{direction:ltr}
+.md [data-dir=rtl]{direction:rtl}
+.md[data-dir-mode=ltr] :is([dir=auto],[data-dir]){direction:ltr}
+.md[data-dir-mode=rtl] :is([dir=auto],[data-dir]){direction:rtl}
+pre,math{direction:ltr}
+:not(pre)>code{unicode-bidi:plaintext}
 `;
 
 export interface FontOpts {
@@ -140,6 +165,9 @@ export interface BuildDocOpts {
   /** 다이어그램 너비. fit=카드 폭에 축소 맞춤(기본), natural=원본 크기 + 블록 내 가로 스크롤.
    *  슬라이드·인쇄는 기본(fit)이 안전하므로 미리보기만 설정값을 넘긴다. */
   diagramWidth?: "fit" | "natural";
+  /** 글 방향(설정). auto(기본)=문서 루트는 첫 강한 글자, 블록마다 자기 첫 글자 / ltr·rtl=전부 강제.
+   *  미리보기·프레젠테이션·HTML 내보내기가 같은 값을 넘긴다 — 내보낸 파일이 화면과 달라지면 안 된다. */
+  textDirection?: TextDirection;
 }
 
 /** 테마 → iframe :root 에 들어갈 CSS 선언문자열. **순수**다(document 미사용) — buildDoc 은
@@ -189,6 +217,10 @@ export function buildDoc(
   // 원본 모드는 body 클래스로 켠다(CSS 변수로는 안 된다: 원본 폭 --diagram-w 는 래퍼마다 다른데
   // :root에서 var(--diagram-w)를 참조하면 선언 위치인 :root에서 해석돼 빈 값이 된다).
   const bodyClass = opts.diagramWidth === "natural" ? ` class="diagram-natural"` : "";
+  // 글 방향은 문서 루트(.md)에 적는다 — <html> 에 적으면 세로 스크롤바까지 왼쪽으로 옮겨가
+  // LTR 인 앱 크롬과 어긋난다. 카드 안만 뒤집는다.
+  const dirMode: TextDirection = opts.textDirection ?? "auto";
+  const dirAttrs = ` dir="${docDirection(dirMode, bodyHtml)}" data-dir-mode="${dirMode}"`;
   const fontFace = opts.fontFaceCss ?? FONT_FACE_CSS;
   const extra = opts.extraCss ?? "";
   // 테마 자신의 CSS(스타일 팩)는 PREVIEW_CSS 뒤 — 기본 모양을 덮을 수 있어야 한다.
@@ -203,6 +235,6 @@ export function buildDoc(
     `<meta name="color-scheme" content="${theme.type}">` +
     `<style>${PROSE_DEFAULT_CSS}:root{${vars}${fontVars}}` +
     `${fontFace}${PREVIEW_CSS}${themeCss}${extra}</style></head>` +
-    `<body${bodyClass}><div class="md">${bodyHtml}</div></body></html>`
+    `<body${bodyClass}><div class="md"${dirAttrs}>${bodyHtml}</div></body></html>`
   );
 }

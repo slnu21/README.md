@@ -5,6 +5,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { defaultThemeId } from "../themes";
 import * as panes from "./panes";
+import type { TextDirection } from "../lib/bidi";
 import {
   readFile,
   readDirTree,
@@ -186,6 +187,11 @@ interface AppState {
   readingWidth: "narrow" | "normal" | "wide"; // 미리보기 본문 최대 폭(긴 줄 방지)
   diagramWidth: "fit" | "natural"; // mermaid 너비 — fit=카드 폭 축소맞춤 / natural=원본+가로 스크롤
   previewDelay: number; // 미리보기 재렌더 디바운스(ms) — 빠름 200/보통 500/느긋 1000
+  /** 글 방향 — auto=문단마다 첫 강한 글자(기본, ko/en 문서는 아무 변화 없음) / ltr·rtl=강제.
+   *  편집기·미리보기·프레젠테이션·내보내기가 함께 따른다. 문서별이 아니라 전역인 이유: 기본
+   *  자동이 문서 안 혼용까지 문단 단위로 처리하므로 강제는 예외적 탈출구이고, 예외를 문서마다
+   *  기억할 만큼 자주 쓰이지 않는다. */
+  textDirection: TextDirection;
   syncScroll: boolean;
   outlinePinned: boolean;
   outlineOpacity: number;
@@ -226,6 +232,7 @@ interface AppState {
   setReadingWidth: (w: "narrow" | "normal" | "wide") => void;
   setDiagramWidth: (w: "fit" | "natural") => void;
   setPreviewDelay: (ms: number) => void;
+  setTextDirection: (d: TextDirection) => void;
   setSyncScroll: (on: boolean) => void;
   setOutlinePinned: (on: boolean) => void;
   setOutlineOpacity: (v: number) => void;
@@ -305,6 +312,7 @@ export const useAppStore = create<AppState>()(
       readingWidth: "normal",
       diagramWidth: "fit",
       previewDelay: 500,
+      textDirection: "auto",
       syncScroll: true,
       outlinePinned: false,
       outlineOpacity: 0.92,
@@ -342,6 +350,7 @@ export const useAppStore = create<AppState>()(
       setReadingWidth: (w) => set({ readingWidth: w }),
       setDiagramWidth: (w) => set({ diagramWidth: w }),
       setPreviewDelay: (ms) => set({ previewDelay: ms }),
+      setTextDirection: (d) => set({ textDirection: d }),
       setSyncScroll: (on) => set({ syncScroll: on }),
       setOutlinePinned: (on) => set({ outlinePinned: on }),
       setOutlineOpacity: (v) => set({ outlineOpacity: clamp(v, 0.3, 1) }),
@@ -641,6 +650,7 @@ export const useAppStore = create<AppState>()(
         readingWidth: s.readingWidth,
         diagramWidth: s.diagramWidth,
         previewDelay: s.previewDelay,
+        textDirection: s.textDirection,
         syncScroll: s.syncScroll,
         outlinePinned: s.outlinePinned,
         outlineOpacity: s.outlineOpacity,
