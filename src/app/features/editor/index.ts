@@ -14,11 +14,13 @@ import { markdownCompletions, type CompletionSources } from "./complete";
 import { imagePaste, type SaveImage } from "./imagePaste";
 import { tablePaste } from "./tables";
 import { FENCE_LANGS } from "../../lib/markdown";
+import { textDirection, type TextDirection } from "./direction";
 
 export type { CompletionSources } from "./complete";
 export type { SaveImage } from "./imagePaste";
 
 export { selStateOf } from "./commands";
+export { setTextDirection } from "./direction";
 export type { SelState } from "./commands";
 
 /** 프로그램적 문서 교체(파일 열기/외부 변경 리로드)를 사용자 편집과 구분하는 표식.
@@ -53,7 +55,8 @@ const cmTheme = EditorView.theme({
   },
   ".cm-content": { padding: "12px 0", caretColor: "var(--accent)" },
   ".cm-gutters": { backgroundColor: "var(--bg)", color: "var(--faint)", border: "none" },
-  ".cm-lineNumbers .cm-gutterElement": { padding: "0 12px 0 14px" },
+  // 논리 여백 — 글 방향 rtl 이면 거터가 오른쪽으로 가므로(CM inset-inline) 안쪽 12·바깥 14 가 따라간다.
+  ".cm-lineNumbers .cm-gutterElement": { paddingInline: "14px 12px" },
   // 활성 줄 배경은 알파 합성(transparent와 혼합) → 아래 선택 레이어(z-index:-1)가 비쳐 보인다.
   // (불투명 --bg와 혼합하면 활성 줄에서 선택 영역이 가려지는 버그가 있었음)
   ".cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--accent) 7%, transparent)" },
@@ -67,7 +70,8 @@ const cmTheme = EditorView.theme({
     backgroundColor: "color-mix(in srgb, var(--accent) 32%, var(--bg))",
   },
   // 찾기/바꾸기 패널(@codemirror/search) — 테마 토큰 연동
-  ".cm-panels": { backgroundColor: "var(--surface)", color: "var(--fg)" },
+  // 찾기 패널은 앱 크롬이다 — 편집기가 rtl 이어도 LTR 로 둔다(나머지 UI 와 같은 방향).
+  ".cm-panels": { backgroundColor: "var(--surface)", color: "var(--fg)", direction: "ltr" },
   ".cm-panels.cm-panels-top": { borderBottom: "1px solid var(--border)" },
   ".cm-panel.cm-search": { fontFamily: "var(--ui-font)", fontSize: "12px", padding: "6px 8px" },
   ".cm-panel.cm-search label": { fontSize: "12px" },
@@ -154,6 +158,7 @@ export function editorExtensions(
   onSelState?: (s: SelState) => void,
   complete?: CompletionSources,
   saveImage?: SaveImage,
+  direction: TextDirection = "auto",
 ): Extension[] {
   let raf = 0;
   const emit = (view: EditorView) => {
@@ -184,6 +189,8 @@ export function editorExtensions(
     keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     markdown(),
     syntaxHighlighting(mdHighlight),
+    // 글 방향(설정) — 이후 변경은 setTextDirection 으로 리컨피그(shell/Editor.tsx).
+    textDirection(direction),
     cmTheme,
     EditorView.lineWrapping,
     // 스크롤·편집 시 상단 가시줄을 방출(rAF 스로틀) → 미리보기가 따라 스크롤.

@@ -227,11 +227,15 @@ CSS 도 같다 — 사이드카 `themes\<id>.css` 가 팩에 인라인된 `style
 | `.task-list-item` | `.task-list-item-checkbox` |
 | `.mermaid-rendered` | 다이어그램 래퍼(SVG 내부는 mermaid 소관) |
 | `[data-line]` | 모든 블록 요소 |
+| `.md[dir]` · `[dir=auto]` · `[data-dir]` | 글 방향 — 루트의 `dir`(ltr/rtl), 잎 블록의 `dir="auto"`, 컨테이너의 계산값 `data-dir`([rendering.md](rendering.md) 글 방향) |
 | `--prose-*` 23개 | 색 어휘 |
 | `.hljs-*` | 코드 강조(highlight.js 상류 어휘) |
 
-**그 밖의 내부 클래스는 예고 없이 바뀐다.** 그리고 관례 한 줄 — **색은 `themes.jsonc`,
-모양은 CSS.** 팩이 색을 literal 로 박으면 다른 테마에서 어긋난다.
+**그 밖의 내부 클래스는 예고 없이 바뀐다.** 그리고 관례 두 줄 — **색은 `themes.jsonc`,
+모양은 CSS.** 팩이 색을 literal 로 박으면 다른 테마에서 어긋난다. **좌우는 논리 속성으로**
+(`padding-inline-start`·`border-inline-start`·`text-align:start`) — 문서가 RTL(페르시아어·아랍어·
+히브리어)이면 `border-left` 하나가 그 자리만 왼쪽에 남긴다. 기본 시트(`PREVIEW_CSS`)는 그렇게
+쓰여 있고 테스트가 지킨다. RTL 문서에만 다른 모양을 주려면 `.md[dir=rtl] h2{…}`.
 
 ### 안전 경계
 

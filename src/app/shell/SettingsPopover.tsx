@@ -28,6 +28,8 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
   const setDiagramWidth = useAppStore((s) => s.setDiagramWidth);
   const previewDelay = useAppStore((s) => s.previewDelay);
   const setPreviewDelay = useAppStore((s) => s.setPreviewDelay);
+  const textDirection = useAppStore((s) => s.textDirection);
+  const setTextDirection = useAppStore((s) => s.setTextDirection);
   const autosave = useAppStore((s) => s.autosave);
   const setAutosave = useAppStore((s) => s.setAutosave);
   const setFontRead = useAppStore((s) => s.setFontRead);
@@ -157,6 +159,23 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
                   onClick={() => setReadingWidth(w)}
                 >
                   {t(w === "narrow" ? "view.widthNarrow" : w === "wide" ? "view.widthWide" : "view.widthNormal")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="set-row">
+            <span>{t("settings.textDirection")}</span>
+            <div className="seg width" role="group" aria-label={t("settings.textDirection")}>
+              {(["auto", "ltr", "rtl"] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  aria-pressed={textDirection === d}
+                  onClick={() => setTextDirection(d)}
+                  title={t(d === "auto" ? "settings.dirAutoHint" : d === "rtl" ? "settings.dirRtlHint" : "settings.dirLtrHint")}
+                >
+                  {t(d === "auto" ? "settings.dirAuto" : d === "rtl" ? "settings.dirRtl" : "settings.dirLtr")}
                 </button>
               ))}
             </div>

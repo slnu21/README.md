@@ -255,6 +255,45 @@ CDP 포트도 마찬가지다. `--remote-debugging-port=9222` 가 이미 남의 
 **경로·정규식·이스케이프가 들어가는 편집은 Edit/Write 도구로** 하고, heredoc 은 백슬래시 없는
 본문에만 쓴다. 한글 자체는 heredoc 으로도 안전하다 — 깨지는 건 PowerShell 쪽이다(위 절 참고).
 
+## `dir="auto"` 는 dir 을 가진 자식을 건너뛴다 — 컨테이너 방향은 우리가 계산한다
+
+HTML 의 directionality 알고리즘은 `dir="auto"` 요소의 방향을 자손 텍스트의 첫 강한 글자로
+정하되, **`dir` 속성을 가진 자손은 서브트리째 건너뛴다.** 그래서 문단(`p`)마다 auto 를 달아
+두면 부모 `ul`·`blockquote`·`table` 에 auto 를 달아도 볼 텍스트가 없어 부모 방향(LTR)으로
+떨어지고, 목록 여백·인용문 막대·표 열 순서는 왼쪽에 남는다. 문서 루트도 마찬가지다.
+컨테이너와 루트는 렌더러·`buildDoc` 이 `lib/bidi.ts` 로 첫 강한 글자를 직접 찾아 적는다
+(`data-dir`·`.md[dir]`). 반대로 `dir` 은 UA 수준 **표현 힌트**라 저자 CSS 의 `direction`
+한 줄이 이긴다 — 강제 모드가 CSS 두 줄로 되는 이유.
+
+## SVG 글자는 `direction` 을 무시하지만 래퍼는 아니다
+
+문서 루트가 RTL 이면 `.mermaid-rendered` 가 `direction:rtl` 을 상속하는데, SVG `<text>` 는
+`unicode-bidi` 가 embed/override 가 아니면 `direction` 을 무시하므로(SVG 명세) **라벨 상자는
+멀쩡하다** — 처음엔 라벨이 어긋날 거라 적었다가 프로브가 통과해 다시 봤다. 어긋나는 것은
+래퍼 쪽이다: flex 시작점과 가로 스크롤 원점이 오른쪽으로 가서 **원본 모드의 넓은 차트가
+오른쪽 끝에서 시작**한다(고정을 빼고 재면 -1750px). 그래서 `DIAGRAM_CTX_CSS` 에
+`direction:ltr` 이 있고 `probe:mermaid` 의 paper 설정 넷이 루트 RTL 로 돈다.
+**"어긋날 것이다"는 재서 확인하기 전엔 주석에 적지 않는다.**
+
+## RTL 기하는 첫 글자 위치로 재면 안 되는 자리가 있다
+
+RTL 문단 속 **영어 문장**은 오른쪽 정렬돼도 첫 글자 `E` 는 문장의 왼쪽 끝(어느 변도 아닌 곳)에
+있고 마침표만 왼쪽 변에 붙는다 — 문장 전체가 LTR 묶음으로 자리를 바꾸기 때문이다. 강제 모드의
+프로브가 첫 시도에서 `neither` 로 실패한 이유. 정렬은 **한 줄짜리 블록의 전체 텍스트 범위
+사각형**이 어느 변에 닿는지로 본다(여러 줄은 양변에 다 닿아 판정 불가 → 짧은 줄을 픽스처에
+둔다). 같은 이유로 편집기의 `cursorCharLeft` 는 **어느 모드에서든** RTL 글자 묶음 안에서
+head 를 늘린다(시각 이동) — 모드가 바꾸는 것은 문단 기준 방향이고 묶음 안 순서는 아니다.
+
+## 프로브에서 편집기·스토어에 닿는 법
+
+- `EditorView.findFromDOM(document.querySelector(".cm-editor"))` 로 마운트된 뷰를 얻는다
+  (`textDirectionAt`·`coordsAtPos`·명령 실행). 앱 코드를 고쳐 노출할 필요가 없다.
+- dev 앱에 CDP 로 붙었을 때 `await import('/app/store/index.ts')` 는 앱이 쓰는 **같은 모듈
+  인스턴스**를 준다(Vite 모듈 그래프는 URL 로 식별). `useAppStore.getState().openFile(...)` 로
+  파일 대화상자 없이 픽스처를 열 수 있다.
+- 앱 화면 스크린샷은 `--screenshot` + `--virtual-time-budget=8000` 으로 찍는다 — 마운트 →
+  픽스처 열기 → 미리보기 렌더의 비동기 사슬을 가상 시간이 기다려 준다(`probe:rtl -- --shot`).
+
 ## 알려진 TODO
 - 아이콘: `src/src-tauri/icons/`의 기본 아이콘을 교체(`npm run tauri icon <path>`).
 - Win10 오프라인 지원 시 `webviewInstallMode`를 `offlineInstaller`/`fixedRuntime`로(번들 증가). [deployment/webview2.md](../deployment/webview2.md).

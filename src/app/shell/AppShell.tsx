@@ -538,6 +538,13 @@ export function AppShell() {
         () => useAppStore.getState().setReadingWidth(w),
       ),
     );
+    (["auto", "ltr", "rtl"] as const).forEach((d) =>
+      add(
+        `dir-${d}`,
+        `${t("settings.textDirection")}: ${t(d === "auto" ? "settings.dirAuto" : d === "rtl" ? "settings.dirRtl" : "settings.dirLtr")}`,
+        () => useAppStore.getState().setTextDirection(d),
+      ),
+    );
     add("lang-ko", `${t("cmd.language")}: 한국어`, () => setLanguage("ko"));
     add("lang-en", `${t("cmd.language")}: English`, () => setLanguage("en"));
     add("toggle-sync", t("settings.syncScroll"), () => {
@@ -600,7 +607,8 @@ export function AppShell() {
 
   // 내보내기 파라미터(현재 테마·읽기 폰트·미리보기 줌 반영 → 미리보기와 동일하게 렌더).
   function exportParamsOf(tab: { path: string; content: string }): ExportParams {
-    return { content: tab.content, path: tab.path, themeId, fontRead, previewZoom };
+    const textDirection = useAppStore.getState().textDirection;
+    return { content: tab.content, path: tab.path, themeId, fontRead, previewZoom, textDirection };
   }
 
   // 미저장 탭 일괄 저장(창 닫기 가드용).

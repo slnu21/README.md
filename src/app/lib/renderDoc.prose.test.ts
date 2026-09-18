@@ -152,6 +152,8 @@ describe("스타일 팩 주입", () => {
   it("CSS 가 없는 테마는 아무것도 더 붙이지 않는다", () => {
     const a = withDocumentStub(() => buildDoc("<p>x</p>", "light", FONT));
     expect(a).toContain(PREVIEW_CSS);
-    expect(a.split(PREVIEW_CSS)[1]).toBe("</style></head><body><div class=\"md\"><p>x</p></div></body></html>");
+    expect(a.split(PREVIEW_CSS)[1]).toBe(
+      "</style></head><body><div class=\"md\" dir=\"ltr\" data-dir-mode=\"auto\"><p>x</p></div></body></html>",
+    );
   });
 });

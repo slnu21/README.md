@@ -111,6 +111,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   const readingWidth = useAppStore((s) => s.readingWidth);
   const diagramWidth = useAppStore((s) => s.diagramWidth); // mermaid 너비 — 맞춤(축소) | 원본(가로 스크롤)
   const previewDelay = useAppStore((s) => s.previewDelay); // 재렌더 디바운스(ms) — 설정에서 조절
+  const textDirection = useAppStore((s) => s.textDirection); // 글 방향 — 문서 루트 dir + 모드(CSS)
 
   const font: FontOpts = { readStack: readStack(fontRead), readerPx: BASE_READER_PX * previewZoom };
   // 미리보기 전용 추가 CSS(내보내기엔 미적용): 이미지 확대 커서 + 리딩 폭(본문 최대 폭).
@@ -119,7 +120,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     "img{cursor:zoom-in}" +
     (widthPx === "none" ? "" : `.md{max-width:${widthPx};margin-left:auto;margin-right:auto}`);
   // 세 buildDoc 호출(데모 2 + 정규 1)이 같은 옵션을 쓰도록 한 곳에 모은다.
-  const docOpts: BuildDocOpts = { extraCss: previewExtra, diagramWidth };
+  const docOpts: BuildDocOpts = { extraCss: previewExtra, diagramWidth, textDirection };
   // 데모/스크린샷(?demo)에서는 헤드리스 캡처 타이밍 때문에 워커 대신 메인 스레드로 즉시 렌더.
   const isDemo = new URLSearchParams(window.location.search).has("demo");
 
@@ -163,28 +164,33 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     };
   }, [isDemo]);
 
+  // 데모 경로: 메인 스레드에서 즉시 렌더해 srcdoc 까지 한 번에. 아래 재구성 이펙트를 타지 않으므로
+  // 문서 옵션(글 방향)에 직접 의존한다 — RTL 프로브가 모드를 오가며 잰다.
+  useEffect(() => {
+    if (!isDemo) return;
+    const iframe = iframeRef.current;
+    void (async () => {
+      try {
+        const md = createMarkdown();
+        onTocRef.current?.(extractToc(md, content));
+        const body = await inlineImages(sanitizeHtml(md.render(content)), dirOf(pathRef.current));
+        if (iframe) iframe.srcdoc = buildDoc(body, themeId, font, docOpts);
+      } catch (err) {
+        if (iframe)
+          iframe.srcdoc = buildDoc(
+            "<pre>DEMO ERROR: " + String(err) + "</pre>",
+            themeId,
+            font,
+            docOpts,
+          );
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, path, isDemo, textDirection]);
+
   // content/path 변경 시 디바운스(previewDelay ms) 후 워커에 렌더 요청.
   useEffect(() => {
-    if (isDemo) {
-      const iframe = iframeRef.current;
-      void (async () => {
-        try {
-          const md = createMarkdown();
-          onTocRef.current?.(extractToc(md, content));
-          const body = await inlineImages(sanitizeHtml(md.render(content)), dirOf(pathRef.current));
-          if (iframe) iframe.srcdoc = buildDoc(body, themeId, font, docOpts);
-        } catch (err) {
-          if (iframe)
-            iframe.srcdoc = buildDoc(
-              "<pre>DEMO ERROR: " + String(err) + "</pre>",
-              themeId,
-              font,
-              docOpts,
-            );
-        }
-      })();
-      return;
-    }
+    if (isDemo) return;
     const worker = workerRef.current;
     if (!worker) return;
     const id = ++reqId.current;
@@ -212,9 +218,10 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
       cancelled = true;
     };
     // font(readStack/readerPx)는 fontRead·previewZoom 파생 → 이들 변경 시 재빌드. readingWidth도 CSS 파생.
-    // diagramWidth는 docOpts 파생(문서 body 클래스) — 수동 관리 배열이라 빠뜨리면 즉시 반영되지 않는다.
+    // diagramWidth·textDirection은 docOpts 파생(문서 body 클래스·.md dir) — 수동 관리 배열이라
+    // 빠뜨리면 즉시 반영되지 않는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bodyHtml, themeId, themeRev, isDemo, fontRead, previewZoom, readingWidth, diagramWidth]);
+  }, [bodyHtml, themeId, themeRev, isDemo, fontRead, previewZoom, readingWidth, diagramWidth, textDirection]);
 
   // Esc로 라이트박스 닫기.
   useEffect(() => {

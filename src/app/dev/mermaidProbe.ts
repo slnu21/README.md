@@ -264,16 +264,21 @@ async function run(): Promise<ProbeResult> {
   // 그 두 경로를 다 덮는다. 테마를 늘릴 때마다 여기 추가하면 설정 수만 불어나 180초 타임아웃에
   // 가까워진다. **type:"dark" 테마나 테마에 따라 기하가 바뀌는 설정을 넣으면 다시 볼 것.**
   // 색 쪽 회귀는 themes/prose.test.ts(대비)와 lib/mermaid.test.ts(hex 계약)가 맡는다.
+  // paper 설정 넷은 **문서 루트를 RTL** 로 둔다(글 방향 설정 rtl) — 다이어그램은 루트 방향과 무관해야
+  // 한다. DIAGRAM_CTX_CSS 의 direction:ltr 이 빠지면 SVG <text> 가 rtl 을 상속해 라벨이 상자 밖으로
+  // 밀리는데, 설정을 따로 늘리지 않고 기존 표본 넷에 얹어 잰다(갤러리 20번이 RTL 글자 라벨).
   for (const themeId of ["light", "dark", "paper"]) {
     for (const diagramWidth of ["fit", "natural"] as const) {
       for (const zoom of [1, 1.8]) {
-        const cfgKey = `${themeId}/${diagramWidth}/z${zoom}`;
+        const textDirection = themeId === "paper" ? "rtl" : "auto";
+        const cfgKey = `${themeId}/${diagramWidth}/z${zoom}${textDirection === "rtl" ? "/rtl" : ""}`;
         applyTheme(themeId); // 앱 문서 쪽 테마도 함께 바꾼다(측정 문맥 = 실제 앱 문맥)
         const font: FontOpts = { readStack: readStack("default"), readerPx: BASE_READER_PX * zoom };
         const body = await renderMermaid(clean, themeId);
         const srcdoc = buildDoc(body, themeId, font, {
           extraCss: "img{cursor:zoom-in}.md{max-width:860px;margin-left:auto;margin-right:auto}",
           diagramWidth,
+          textDirection,
         });
 
         if (wantShot && shot === undefined) shot = srcdoc; // 육안 확인용(첫 설정만)
@@ -317,6 +322,7 @@ async function run(): Promise<ProbeResult> {
               "letter-spacing",
               "word-spacing",
               "text-rendering",
+              "direction",
             ] as const) {
               if (a.getPropertyValue(p) !== b.getPropertyValue(p)) {
                 fail(
@@ -339,6 +345,21 @@ async function run(): Promise<ProbeResult> {
           }
           document.documentElement.lang = "ko";
           first = false;
+        }
+
+        // (x) 문서 루트가 RTL 이어도 다이어그램 래퍼는 LTR — SVG 글자는 unicode-bidi 없이는 direction 을
+        // 무시하지만(SVG 명세) 래퍼의 flex 시작점·가로 스크롤 원점은 따른다: 원본 모드의 넓은 차트가
+        // 오른쪽 끝에서 시작해 왼쪽으로 스크롤되면 LTR 배치인 다이어그램의 앞부분이 가려진다.
+        if (textDirection === "rtl") {
+          wraps.forEach((w, i) => {
+            const dir = getComputedStyle(w).direction;
+            if (dir !== "ltr") fail(`[x] ${cfgKey} #${i + 1}: 래퍼 direction 이 ${dir} 다(DIAGRAM_CTX_CSS 가 ltr 로 고정해야 한다).`);
+            const svg = w.querySelector("svg");
+            if (svg && diagramWidth === "natural" && svg.getBoundingClientRect().width > w.clientWidth + 1) {
+              const off = svg.getBoundingClientRect().left - w.getBoundingClientRect().left;
+              if (Math.abs(off) > 1) fail(`[x] ${cfgKey} #${i + 1}: 원본 모드 다이어그램이 래퍼 왼쪽 변에서 ${round(off)}px 떨어져 시작한다(루트 RTL 이 래퍼에 스몄다).`);
+            }
+          });
         }
 
         const fo = reports.reduce((a, r) => a + r.foCount, 0);
