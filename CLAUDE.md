@@ -47,7 +47,16 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **Store 패키징**: **MSIX → Store**(Microsoft 재서명 → 코드서명 인증서 불필요)가 기본. Tauri는 MSI/NSIS만 내므로 **MSIX 래핑 1단계** 필요. 매니페스트에 `runFullTrust`. 자세히: [docs/deployment/microsoft-store.md](docs/deployment/microsoft-store.md).
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
-## 현재 상태 (2026-09-27 기준)
+## 현재 상태 (2026-10-10 기준)
+- **[설계] 표시 펜 — 형광펜·색연필·메모 ADR 0003 + 동작 시안**(`develop-annotation-adr` · WBS #916). 사용자 제안 "리딩 화면에 형광펜·그리기 캔버스를 덮어 강조·메모"에서 출발. [ADR 0003](docs/design/decisions/0003-annotation-pens.md) · 시안 [mockups/annotation-pens.html](docs/mockups/annotation-pens.html)(글자 선택→펜 트레이 · 여백 ＋ · 폭/테마/질감/메모 전환 · `#tip` 으로 툴팁 상태). **구현 0줄 — 1.0 위생 뒤 1.1 후보.**
+  - **캔버스 오버레이(ShotLog `AnnotationWindow` 방식)는 기각** — 그쪽 바탕은 고정 비트맵이라 좌표가 곧 위치지만, 미리보기는 리플로우된다(폭·줌·글꼴·테마·RTL·분할) + 에이전트가 문서를 고쳐 쓴다 → *조용히* 어긋난다. 문서에 남는 자유 드로잉은 안 한다(프레젠테이션 한정 휘발 펜은 별개).
+  - **위치 = 스냅샷 원문의 글자 범위**(사용자 제안을 다듬음). 표시를 다는 순간 지금 판을 `doc_snapshot` 으로 고정 → 표시는 그 판에 대해 영원히 참. 지금 판으로는 열 때마다 diff 로 옮기고 상태 넷(그대로·옮겨짐·**바뀜**·사라짐)을 드러낸다. 바뀜 = "지적한 자리를 누가 고쳤다" — [해결됨]으로 리뷰 고리를 닫는다.
+  - **기록 쪽에 고칠 곳 넷**: 다는 순간 지금 판을 뜸(`UNIQUE(real_path,mtime)` 이 재색인 쪽과 맞물림) · 합치기 창 무시 · **참조된 판은 정리(30/2,000)에서 제외 — 안 하면 바탕 판이 조용히 지워진다** · 색인 대상 밖 문서도 뜸. 저장 안 한 편집이 있으면 표시 금지.
+  - 펜 = 범위 5(형광펜·밑줄·물결·취소선·동그라미) + 점 4(★?!✓) + 블록 1(세로줄), **펜마다 뜻**(사용자 수정 가능) — `list_annotations` 가 `meaning` 을 돌려줘 표시가 곧 에이전트 지시가 된다. 색 5(노랑·주황·분홍·초록·하늘)는 **이름으로 저장, 실제 색은 테마 토큰**(`--mark-*`), 전자잉크는 회색 농도로.
+  - **그리기는 SVG 층 하나**(형광펜은 글자 밑, 색연필은 위) · 위치는 렌더마다 `getClientRects` 재계산. 질감은 `feTurbulence` 필터 — **기본 켜짐, 성능 예산 실측으로 끄는 기준을 정한다**(끈 모드도 같은 경로에서 필터만 뺀다 · Highlight API 는 단색뿐이라 경로를 둘 두지 않음).
+  - 메모 **기본 접힘**(450ms 머무르면 상호작용 가능한 툴팁 · 요약 알약) / 펼치면 레일 상시 · 폭이 모자라면 툴팁으로 · 키보드·터치 경로 필수. 내보내기는 **기본 꺼짐** — PDF 는 SVG 굽기, HTML 은 CSS 표시, 메모는 끝 절, 원본 md 는 무접촉.
+  - **가장 어려운 곳 = 렌더 글자 ↔ 소스 글자** — 소스 범위(진실원)+렌더 인용(TextQuote) 이중 앵커, mermaid·수식·코드 안쪽은 범위 펜 금지. diff 는 직접 짠다(새 의존성 회피). 순수 로직이라 vitest 로 지킨다.
+  - 시안 검증: 헤드리스 Edge 캡처로 질감·툴팁·폭 전환 확인. 시안 상단 막대가 좁아지면 글자가 세로로 접히던 것 — **앱 툴바 겹침과 같은 병**(`flex:none` 으로 고침).
 - **v0.10.0 Microsoft Store 게시 완료(2026-09-27 확인)**(`develop-store-v0100`) — `Get-AppxPackage SlnU.README.md` → `0.10.0.0` · `SignatureKind=Store`. 후기로 RTL 을 요청한 사용자에게 개발자 답글도 게시했다(영문 — 설정 위치·Auto 기본·코드는 LTR·어색하면 알려 달라). **원어민 피드백을 기다리는 상태다.**
   - **별칭·브리지가 Store 설치본에서 처음으로 실사용 경로에 올랐고, 실측으로 확인했다** — `readme-md.exe` 가 `%LOCALAPPDATA%\Microsoft\WindowsApps\` 에 잡히고, `readme-md mcp` 핸드셰이크가 성사되며(`serverInfo` = `readme-md 0.10.0` · 도구 6개 · **금지 이름 0**), **시작 메뉴 항목은 1개**(`SlnU.README.md_fqpsajc525k1c!Gyeol`)다. ADR 0002 가 프로브로 예측한 것이 서명된 실물에서 그대로 나왔다 — Atlas 의 "3→1" 사고가 재현되지 않았다.
   - 핸드셰이크는 `initialize`+`tools/list` 만 했다(문서를 읽지 않는다). MCP 모드는 `tauri::Builder` 이전 분기라 마이그레이션·single-instance 를 안 타고, DB 가 없으면 만들지 않고 안내만 한다.
@@ -211,6 +220,8 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 
 ## 다음 단계
 - **v1.0 로드맵**: ① 에이전트 브리지(읽기 도구 4 + CLI 겸용) ② 에이전트 연결 패널 + 제어 도구 2 ③ 받은 문서함·변경 배지(감시기 재사용) ④ 저장 스냅샷·되돌리기 ⑤ 1.0 위생(성능 예산·리스팅·영상). **①~④ 는 v0.10.0 으로 나갔다(GitHub 릴리스 2026-09-19 · Store 제출 대기) — 남은 것은 ⑤ 뿐이다.** 1.0 을 지금 붙이지 않은 이유: 소개 영상·스토어 스크린샷이 아직 v0.6.8 화면이고, 브리지는 실사용 노출을 한 번도 안 거쳤다. 위생 한 바퀴(성능 예산 · 리스팅/스크린샷 · 영상 갱신) 뒤에 1.0 을 헤드라인으로 낸다. **T7 유료화는 1.0 에 넣지 않는다** — 무료로 나간 기능을 유료로 돌리면 리뷰가 무너지고, 헤드라인 기능을 유료화하면 화제성을 스스로 죽인다. 유료화는 1.1 에서 신규 Pro 기능으로.
+- **1.1 후보 — 표시 펜**([ADR 0003](docs/design/decisions/0003-annotation-pens.md)): ② 앵커 코어(순수 로직) → ③ 저장(마이그레이션 v4·스냅샷 고정) → ④ 화면(SVG 층·트레이·메모·`probe:annot`) → ⑤ 내보내기·`list_annotations`·리뷰 요약 복사.
+- **검토 대기 — 캔버스 파일**(사용자 제안 2026-10-10): md 파일들을 거대 캔버스에 자유 배치하고 연결선·드로잉을 더해 원하는 연결 구조를 만드는 문서(옵시디언 Canvas 류). 출발점: 옵시디언의 공개 포맷 **JSON Canvas**(`.canvas`)를 따르면 파일을 주고받을 수 있다 — 라이선스·범위는 검토 때 확인. 가상 폴더(워크스페이스 재구성)와의 관계도 그때 정리.
 - **후속(로드맵)**: T7 상업화 게이팅(export·advancedThemes Pro — Store 트래픽·Pro 기능 확보 후), 내보내기 고도화(WebView2 `PrintToPdfAsync` 무대화상자 PDF — `commands/export.rs`), 설정 localStorage↔SQLite 이중화(저가치·보류).
 
 전체 로드맵은 [docs/README.md](docs/README.md) 참고.
