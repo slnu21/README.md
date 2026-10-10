@@ -227,6 +227,7 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **Rust 설치됨** → `cargo check`/`tauri dev/build` 동작. 미리보기 iframe은 `sandbox="allow-same-origin"`(allow-scripts는 절대 미포함). CSP 하드닝 적용됨.
 
 ## 다음 단계
+- **▶ 지금 할 일 = v1.0 진행 계획**([docs/design/roadmap-1.0.md](docs/design/roadmap-1.0.md), 2026-10-10 작성). U1 `perf-budget`(기준선→예산→`probe:perf`) → U2 `bridge-dogfood`(Store 설치본 MCP 를 Claude Code 에 붙여 1주 실사용 + README 연결 안내, 겹쳐 진행) → U3 `privacy-docs`(**방침이 브리지를 모른다** — 연결한 에이전트에 문서가 건네짐) → U4 `listing-v100`(정체성 첫 문단 + 스크린샷 새 세트) → U5 `video-v100`(브리지 비트) → U6 `release-v100`(1.0.0 = 메이저 상향 확인 게이트). 계획 6절에 사용자 결정 대기 5건.
 - **v1.0 로드맵**: ① 에이전트 브리지(읽기 도구 4 + CLI 겸용) ② 에이전트 연결 패널 + 제어 도구 2 ③ 받은 문서함·변경 배지(감시기 재사용) ④ 저장 스냅샷·되돌리기 ⑤ 1.0 위생(성능 예산·리스팅·영상). **①~④ 는 v0.10.0 으로 나갔다(GitHub 릴리스 2026-09-19 · Store 제출 대기) — 남은 것은 ⑤ 뿐이다.** 1.0 을 지금 붙이지 않은 이유: 소개 영상·스토어 스크린샷이 아직 v0.6.8 화면이고, 브리지는 실사용 노출을 한 번도 안 거쳤다. 위생 한 바퀴(성능 예산 · 리스팅/스크린샷 · 영상 갱신) 뒤에 1.0 을 헤드라인으로 낸다. **T7 유료화는 1.0 에 넣지 않는다** — 무료로 나간 기능을 유료로 돌리면 리뷰가 무너지고, 헤드라인 기능을 유료화하면 화제성을 스스로 죽인다. 유료화는 1.1 에서 신규 Pro 기능으로.
 - **1.1 후보 — 표시 펜**([ADR 0003](docs/design/decisions/0003-annotation-pens.md)): ② 앵커 코어(순수 로직) → ③ 저장(마이그레이션 v4·스냅샷 고정) → ④ 화면(SVG 층·트레이·메모·`probe:annot`) → ⑤ 내보내기·`list_annotations`·리뷰 요약 복사.
 - **1.2 후보 — 캔버스(문서 지도)**([ADR 0004](docs/design/decisions/0004-canvas-document-map.md)): ① JSON Canvas 완전 지원 + 옵시디언 왕복 실측 → ② 카드 두 단계 + 받은 문서함·검색·기록·트리 연동 + `probe:canvas` → ③ 드로잉(`x-readme-ink` 보존 실측 먼저) → (별도) `.canvas` 파일 연결(MSIX, 확인 게이트).
