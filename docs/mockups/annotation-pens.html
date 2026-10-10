@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="ko" data-theme="paper">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>표시 펜 목업</title>
+<!--
+  md-reader 리딩 화면 표시 펜 목업 (형광펜 · 색연필).
+  - 위치는 언제나 글자 offset 에 묶는다 → 렌더마다 Range.getClientRects() 로 다시 그린다(폭을 바꿔 보라).
+  - 질감은 전부 SVG 필터(feTurbulence) — 자산 0바이트, 오프라인.
+  - 형광펜은 글자 *밑* 층, 색연필은 글자 *위* 층. 다크 테마에서도 글자가 묻히지 않는다.
+  - 펜 색은 이름(yellow…)으로 저장하고 실제 색은 테마가 정한다.
+-->
+<style>
+:root, [data-theme="paper"] {
+  --bg:#fcf9f2; --fg:#2e2c28; --accent:#8a5a2b; --surface:#f6f2e8; --border:#e9e1d1;
+}
+[data-theme="light"] { --bg:#ffffff; --fg:#1a1a1a; --accent:#2563eb; --surface:#f5f5f5; --border:#e2e2e2; }
+[data-theme="dark"]  { --bg:#1e1e1e; --fg:#e6e6e6; --accent:#60a5fa; --surface:#252526; --border:#333333; }
+:root {
+  --sheet: var(--bg);
+  --surround: color-mix(in srgb, var(--surface) 82%, var(--fg) 5%);
+  --muted: color-mix(in srgb, var(--fg) 58%, var(--bg));
+  --faint: color-mix(in srgb, var(--fg) 8%, transparent);
+  --ui: "Pretendard", "Segoe UI Variable Text", "Segoe UI", "Malgun Gothic", sans-serif;
+  --read: Georgia, "Palatino Linotype", "Malgun Gothic", serif;
+  --mono: "Cascadia Code", Consolas, monospace;
+  --hand: "Ink Free", "Segoe Print", "Comic Sans MS", cursive;
+  --measure: 640px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--surround); color: var(--fg); font: 14px/1.5 var(--ui); display: flex; flex-direction: column; }
+
+/* ── 상단 막대 (앱 툴바 흉내) ───────────────────────── */
+.bar { height: 48px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 16px;
+  background: var(--surface); border-bottom: 1px solid var(--border); }
+.brand { white-space: nowrap; font-weight: 650; letter-spacing: -.01em; }
+.brand small { font-weight: 400; color: var(--muted); margin-left: 8px; }
+.bar > * { flex: none; }
+.bar > .hint { flex: 1 1 0; min-width: 0; }
+.hint { color: var(--muted); font-size: 12.5px; margin-left: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spacer { flex: 1; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.seg button { white-space: nowrap; border: 0; background: transparent; color: var(--fg); font: 12.5px var(--ui); padding: 5px 10px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--bg)); color: var(--accent); font-weight: 600; }
+.lbl { font-size: 12px; color: var(--muted); margin-right: -6px; white-space: nowrap; }
+.hbtn { border: 1px solid var(--border); background: var(--bg); color: var(--fg); font: 12.5px var(--ui); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.hbtn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+
+/* 메모 접힘: 레일을 숨기고, 표시 위에 머무르면 툴팁으로 */
+body.memo-collapsed .rail { display: none; }
+.memo-pill { position: absolute; top: 16px; right: 16px; z-index: 3; display: none; align-items: center; gap: 6px;
+  border: 1px solid var(--border); background: var(--sheet); color: var(--muted); font: 12px var(--ui);
+  padding: 4px 10px; border-radius: 99px; cursor: pointer; }
+.memo-pill:hover { border-color: var(--accent); color: var(--accent); }
+.memo-pill b { color: var(--fg); font-weight: 600; }
+.memo-pill .lost { color: color-mix(in srgb, #dc2626 80%, var(--fg)); }
+body.memo-collapsed .memo-pill { display: inline-flex; }
+.card.tip { position: fixed; left: 0; top: 0; width: 290px; z-index: 60; display: none;
+  box-shadow: 0 12px 32px -10px color-mix(in srgb, var(--fg) 40%, transparent); }
+.card.tip.show { display: block; animation: tipin .12s ease-out; }
+@keyframes tipin { from { opacity: 0; transform: translateY(3px); } }
+
+/* ── 무대: 떠 있는 종이 + 오른쪽 메모 레일 ─────────────── */
+.scroller { flex: 1; overflow: auto; }
+.stage { display: flex; justify-content: center; align-items: flex-start; gap: 28px; padding: 36px 24px 160px; min-width: max-content; }
+.sheet { position: relative; width: calc(var(--measure) + 76px + 56px); padding: 60px 56px 72px 76px;
+  background: var(--sheet); border-radius: 3px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--fg) 10%, transparent), 0 10px 30px -8px color-mix(in srgb, var(--fg) 18%, transparent);
+  transition: width .25s ease; }
+#under, #over { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+#under { z-index: 0; }
+#doc { position: relative; z-index: 1; }
+#over { z-index: 2; }
+.sheet.focus g.m { opacity: .22; transition: opacity .15s; }
+.sheet.focus g.m.on { opacity: 1; }
+
+/* 본문 타이포 */
+#doc { font: 17px/1.86 var(--read); }
+#doc h1 { font-size: 28px; line-height: 1.3; margin: 0 0 6px; letter-spacing: -.01em; }
+#doc .meta { font: 12.5px var(--ui); color: var(--muted); margin: 0 0 30px; }
+#doc h2 { font-size: 19px; color: var(--accent); margin: 34px 0 8px; }
+#doc p { margin: 0 0 16px; }
+#doc ul { margin: 0 0 16px; padding-left: 22px; }
+#doc li { margin: 0 0 6px; }
+#doc code { font: .84em var(--mono); background: var(--faint); padding: 1px 5px; border-radius: 4px; }
+#doc ::selection { background: color-mix(in srgb, var(--accent) 26%, transparent); }
+
+/* 여백 + 버튼 */
+#plus { position: absolute; z-index: 3; width: 22px; height: 22px; border-radius: 50%; border: 1px dashed color-mix(in srgb, var(--fg) 35%, transparent);
+  background: var(--sheet); color: var(--muted); font: 15px/18px var(--ui); cursor: pointer; display: none; padding: 0; }
+#plus:hover { border-style: solid; color: var(--accent); border-color: var(--accent); }
+
+/* ── 레일 ─────────────────────────────────────────── */
+.rail { position: relative; width: 300px; flex: none; }
+.legend { position: fixed; top: 54px; right: 16px; width: 300px; z-index: 55; display: none; background: var(--sheet); border: 1px solid var(--border); border-radius: 10px; padding: 12px 12px 8px;
+  box-shadow: 0 12px 32px -10px color-mix(in srgb, var(--fg) 35%, transparent); }
+.legend.open { display: block; }
+.legend h3 { margin: 0 0 2px; font-size: 13px; }
+.legend p { margin: 0 0 8px; font-size: 11.5px; color: var(--muted); }
+.legend ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; }
+.legend li { display: flex; align-items: center; gap: 6px; font-size: 12px; min-height: 26px; }
+.legend svg { flex: none; }
+#cards { position: absolute; left: 0; right: 0; top: 0; }
+.card { position: absolute; left: 0; right: 0; background: var(--sheet); border: 1px solid var(--border); border-radius: 10px;
+  padding: 9px 12px 10px; font-size: 13px; box-shadow: 0 2px 8px -4px color-mix(in srgb, var(--fg) 20%, transparent);
+  transition: top .2s ease, box-shadow .15s, border-color .15s; cursor: default; }
+.card.hot { border-color: var(--accent); box-shadow: 0 4px 16px -6px color-mix(in srgb, var(--accent) 45%, transparent); }
+.card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.card-head .meaning { font-size: 12px; color: var(--muted); }
+.chip { margin-left: auto; font-size: 11px; padding: 1px 7px; border-radius: 99px; font-weight: 600; }
+.chip.same    { background: var(--faint); color: var(--muted); }
+.chip.moved   { background: color-mix(in srgb, #3b82f6 16%, transparent); color: color-mix(in srgb, #3b82f6 80%, var(--fg)); }
+.chip.changed { background: color-mix(in srgb, #d97706 18%, transparent); color: color-mix(in srgb, #d97706 85%, var(--fg)); }
+.chip.gone    { background: color-mix(in srgb, #dc2626 15%, transparent); color: color-mix(in srgb, #dc2626 80%, var(--fg)); }
+.q { margin: 0 0 6px; font: 13px/1.55 var(--read); color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.diff { margin: 2px 0 7px; font: 13px/1.55 var(--read); display: grid; gap: 3px; }
+.diff div { padding: 2px 7px; border-radius: 5px; }
+.diff .was { background: color-mix(in srgb, #dc2626 8%, transparent); text-decoration: line-through; text-decoration-color: color-mix(in srgb, #dc2626 60%, transparent); color: var(--muted); }
+.diff .now { background: color-mix(in srgb, #16a34a 10%, transparent); }
+.diff .tag { font: 10.5px var(--ui); color: var(--muted); margin-right: 6px; text-decoration: none; display: inline-block; }
+.note { margin: 0 0 7px; font-size: 13.5px; }
+.card-foot { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted); }
+.card-foot button { margin-left: auto; font: 11.5px var(--ui); border: 1px solid var(--border); background: var(--bg); color: var(--fg); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+.card-foot button + button { margin-left: 0; }
+.card-foot button:hover { border-color: var(--accent); color: var(--accent); }
+.card.resolved { opacity: .5; }
+.lost-title { position: absolute; left: 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+
+/* ── 펜 트레이 (선택 위에 뜬다) ───────────────────────── */
+.tray { position: fixed; z-index: 50; display: none; background: var(--sheet); border: 1px solid var(--border); border-radius: 14px;
+  padding: 6px; box-shadow: 0 12px 32px -10px color-mix(in srgb, var(--fg) 35%, transparent), 0 2px 6px -2px color-mix(in srgb, var(--fg) 15%, transparent); }
+.tray.open { display: block; }
+.tray-row { display: flex; align-items: center; gap: 3px; }
+.pen { width: 52px; height: 38px; border: 1px solid transparent; border-radius: 9px; background: transparent; cursor: pointer; padding: 0;
+  display: grid; place-items: center; position: relative; }
+.pen:hover { background: var(--faint); }
+.pen[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 9%, var(--bg)); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.pen .tip { position: absolute; bottom: 1px; font: 9.5px var(--ui); color: var(--muted); }
+.vsep { width: 1px; align-self: stretch; margin: 4px 5px; background: var(--border); }
+.dot { width: 20px; height: 20px; border-radius: 50%; border: 0; cursor: pointer; margin: 0 2px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 15%, transparent); }
+.dot[aria-pressed="true"] { outline: 2px solid var(--fg); outline-offset: 2px; }
+.tbtn { height: 30px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); font: 12.5px var(--ui); cursor: pointer; margin-left: 3px; }
+.tbtn:hover { border-color: var(--accent); color: var(--accent); }
+.tbtn.danger:hover { border-color: #dc2626; color: #dc2626; }
+.memo-row { display: none; padding: 6px 2px 2px; }
+.tray.memo .memo-row { display: flex; gap: 6px; }
+.memo-row input { flex: 1; font: 13px var(--ui); padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); outline: none; }
+.memo-row input:focus { border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <span class="brand">표시 펜<small>md-reader 목업</small></span>
+  <span class="hint">글자를 드래그 → 펜 고르기 · 여백 ＋ → 별표·물음표 · 표시를 클릭 → 고치기/지우기 · 메모 달린 표시에 머무르기 → 툴팁</span>
+  <span class="lbl">테마</span>
+  <div class="seg" id="themeSeg">
+    <button data-v="light">라이트</button><button data-v="paper" aria-pressed="true">페이퍼</button><button data-v="dark">다크</button>
+  </div>
+  <span class="lbl">폭</span>
+  <div class="seg" id="widthSeg">
+    <button data-v="460px">좁게</button><button data-v="640px" aria-pressed="true">보통</button><button data-v="820px">넓게</button>
+  </div>
+  <span class="lbl">질감</span>
+  <div class="seg" id="texSeg">
+    <button data-v="on" aria-pressed="true">켜기</button><button data-v="off">끄기</button>
+  </div>
+  <span class="lbl">메모</span>
+  <div class="seg" id="memoSeg">
+    <button data-v="collapsed" aria-pressed="true">접기</button><button data-v="expanded">펼치기</button>
+  </div>
+  <button class="hbtn" id="legendBtn" aria-expanded="false">범례</button>
+</header>
+<section class="legend" id="legend">
+  <h3>펜 범례</h3>
+  <p>펜마다 뜻이 있고, 이 뜻이 에이전트에게도 함께 전달됩니다.</p>
+  <ul id="legendList"></ul>
+</section>
+<div class="card tip" id="tip"></div>
+
+<main class="scroller" id="scroller">
+  <div class="stage" id="stage">
+    <div class="sheet" id="sheet">
+      <svg id="under"></svg>
+      <article id="doc">
+<h1>세션 보고서 — 검색 색인 재구성</h1>
+<p class="meta">작성: 에이전트 · 2026-10-09 23:41 · 세션 #412</p>
+<h2>무엇을 했나</h2>
+<p>전역 검색이 느려지던 원인은 부팅 때마다 색인 전체를 다시 쓰던 데 있었다. 색인 재구성은 증분 방식으로 바꿨고, 바뀐 파일만 <code>file_meta</code> 의 mtime 으로 골라 다시 읽는다. (참고로 이 방식은 예전에도 시도했다.)</p>
+<p>그 결과 첫 실행 시간이 40% 줄었다. 문서 1,200개 기준으로 4.1초에서 2.5초가 됐고, 이후 실행은 0.3초 안팎에서 변화가 없다.</p>
+<h2>바꾼 것</h2>
+<ul>
+<li>색인 쓰기를 한 트랜잭션으로 묶었다 — 중간에 앱이 꺼져도 반쯤 쓴 색인이 남지 않는다.</li>
+<li>지워진 파일은 walk 하며 본 경로 목록과 대조해 색인에서 뺀다.</li>
+<li>재색인 직전에 옛 내용을 스냅샷으로 뜬다. 되돌리기가 이걸 쓴다.</li>
+</ul>
+<h2>위험과 남은 일</h2>
+<p>가장 큰 위험은 mtime 을 믿는다는 점이다. 동기화 도구 중에는 내용을 바꾸고도 mtime 을 되돌려 놓는 것이 있어, 그런 파일은 다시 읽히지 않는다.</p>
+<p>이 경우를 막으려면 크기와 해시를 함께 보는 편이 안전하다. 다만 해시는 파일을 전부 읽어야 하므로 첫 실행 이득의 일부를 도로 내준다. 다음 세션에서 두 방식을 같은 문서 묶음으로 재 보겠다.</p>
+      </article>
+      <svg id="over"></svg>
+      <button id="plus" title="점 표시 달기">＋</button>
+      <button class="memo-pill" id="memoPill" title="메모 펼치기"></button>
+    </div>
+
+    <aside class="rail" id="rail">
+      <div id="cards"></div>
+    </aside>
+  </div>
+</main>
+
+<!-- 범위 펜 트레이 -->
+<div class="tray" id="tray">
+  <div class="tray-row" id="trayPens"></div>
+  <div class="memo-row"><input id="memoInput" placeholder="메모 (Enter 저장 · Esc 닫기)"><button class="tbtn" id="memoSave">저장</button></div>
+</div>
+<!-- 여백 점 표시 메뉴 -->
+<div class="tray" id="pmenu"><div class="tray-row" id="pmenuRow"></div></div>
+
+<script>
+"use strict";
+/* ───────── 펜 정의 ───────── */
+const RANGE_PENS = [
+  { style: "highlight", name: "형광펜", meaning: "중요" },
+  { style: "underline", name: "밑줄",   meaning: "기억할 것" },
+  { style: "wavy",      name: "물결",   meaning: "확인 필요" },
+  { style: "strike",    name: "취소선", meaning: "빼도 됨" },
+  { style: "circle",    name: "동그라미", meaning: "용어 확인" },
+];
+const POINT_PENS = [
+  { style: "star",     name: "별표",   meaning: "핵심" },
+  { style: "question", name: "물음표", meaning: "질문" },
+  { style: "exclaim",  name: "느낌표", meaning: "주의" },
+  { style: "check",    name: "체크",   meaning: "확인함" },
+  { style: "bar",      name: "세로줄", meaning: "이 단락 전체" },
+];
+const ALL_PENS = [...RANGE_PENS, ...POINT_PENS];
+const penOf = s => ALL_PENS.find(p => p.style === s);
+const COLORS = ["yellow", "orange", "pink", "green", "blue"];
+const COLOR_NAME = { yellow: "노랑", orange: "주황", pink: "분홍", green: "초록", blue: "하늘" };
+
+/* 색은 이름으로 저장 → 테마가 실제 색을 정한다. hl = 형광펜 잉크, pc = 색연필 심 */
+const PALETTE = {
+  paper: { hlA: .62, hl: { yellow: "#ffd23f", orange: "#ffad66", pink: "#ff94b8", green: "#9fe08a", blue: "#8ccdfa" },
+           pc: { yellow: "#b07a10", orange: "#b8561c", pink: "#c0304e", green: "#2e7a3b", blue: "#2a5ca8" } },
+  light: { hlA: .58, hl: { yellow: "#ffe033", orange: "#ffa95a", pink: "#ff8fb6", green: "#8fe07c", blue: "#86c9ff" },
+           pc: { yellow: "#a87300", orange: "#c2561a", pink: "#c62a4a", green: "#23803a", blue: "#1f5fbf" } },
+  dark:  { hlA: .30, hl: { yellow: "#f7d000", orange: "#ff8a1f", pink: "#ff4f8f", green: "#4ed35a", blue: "#3aa8ff" },
+           pc: { yellow: "#f0c94a", orange: "#ffad6b", pink: "#ff8aa8", green: "#7fd98c", blue: "#86b8ff" } },
+};
+
+/* ───────── 상태 ───────── */
+let theme = "paper", texture = true, memoOpen = false, curStyle = "highlight", curColor = "yellow";
+let nextId = 1;
+const marks = [];
+const now = "10/10 판";
+
+/* ───────── 시드 가능한 난수 (같은 표시는 언제 그려도 같은 손떨림) ───────── */
+function rng(seed) {
+  let h = 2166136261;
+  for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  let a = h >>> 0;
+  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const f = n => n.toFixed(1);
+
+/* ───────── 질감 필터 ─────────
+   형광펜: 가장자리를 살짝 들쭉날쭉하게 + 가로 결(펠트 촉이 지나간 자국)
+   색연필: 종이 결에 걸리는 알갱이 + 미세한 떨림
+   필터 영역을 userSpaceOnUse 로 잡는다 — 수평선은 bbox 높이가 0이라 기본 영역이면 사라진다. */
+function filterDefs(sfx, W, H) {
+  const reg = `filterUnits="userSpaceOnUse" x="-20" y="-20" width="${W + 40}" height="${H + 40}" color-interpolation-filters="sRGB"`;
+  return `
+  <filter id="hl${sfx}" ${reg}>
+    <feTurbulence type="fractalNoise" baseFrequency="0.04 0.09" numOctaves="2" seed="4" result="edge"/>
+    <feDisplacementMap in="SourceGraphic" in2="edge" scale="3.5" xChannelSelector="R" yChannelSelector="G" result="rag"/>
+    <feTurbulence type="fractalNoise" baseFrequency="0.006 0.5" numOctaves="2" seed="9" result="str"/>
+    <feColorMatrix in="str" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.5 1.6" result="stra"/>
+    <feComposite in="rag" in2="stra" operator="in"/>
+  </filter>
+  <filter id="pc${sfx}" ${reg}>
+    <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="3" seed="2" result="g"/>
+    <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.4 1.75" result="ga"/>
+    <feComposite in="SourceGraphic" in2="ga" operator="in" result="gr"/>
+    <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="1" seed="6" result="w"/>
+    <feDisplacementMap in="gr" in2="w" scale="1.4" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>`;
+}
+/* 형광펜 양 끝에 잉크가 고이는 것 */
+function gradDefs(P, sfx) {
+  return COLORS.map(k => {
+    const c = P.hl[k], a = P.hlA, e = Math.min(1, a * 1.45);
+    return `<linearGradient id="gr-${k}${sfx}" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="${c}" stop-opacity="${e}"/><stop offset=".03" stop-color="${c}" stop-opacity="${a}"/>
+      <stop offset=".97" stop-color="${c}" stop-opacity="${a * .92}"/><stop offset="1" stop-color="${c}" stop-opacity="${e}"/></linearGradient>`;
+  }).join("");
+}
+
+/* ───────── 도형 ───────── */
+function hlPath(l, r) {               // 끌 모양 촉(chisel)으로 그은 띠
+  const x0 = l.x - 2, x1 = l.x + l.w + 2, t = l.y + l.h * .1, b = l.y + l.h * .93;
+  const n = Math.max(2, Math.round((x1 - x0) / 36));
+  const top = [], bot = [];
+  for (let i = 0; i <= n; i++) {
+    const x = x0 + (x1 - x0) * i / n;
+    top.push([x, t + (r() - .5) * 1.4]); bot.push([x, b + (r() - .5) * 1.4]);
+  }
+  top[0][0] += 3.5; bot[0][0] -= .5; top[n][0] += .5; bot[n][0] -= 3.5;   // 기울어진 촉 자국
+  return "M" + top.map(p => f(p[0]) + "," + f(p[1])).join(" L") + " L" + bot.reverse().map(p => f(p[0]) + "," + f(p[1])).join(" L") + "Z";
+}
+function jit(x0, y0, x1, y1, r, bow = 1.3) {
+  const mx = (x0 + x1) / 2 + (r() - .5) * 3, my = (y0 + y1) / 2 + (r() - .5) * bow * 2;
+  return `M${f(x0)},${f(y0)} Q${f(mx)},${f(my)} ${f(x1)},${f(y1)}`;
+}
+function wavyD(x0, x1, y, r) {
+  const lam = 6.4 + r() * .8, ph = r() * 6, drift = (r() - .5) * 1.2;
+  let d = "";
+  for (let x = x0; x <= x1 + .01; x += 1.1) {
+    const k = (x - x0) / Math.max(1, x1 - x0);
+    const a = 1.55 + Math.sin(x * .045 + ph) * .35;
+    const yy = y + drift * k + a * Math.sin((x - x0) / lam * 2 * Math.PI + ph);
+    d += (d ? " L" : "M") + f(x) + "," + yy.toFixed(2);
+  }
+  return d;
+}
+function loopD(cx, cy, rx, ry, r) {   // 한 번에 휘갈긴, 살짝 겹쳐 닫히는 고리
+  const a0 = Math.PI * (.75 + r() * .4), turns = 1.1 + r() * .08, p1 = r() * 6, p2 = r() * 6, N = 80;
+  let d = "";
+  for (let i = 0; i <= N; i++) {
+    const t = a0 + turns * 2 * Math.PI * i / N;
+    const k = 1 + .05 * Math.sin(2 * t + p1) + .03 * Math.sin(3 * t + p2) + .07 * i / N;
+    d += (d ? " L" : "M") + f(cx + rx * k * Math.cos(t)) + "," + f(cy + ry * k * Math.sin(t));
+  }
+  return d;
+}
+function starD(cx, cy, R, r) {
+  const rot = (r() - .5) * .35, pts = [];
+  for (let k = 0; k <= 5; k++) {
+    const a = -Math.PI / 2 + rot + k * 4 * Math.PI / 5, rr = R * (.9 + r() * .2);
+    pts.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]);
+  }
+  const [a, b] = [pts[5], pts[1]];
+  pts[5] = [a[0] + (b[0] - a[0]) * .12, a[1] + (b[1] - a[1]) * .12];      // 끝이 살짝 넘어간다
+  return "M" + pts.map(p => f(p[0]) + "," + f(p[1])).join(" L");
+}
+function checkD(cx, cy, r) {
+  const j = () => (r() - .5) * 1.2;
+  return `M${f(cx - 7 + j())},${f(cy - 1 + j())} Q${f(cx - 4)},${f(cy + 2)} ${f(cx - 2 + j())},${f(cy + 6)} Q${f(cx + 2)},${f(cy - 3)} ${f(cx + 9 + j())},${f(cy - 9 + j())}`;
+}
+function barPath(x, y0, y1, r) {
+  const w = 5.5, n = Math.max(2, Math.round((y1 - y0) / 30)), L = [], R = [];
+  for (let i = 0; i <= n; i++) { const y = y0 + (y1 - y0) * i / n; L.push([x + (r() - .5) * 1.2, y]); R.push([x + w + (r() - .5) * 1.2, y]); }
+  L[0][1] += 2.5; R[n][1] -= 2.5;
+  return "M" + L.map(p => f(p[0]) + "," + f(p[1])).join(" L") + " L" + R.reverse().map(p => f(p[0]) + "," + f(p[1])).join(" L") + "Z";
+}
+function pencil(d, color, w = 1.7) {   // 심이 두 번 지나간 듯 — 두 번째 획은 얇고 옅게
+  const main = `<path d="${d}" stroke="${color}" stroke-width="${w}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if (!texture) return main;
+  return main + `<path d="${d}" transform="translate(.45 .35)" stroke="${color}" stroke-width="${w * .6}" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/>`;
+}
+function glyph(ch, x, y, color, size = 21) {
+  return `<text x="${f(x)}" y="${f(y)}" fill="${color}" font-family='"Ink Free","Segoe Print","Comic Sans MS",cursive' font-size="${size}" font-weight="700" text-anchor="middle" dominant-baseline="central">${ch}</text>`;
+}
+
+/* 표시 하나를 그린다 → { u: 글자 밑 층, o: 글자 위 층 } */
+function drawMark(m, lines, P, sfx, mx) {
+  const r = rng(String(m.id) + m.style), pc = P.pc[m.color];
+  let u = "", o = "";
+  const l0 = lines[0];
+  switch (m.style) {
+    case "highlight": for (const l of lines) u += `<path d="${hlPath(l, r)}" fill="url(#gr-${m.color}${sfx})"/>`; break;
+    case "underline": for (const l of lines) { const y = l.y + l.h - .5; o += pencil(jit(l.x - 1 - r() * 2, y + (r() - .5), l.x + l.w + 1 + r() * 3, y + (r() - .5) * 1.8, r), pc); } break;
+    case "wavy":      for (const l of lines) o += pencil(wavyD(l.x - 1, l.x + l.w + 1, l.y + l.h + .5, r), pc, 1.45); break;
+    case "strike":    for (const l of lines) { const y = l.y + l.h * .55; o += pencil(jit(l.x - 3, y + (r() - .5) * 1.5, l.x + l.w + 3, y + (r() - .5) * 2.2, r, .6), pc, 1.8); } break;
+    case "circle":    for (const l of lines) o += pencil(loopD(l.x + l.w / 2, l.y + l.h / 2, l.w / 2 + 9, l.h / 2 + 4, r), pc, 1.6); break;
+    case "star":      o += pencil(starD(mx, l0.y + l0.h / 2, 8.5, r), pc, 1.7); break;
+    case "check":     o += pencil(checkD(mx, l0.y + l0.h / 2, r), pc, 2); break;
+    case "question":  o += glyph("?", mx, l0.y + l0.h / 2, pc); break;
+    case "exclaim":   o += glyph("!", mx, l0.y + l0.h / 2, pc); break;
+    case "bar":       u += `<path d="${barPath(mx, l0.y + 2, l0.y + l0.h - 2, r)}" fill="${P.hl[m.color]}" fill-opacity="${Math.min(1, P.hlA * 1.3)}"/>`; break;
+  }
+  return { u, o };
+}
+
+/* 펜 견본 svg (트레이 · 범례 · 카드에서 같은 렌더러를 쓴다) */
+let sampleSeq = 0;
+function sampleSVG(style, color, W = 44, H = 24, id = "s") {
+  const P = PALETTE[theme], sfx = "_s" + (sampleSeq++);
+  const m = { id: "sample-" + id + style, style, color };
+  const isPoint = POINT_PENS.some(p => p.style === style);
+  const line = style === "bar" ? { x: 0, y: 2, w: 0, h: H - 4 } : { x: 8, y: 5, w: W - 16, h: H - 10 };
+  const { u, o } = drawMark(m, [line], P, sfx, style === "bar" ? W / 2 - 3 : W / 2);
+  const fu = texture ? ` filter="url(#hl${sfx})"` : "", fo = texture ? ` filter="url(#pc${sfx})"` : "";
+  const ink = isPoint || style === "highlight" ? "" :
+    `<rect x="8" y="${H / 2 - 2.5}" width="${W - 16}" height="5" rx="2" fill="currentColor" opacity=".18"/>`;
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="color:var(--fg);overflow:visible"><defs>${texture ? filterDefs(sfx, W, H) : ""}${gradDefs(P, sfx)}</defs>
+    <g${fu}>${u}</g>${style === "highlight" ? `<rect x="10" y="${H / 2 - 2.5}" width="${W - 20}" height="5" rx="2" fill="currentColor" opacity=".22"/>` : ink}<g${fo}>${o}</g></svg>`;
+}
+
+/* ───────── 글자 offset ↔ Range ─────────
+   위치 = 문서 텍스트 안의 글자 offset. 실제 앱에서는 스냅샷 원문 기준 offset 이고, 지금 판으로는 diff 로 옮긴다. */
+const doc = document.getElementById("doc"), sheet = document.getElementById("sheet");
+function textNodes() {
+  const w = document.createTreeWalker(doc, NodeFilter.SHOW_TEXT), out = [];
+  for (let n; (n = w.nextNode());) out.push(n);
+  return out;
+}
+function offsetOf(node, off) { const r = document.createRange(); r.setStart(doc, 0); r.setEnd(node, off); return r.toString().length; }
+function nodeAt(o) {
+  let pos = 0;
+  for (const n of textNodes()) { const L = n.data.length; if (o <= pos + L) return [n, o - pos]; pos += L; }
+  return null;
+}
+function lineRects(s, e) {
+  const base = sheet.getBoundingClientRect(), raw = [];
+  let pos = 0;
+  for (const n of textNodes()) {
+    const L = n.data.length, a = pos, b = pos + L; pos = b;
+    if (b <= s || a >= e) continue;
+    const r = document.createRange();
+    r.setStart(n, Math.max(0, s - a)); r.setEnd(n, Math.min(L, e - a));
+    for (const c of r.getClientRects()) if (c.width > .5) raw.push({ x: c.left - base.left, y: c.top - base.top, w: c.width, h: c.height });
+  }
+  raw.sort((p, q) => p.y - q.y || p.x - q.x);
+  const lines = [];
+  for (const c of raw) {                // 같은 줄 조각(굵게·코드)을 한 줄로 합친다
+    const g = lines.find(L => Math.abs((L.y + L.h / 2) - (c.y + c.h / 2)) < Math.min(L.h, c.h) * .5);
+    if (!g) { lines.push({ ...c }); continue; }
+    const x0 = Math.min(g.x, c.x), x1 = Math.max(g.x + g.w, c.x + c.w), y0 = Math.min(g.y, c.y), y1 = Math.max(g.y + g.h, c.y + c.h);
+    Object.assign(g, { x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+  }
+  return lines;
+}
+const BLOCKS = "p,li,h1,h2,h3,blockquote";
+function blockAt(o) { const at = nodeAt(Math.min(o + 1, doc.textContent.length)); return at && at[0].parentElement.closest(BLOCKS); }
+function blockRange(el) {
+  const r = document.createRange(); r.selectNodeContents(el);
+  return [offsetOf(r.startContainer, r.startOffset), offsetOf(r.endContainer, r.endOffset)];
+}
+function elRect(el) {
+  const b = sheet.getBoundingClientRect(), c = el.getBoundingClientRect();
+  return { x: c.left - b.left, y: c.top - b.top, w: c.width, h: c.height };
+}
+
+/* ───────── 그리기 ───────── */
+const under = document.getElementById("under"), over = document.getElementById("over");
+let geom = new Map();   // id → { lines, top }
+function render() {
+  const P = PALETTE[theme], W = sheet.offsetWidth, H = sheet.offsetHeight;
+  for (const s of [under, over]) { s.setAttribute("width", W); s.setAttribute("height", H); s.setAttribute("viewBox", `0 0 ${W} ${H}`); }
+  const docLeft = elRect(doc).x, pointSlots = new Map();
+  let U = "", O = "", badge = 0;
+  geom = new Map();
+  for (const m of marks) {
+    if (m.state === "gone") continue;
+    let lines, mx;
+    if (m.kind === "range") lines = lineRects(m.start, m.end);
+    else {
+      const el = blockAt(m.start); if (!el) continue;
+      if (m.style === "bar") { lines = [elRect(el)]; mx = docLeft - 17; }
+      else {
+        const first = lineRects(m.start, m.start + 1)[0] || elRect(el);
+        lines = [first];
+        const key = Math.round(first.y), k = pointSlots.get(key) || 0; pointSlots.set(key, k + 1);
+        mx = docLeft - 34 - k * 22;
+      }
+    }
+    if (!lines.length) continue;
+    geom.set(m.id, { lines, top: lines[0].y, mx });
+    const { u, o } = drawMark(m, lines, P, "", mx);
+    let b = "";
+    if (m.note) {                       // 메모가 달린 표시: 끝에 손글씨 번호
+      badge++; m.badge = badge;
+      const last = lines[lines.length - 1];
+      const bx = m.kind === "range" ? last.x + last.w + 9 : mx + 13, by = last.y + 3;
+      const r = rng("b" + m.id);
+      b = pencil(loopD(bx, by, 6.5, 6, r), P.pc[m.color], 1.1) + glyph(String(badge), bx, by + .5, P.pc[m.color], 11);
+    }
+    U += `<g class="m" data-id="${m.id}">${u}</g>`;
+    O += `<g class="m" data-id="${m.id}">${o}${b}</g>`;
+  }
+  const fu = texture ? ` filter="url(#hl)"` : "", fo = texture ? ` filter="url(#pc)"` : "";
+  under.innerHTML = `<defs>${texture ? filterDefs("", W, H) : ""}${gradDefs(P, "")}</defs><g${fu}>${U}</g>`;
+  over.innerHTML = `<defs>${texture ? filterDefs("", W, H) : ""}</defs><g${fo}>${O}</g>`;
+  renderCards();
+}
+
+/* ───────── 메모 레일 ───────── */
+const rail = document.getElementById("rail"), cardsEl = document.getElementById("cards");
+const STATE_LABEL = { same: "그대로", moved: "옮겨짐", changed: "바뀜", gone: "사라짐" };
+function quoteOf(m) { return m.kind === "range" ? doc.textContent.slice(m.start, m.end) : (blockAt(m.start)?.textContent || ""); }
+function cardHTML(m) {
+  const pen = penOf(m.style);
+  const body = m.state === "changed"
+    ? `<div class="diff"><div class="was"><span class="tag">${m.ver}</span>${m.before}</div><div class="now"><span class="tag">지금</span>${quoteOf(m)}</div></div>`
+    : `<p class="q">“${m.state === "gone" ? m.quote : quoteOf(m)}”</p>`;
+  const extra = m.state === "moved" ? ` · ${m.movedBy}` : "";
+  const btns = m.state === "changed" ? `<button data-act="resolve">해결됨</button><button data-act="ver">그 판 보기</button>`
+            : m.state === "gone"    ? `<button data-act="ver">그 판 보기</button>` : "";
+  return `<div class="card-head">${sampleSVG(m.style, m.color, 34, 20, "c" + m.id)}<span class="meaning">${pen.meaning}</span><span class="chip ${m.state}">${STATE_LABEL[m.state]}</span></div>
+    ${body}${m.note ? `<p class="note">${m.badge ? `<b>${m.badge}.</b> ` : ""}${m.note}</p>` : ""}
+    <div class="card-foot"><span>${m.ver}${extra}</span>${btns}</div>`;
+}
+function renderCards() {
+  updatePill();
+  if (!memoOpen) { cardsEl.innerHTML = ""; return; }
+  const legendBottom = 0;
+  const off = sheet.getBoundingClientRect().top - rail.getBoundingClientRect().top;
+  const show = marks.filter(m => m.state !== "gone" && (m.note || m.state === "changed") && geom.has(m.id))
+                    .sort((a, b) => geom.get(a.id).top - geom.get(b.id).top);
+  cardsEl.innerHTML = "";
+  let floor = legendBottom;
+  for (const m of show) {
+    const c = document.createElement("div");
+    c.className = "card" + (m.resolved ? " resolved" : ""); c.dataset.id = m.id; c.innerHTML = cardHTML(m);
+    cardsEl.appendChild(c);
+    const want = off + geom.get(m.id).top - 8, top = Math.max(want, floor);
+    c.style.top = top + "px"; floor = top + c.offsetHeight + 10;
+  }
+  const lost = marks.filter(m => m.state === "gone");
+  if (lost.length) {
+    const t = document.createElement("div"); t.className = "lost-title"; t.textContent = "위치를 잃은 표시";
+    floor += 14; t.style.top = floor + "px"; cardsEl.appendChild(t); floor += 24;
+    for (const m of lost) {
+      const c = document.createElement("div"); c.className = "card"; c.dataset.id = m.id; c.innerHTML = cardHTML(m);
+      cardsEl.appendChild(c); c.style.top = floor + "px"; floor += c.offsetHeight + 10;
+    }
+  }
+  rail.style.minHeight = floor + "px";
+}
+cardsEl.addEventListener("mouseover", e => { const c = e.target.closest(".card"); if (c) focusMark(+c.dataset.id); });
+cardsEl.addEventListener("mouseleave", () => focusMark(null));
+cardsEl.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const m = marks.find(x => x.id === +b.closest(".card").dataset.id);
+  if (b.dataset.act === "resolve") { m.resolved = !m.resolved; render(); }
+  if (b.dataset.act === "ver") toast(`실제 앱에서는 ${m.ver} 스냅샷이 읽기 전용으로 열리고, 그 자리에 이 표시가 그대로 보입니다.`);
+});
+function focusMark(id) {
+  sheet.classList.toggle("focus", id != null);
+  for (const g of sheet.querySelectorAll("g.m")) g.classList.toggle("on", +g.dataset.id === id);
+  for (const c of cardsEl.querySelectorAll(".card")) c.classList.toggle("hot", +c.dataset.id === id);
+}
+function toast(msg) {
+  let t = document.getElementById("toast");
+  if (!t) { t = document.createElement("div"); t.id = "toast";
+    t.style.cssText = "position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:9px;font-size:13px;z-index:99;max-width:520px;box-shadow:0 8px 24px -8px #0006";
+    document.body.appendChild(t); }
+  t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 3200);
+}
+
+/* ───────── 펜 트레이 ───────── */
+const tray = document.getElementById("tray"), trayPens = document.getElementById("trayPens"), memoInput = document.getElementById("memoInput");
+let pending = null, editing = null;   // pending = 새로 칠할 {start,end} / editing = 고칠 표시 id
+function buildTray() {
+  const sel = editing ? marks.find(m => m.id === editing) : null;
+  const st = sel ? sel.style : curStyle, col = sel ? sel.color : curColor;
+  trayPens.innerHTML =
+    RANGE_PENS.map(p => `<button class="pen" data-style="${p.style}" title="${p.name} — ${p.meaning}" aria-pressed="${p.style === st}">${sampleSVG(p.style, col, 42, 22, "t")}<span class="tip">${p.name}</span></button>`).join("") +
+    `<span class="vsep"></span>` +
+    COLORS.map(c => `<button class="dot" data-color="${c}" title="${COLOR_NAME[c]}" style="background:${PALETTE[theme].hl[c]}" aria-pressed="${c === col}"></button>`).join("") +
+    `<span class="vsep"></span><button class="tbtn" id="memoBtn">메모</button>` +
+    (sel ? `<button class="tbtn danger" id="delBtn">지우기</button>` : "");
+}
+function openTray(x, y) {
+  tray.classList.remove("memo"); buildTray(); tray.classList.add("open");
+  const w = tray.offsetWidth, h = tray.offsetHeight;
+  tray.style.left = Math.max(8, Math.min(innerWidth - w - 8, x - w / 2)) + "px";
+  tray.style.top = (y - h - 12 < 56 ? y + 30 : y - h - 12) + "px";
+}
+function closeTray() { tray.classList.remove("open", "memo"); pending = editing = null; }
+function addMark(m) { m.id = nextId++; m.state = m.state || "same"; m.ver = m.ver || now; marks.push(m); return m; }
+trayPens.addEventListener("mousedown", e => e.preventDefault());   // 선택이 풀리지 않게
+trayPens.addEventListener("click", e => {
+  const pen = e.target.closest(".pen"), dot = e.target.closest(".dot");
+  if (pen) {
+    curStyle = pen.dataset.style;
+    if (editing) marks.find(m => m.id === editing).style = curStyle;
+    else if (pending) addMark({ kind: "range", ...pending, style: curStyle, color: curColor });
+    getSelection().removeAllRanges(); closeTray(); render();
+  } else if (dot) {
+    curColor = dot.dataset.color;
+    if (editing) { marks.find(m => m.id === editing).color = curColor; render(); }
+    buildTray();
+  } else if (e.target.id === "memoBtn") {
+    tray.classList.add("memo");
+    memoInput.value = editing ? (marks.find(m => m.id === editing).note || "") : "";
+    setTimeout(() => memoInput.focus(), 0);
+  } else if (e.target.id === "delBtn") {
+    marks.splice(marks.findIndex(m => m.id === editing), 1); closeTray(); render();
+  }
+});
+function saveMemo() {
+  const v = memoInput.value.trim();
+  if (editing) marks.find(m => m.id === editing).note = v || undefined;
+  else if (pending) addMark({ kind: "range", ...pending, style: curStyle, color: curColor, note: v || undefined });
+  getSelection().removeAllRanges(); closeTray(); render();
+}
+document.getElementById("memoSave").addEventListener("click", saveMemo);
+memoInput.addEventListener("keydown", e => { if (e.key === "Enter") saveMemo(); if (e.key === "Escape") closeTray(); });
+
+doc.addEventListener("mouseup", e => {
+  setTimeout(() => {
+    const s = getSelection();
+    if (s.rangeCount && !s.isCollapsed && doc.contains(s.anchorNode)) {
+      const r = s.getRangeAt(0);
+      const a = offsetOf(r.startContainer, r.startOffset), b = offsetOf(r.endContainer, r.endOffset);
+      if (b - a < 1) return;
+      editing = null; pending = { start: a, end: b };
+      const rc = r.getBoundingClientRect(); openTray(rc.left + rc.width / 2, rc.top);
+      return;
+    }
+    const hit = markAt(e.clientX, e.clientY);       // 이미 칠한 곳을 누르면 고치기
+    if (hit) { pending = null; editing = hit.id; openTray(e.clientX, e.clientY - 6); }
+  }, 0);
+});
+document.addEventListener("mousedown", e => {
+  if (!tray.contains(e.target)) closeTray();
+  if (!pmenu.contains(e.target) && e.target !== plus) pmenu.classList.remove("open");
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeTray(); pmenu.classList.remove("open"); } });
+
+function caretOffset(x, y) {
+  const r = document.caretRangeFromPoint ? document.caretRangeFromPoint(x, y) : null;
+  return r && doc.contains(r.startContainer) ? offsetOf(r.startContainer, r.startOffset) : null;
+}
+function markAt(x, y) {
+  const o = caretOffset(x, y); if (o == null) return null;
+  return [...marks].reverse().find(m => m.kind === "range" && m.state !== "gone" && o >= m.start && o <= m.end) || null;
+}
+/* 메모 툴팁: 접힘 상태에서 메모 달린 표시(또는 그 번호) 위에 450ms 머무르면 */
+const tip = document.getElementById("tip");
+let tipTimer = 0, tipFor = null;
+function pointHit(x, y) {               // 여백 점 표시 · 메모 번호는 글자가 아니라 기하로 판정
+  const b = sheet.getBoundingClientRect(), px = x - b.left, py = y - b.top;
+  for (const m of marks) {
+    const g = geom.get(m.id); if (!g) continue;
+    const l = g.lines[g.lines.length - 1];
+    if (m.kind !== "range" && g.mx != null && Math.abs(px - g.mx) < 14 && py > g.lines[0].y - 4 && py < g.lines[0].y + (m.style === "bar" ? g.lines[0].h : 30)) return m;
+    if (m.note && m.kind === "range" && Math.hypot(px - (l.x + l.w + 9), py - (l.y + 3)) < 10) return m;
+  }
+  return null;
+}
+let tipHover = false, graceTimer = 0;
+function hideTip() { clearTimeout(tipTimer); clearTimeout(graceTimer); tipFor = null; tip.classList.remove("show"); }
+function softHide() {                   // 툴팁으로 마우스를 옮기는 동안은 닫지 않는다
+  clearTimeout(tipTimer);
+  if (!tip.classList.contains("show")) { tipFor = null; return; }
+  clearTimeout(graceTimer); graceTimer = setTimeout(() => { if (!tipHover) { hideTip(); focusMark(null); } }, 260);
+}
+tip.addEventListener("mouseenter", () => { tipHover = true; clearTimeout(graceTimer); });
+tip.addEventListener("mouseleave", () => { tipHover = false; softHide(); });
+tip.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const m = marks.find(x => x.id === tipFor); if (!m) return;
+  if (b.dataset.act === "resolve") { m.resolved = !m.resolved; hideTip(); render(); toast(m.resolved ? "해결됨으로 표시했습니다." : "해결됨을 풀었습니다."); }
+  if (b.dataset.act === "ver") toast(`실제 앱에서는 ${m.ver} 스냅샷이 읽기 전용으로 열리고, 그 자리에 이 표시가 그대로 보입니다.`);
+});
+function wantsTip(m) { return m && (m.note || m.state === "changed"); }
+sheet.addEventListener("mousemove", e => {
+  if (e.buttons) return;
+  const hit = markAt(e.clientX, e.clientY) || pointHit(e.clientX, e.clientY);
+  for (const c of cardsEl.querySelectorAll(".card")) c.classList.toggle("hot", !!hit && +c.dataset.id === hit.id);
+  if (memoOpen || tray.classList.contains("open")) return hideTip();
+  if (!wantsTip(hit)) return softHide();
+  if (tipFor === hit.id) { clearTimeout(graceTimer); return; }
+  hideTip(); tipFor = hit.id;
+  const x = e.clientX, y = e.clientY;
+  tipTimer = setTimeout(() => {
+    tip.innerHTML = cardHTML(hit); tip.classList.add("show");
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, x + 14)) + "px";
+    tip.style.top = (y + 22 + h > innerHeight ? y - h - 14 : y + 22) + "px";
+    focusMark(hit.id);
+  }, 450);
+});
+sheet.addEventListener("mouseleave", () => softHide());
+document.getElementById("scroller").addEventListener("scroll", hideTip);
+
+/* 접힌 상태의 요약 알약 */
+const pill = document.getElementById("memoPill");
+function updatePill() {
+  const n = marks.filter(m => m.note && m.state !== "gone").length, lost = marks.filter(m => m.state === "gone").length,
+        changed = marks.filter(m => m.state === "changed" && !m.resolved).length;
+  pill.innerHTML = `메모 <b>${n}</b>` + (changed ? ` · 바뀜 <b>${changed}</b>` : "") + (lost ? ` · <span class="lost">위치 잃음 ${lost}</span>` : "") + " ›";
+}
+pill.addEventListener("click", () => document.querySelector('#memoSeg [data-v="expanded"]').click());
+
+/* ───────── 여백 ＋ → 점 표시 ───────── */
+const plus = document.getElementById("plus"), pmenu = document.getElementById("pmenu"), pmenuRow = document.getElementById("pmenuRow");
+let plusBlock = null;
+sheet.addEventListener("mousemove", e => {
+  if (e.buttons || pmenu.classList.contains("open")) return;
+  const el = e.target.closest?.(BLOCKS);
+  if (el && doc.contains(el) && !el.classList.contains("meta")) {
+    plusBlock = el;
+    const rc = elRect(el), first = lineRects(...blockRange(el))[0] || rc;
+    plus.style.display = "block";
+    plus.style.left = (elRect(doc).x - 62) + "px";
+    plus.style.top = (first.y + first.h / 2 - 11) + "px";
+  } else if (e.target !== plus && !e.target.closest?.("#doc")) plus.style.display = "none";
+});
+sheet.addEventListener("mouseleave", () => { if (!pmenu.classList.contains("open")) plus.style.display = "none"; });
+plus.addEventListener("click", () => {
+  pmenuRow.innerHTML = POINT_PENS.map(p => `<button class="pen" data-style="${p.style}" title="${p.name} — ${p.meaning}">${sampleSVG(p.style, curColor, 30, 24, "p")}<span class="tip">${p.name}</span></button>`).join("") +
+    `<span class="vsep"></span>` + COLORS.map(c => `<button class="dot" data-color="${c}" style="background:${PALETTE[theme].hl[c]}" aria-pressed="${c === curColor}"></button>`).join("");
+  pmenu.classList.add("open");
+  const r = plus.getBoundingClientRect();
+  pmenu.style.left = (r.right + 8) + "px"; pmenu.style.top = (r.top - 8) + "px";
+});
+pmenuRow.addEventListener("click", e => {
+  const pen = e.target.closest(".pen"), dot = e.target.closest(".dot");
+  if (dot) { curColor = dot.dataset.color; plus.click(); return; }
+  if (!pen || !plusBlock) return;
+  const [s, en] = blockRange(plusBlock);
+  addMark({ kind: pen.dataset.style === "bar" ? "block" : "point", start: s, end: en, style: pen.dataset.style, color: curColor });
+  pmenu.classList.remove("open"); render();
+});
+
+/* ───────── 컨트롤 ───────── */
+function seg(id, fn) {
+  const el = document.getElementById(id);
+  el.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    for (const x of el.children) x.setAttribute("aria-pressed", x === b);
+    fn(b.dataset.v);
+  });
+}
+seg("themeSeg", v => { theme = v; document.documentElement.dataset.theme = v; buildLegend(); render(); });
+seg("widthSeg", v => { document.documentElement.style.setProperty("--measure", v); });
+seg("texSeg", v => { texture = v === "on"; buildLegend(); render(); });
+seg("memoSeg", v => { memoOpen = v === "expanded"; document.body.classList.toggle("memo-collapsed", !memoOpen); hideTip(); focusMark(null); render(); });
+document.body.classList.add("memo-collapsed");
+const legend = document.getElementById("legend"), legendBtn = document.getElementById("legendBtn");
+legendBtn.addEventListener("click", () => { const o = legend.classList.toggle("open"); legendBtn.setAttribute("aria-expanded", o); });
+document.addEventListener("mousedown", e => { if (!legend.contains(e.target) && e.target !== legendBtn) { legend.classList.remove("open"); legendBtn.setAttribute("aria-expanded", false); } });
+function buildLegend() {
+  const demo = { highlight: "yellow", underline: "green", wavy: "blue", strike: "pink", circle: "orange", star: "orange", question: "blue", exclaim: "pink", check: "green", bar: "yellow" };
+  document.getElementById("legendList").innerHTML = ALL_PENS.map(p =>
+    `<li>${sampleSVG(p.style, demo[p.style], 40, 22, "l")}<span>${p.meaning}</span></li>`).join("");
+}
+
+/* 폭·글꼴이 바뀌면 다시 그린다 — 저장된 건 좌표가 아니라 글자 offset 이므로 */
+let raf = 0;
+new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); }).observe(sheet);
+addEventListener("resize", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); });
+
+/* ───────── 시연용 표시 (상태 넷을 모두 보여 준다) ───────── */
+function seed(quote, o) {
+  const i = doc.textContent.indexOf(quote);
+  if (i < 0) { console.warn("seed not found:", quote); return; }
+  addMark({ kind: "range", start: i, end: i + quote.length, ...o });
+}
+function seedBlock(startsWith, o) {
+  const el = [...doc.querySelectorAll(BLOCKS)].find(e => e.textContent.startsWith(startsWith));
+  const [s, e] = blockRange(el);
+  addMark({ start: s, end: e, ...o });
+}
+seed("색인 재구성은 증분 방식으로 바꿨고", { style: "highlight", color: "yellow", ver: "10/9 판" });
+seed("file_meta", { style: "circle", color: "orange", note: "테이블 이름 이게 맞나?", state: "moved", movedBy: "2줄 아래로", ver: "10/9 판" });
+seed("(참고로 이 방식은 예전에도 시도했다.)", { style: "strike", color: "pink", ver: "10/9 판" });
+seed("첫 실행 시간이 40% 줄었다", { style: "wavy", color: "blue", note: "측정 조건은? 콜드 캐시였는지 적어 줘.", state: "changed", before: "첫 실행 시간이 절반으로 줄었다", ver: "10/9 판" });
+seed("중간에 앱이 꺼져도 반쯤 쓴 색인이 남지 않는다", { style: "underline", color: "green", ver: "10/9 판" });
+seed("크기와 해시를 함께 보는 편이 안전하다", { style: "highlight", color: "green" });
+seedBlock("그 결과", { kind: "block", style: "bar", color: "yellow", ver: "10/9 판" });
+seedBlock("가장 큰 위험은", { kind: "point", style: "star", color: "orange" });
+seedBlock("이 경우를 막으려면", { kind: "point", style: "question", color: "blue", note: "해시 말고 파일 ID(NTFS)로는 안 되나?" });
+addMark({ kind: "range", start: 0, end: 0, style: "highlight", color: "yellow", state: "gone",
+  quote: "임시 캐시는 %TEMP% 아래에 둔다", note: "경로 정책 다시 보기", ver: "10/8 판" });
+
+buildLegend();
+render();
+document.fonts?.ready.then(render);
+/* #tip — 캡처용: 바뀜 표시 위에 머문 상태를 재현 */
+if (location.hash === "#tip") setTimeout(() => {
+  const m = marks.find(x => x.state === "changed"), l = geom.get(m.id).lines[0], b = sheet.getBoundingClientRect();
+  sheet.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: b.left + l.x + l.w / 2, clientY: b.top + l.y + l.h / 2 }));
+}, 300);
+</script>
+</body>
+</html>
