@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="ko" data-theme="paper">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>캔버스 목업</title>
+<!--
+  md-reader 캔버스 시안 — "화이트보드"가 아니라 "문서 지도".
+  - 데이터는 JSON Canvas 1.0 그대로(nodes/edges). [JSON] 패널이 지금 상태를 실시간으로 보여 준다.
+  - file 카드는 확대 정도에 따라 보이는 양이 바뀐다(제목 → 아웃라인·첫 문단 → 본문).
+  - 드로잉은 3단계(확장 필드 "x-readme-ink"). 캔버스는 좌표가 곧 콘텐츠라 자유 드로잉이 어긋나지 않는다.
+  - 왼쪽 워크스페이스에서 문서를 끌어 놓으면 file 노드가 된다 — 원본 파일은 그대로.
+-->
+<style>
+:root, [data-theme="paper"] {
+  --bg:#fcf9f2; --fg:#2e2c28; --accent:#8a5a2b; --surface:#f6f2e8; --border:#e9e1d1;
+  --c1:#c0453a; --c2:#c27420; --c3:#b8962a; --c4:#4f8a3c; --c5:#2f8a8a; --c6:#7a55a8;
+}
+[data-theme="light"] { --bg:#ffffff; --fg:#1a1a1a; --accent:#2563eb; --surface:#f5f5f5; --border:#e2e2e2;
+  --c1:#dc2626; --c2:#ea7a12; --c3:#c9a000; --c4:#16a34a; --c5:#0891b2; --c6:#7c3aed; }
+[data-theme="dark"]  { --bg:#1e1e1e; --fg:#e6e6e6; --accent:#60a5fa; --surface:#252526; --border:#333333;
+  --c1:#f87171; --c2:#fb923c; --c3:#facc15; --c4:#4ade80; --c5:#22d3ee; --c6:#a78bfa; }
+:root {
+  --muted: color-mix(in srgb, var(--fg) 58%, var(--bg));
+  --faint: color-mix(in srgb, var(--fg) 7%, transparent);
+  --board: color-mix(in srgb, var(--surface) 80%, var(--fg) 4%);
+  --dotgrid: color-mix(in srgb, var(--fg) 14%, transparent);
+  --edge: color-mix(in srgb, var(--fg) 45%, var(--bg));
+  --ui: "Pretendard", "Segoe UI Variable Text", "Segoe UI", "Malgun Gothic", sans-serif;
+  --read: Georgia, "Palatino Linotype", "Malgun Gothic", serif;
+  --mono: "Cascadia Code", Consolas, monospace;
+  --k: 1;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { background: var(--board); color: var(--fg); font: 13.5px/1.5 var(--ui); display: grid; grid-template-rows: 48px 1fr; grid-template-columns: minmax(0, 1fr); }
+
+/* ── 상단 막대 ───────────────────────────── */
+.bar { min-width: 0; overflow: hidden; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: var(--surface); border-bottom: 1px solid var(--border); z-index: 20; }
+.bar > * { flex: none; }
+.bar > .hint { flex: 1 1 0; min-width: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand { font-weight: 650; white-space: nowrap; }
+.brand small { font-weight: 400; color: var(--muted); margin-left: 6px; font-family: var(--mono); font-size: 12px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.seg button, .btn { white-space: nowrap; border: 0; background: transparent; color: var(--fg); font: 12.5px var(--ui); padding: 5px 10px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--bg)); color: var(--accent); font-weight: 600; }
+.btn { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.zoomlbl { font: 12px var(--mono); color: var(--muted); min-width: 118px; text-align: center; }
+.stage-tag { font-size: 10px; color: var(--muted); margin-left: 3px; }
+
+/* ── 본문: 워크스페이스 · 캔버스 · JSON ───────────── */
+.main { display: grid; grid-template-columns: 220px minmax(0, 1fr) auto; min-height: 0; min-width: 0; }
+.side { background: var(--surface); border-right: 1px solid var(--border); padding: 12px 10px; overflow: auto; }
+.side h4 { margin: 4px 6px 6px; font-size: 11.5px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+.side p { margin: 0 6px 10px; font-size: 11.5px; color: var(--muted); }
+.side ul { list-style: none; margin: 0 0 14px; padding: 0; }
+.side li { display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: 6px; cursor: grab; font-size: 12.5px; }
+.side li:hover { background: var(--faint); }
+.side li .ico { font: 9.5px var(--mono); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 3px; padding: 0 3px; }
+.side li .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side li .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+#vp { position: relative; overflow: hidden; cursor: default; outline: none;
+  background-image: radial-gradient(var(--dotgrid) calc(1px * var(--dz, 1)), transparent 0); }
+#vp.panning, #vp.space { cursor: grab; }
+#vp.panning { cursor: grabbing; }
+#vp.pen { cursor: crosshair; }
+#vp.eraser { cursor: cell; }
+#world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+#edges, #ink { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
+/* 층 순서: 그룹 상자 → 연결선 → 카드 → 라벨 → 잉크. 선이 그룹 밑에 깔리면 그룹 안의 선을 누를 수 없다 */
+#groups { position: absolute; left: 0; top: 0; z-index: 1; }
+#edges { z-index: 2; }
+#cards { position: absolute; left: 0; top: 0; z-index: 3; }
+#labels { position: absolute; left: 0; top: 0; z-index: 4; pointer-events: none; }
+#ink { z-index: 5; pointer-events: none; }
+#knobs { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; z-index: 6; pointer-events: none; }
+#knobs circle { pointer-events: all; }
+
+/* 노드 공통 */
+.node { position: absolute; }
+.node.sel > .card, .node.sel.group { outline: calc(2px / var(--k)) solid var(--accent); outline-offset: calc(2px / var(--k)); }
+.card { position: absolute; inset: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--fg) 8%, transparent), 0 8px 22px -12px color-mix(in srgb, var(--fg) 30%, transparent);
+  display: flex; flex-direction: column; }
+.node[data-color] > .card { border-top: 3px solid var(--nc); }
+.head { display: flex; align-items: center; gap: 7px; padding: 9px 12px 2px; font: 600 14px var(--ui); }
+.head .ico { font: 9.5px var(--mono); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 3px; padding: 0 3px; flex: none; }
+.head .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge { flex: none; font: 600 10.5px var(--ui); padding: 1px 7px; border-radius: 99px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.path { padding: 0 12px 6px; font: 11px var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lod1 { padding: 4px 14px 12px; min-height: 0; flex: 1; position: relative; }
+/* 함정: transform:scale 된 world 안에서 overflow 를 가진 *flex 항목*이 있으면 크롬이 노드 묶음을 통째로 안 그린다
+   (헤드리스 실측, GPU 켜도 동일). 그래서 .lod1 은 자르기를 .card 에 맡긴다. */
+.lod1::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 36px; background: linear-gradient(transparent, var(--bg)); }
+.lod1 .outline { list-style: none; margin: 0 0 8px; padding: 0; font-size: 12.5px; color: var(--muted); }
+.lod1 .outline li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lod1 .outline li.h2 { padding-left: 12px; }
+.lod1 .outline li.h3 { padding-left: 24px; }
+.lod1 .outline li::before { content: "§ "; color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.lod1 .excerpt { margin: 0; font: 13.5px/1.7 var(--read); }
+.far { display: none; position: absolute; inset: 0; padding: 12px; align-items: center; justify-content: center; text-align: center;
+  font: 650 calc(15px / var(--k)) / 1.25 var(--ui); letter-spacing: -.01em; overflow: hidden; }
+.far .badge { position: absolute; top: calc(8px / var(--k)); right: calc(8px / var(--k)); font-size: calc(10px / var(--k)); }
+
+/* 확대 단계(LOD) — 멀리서는 제목만, 가까이 가면 아웃라인·첫 문단. 본문 렌더(mermaid·수식)는 카드에서 하지 않는다 → 더블클릭 = 탭으로 열기 */
+#world.lod0 .card > :not(.far) { display: none; }
+#world.lod0 .far { display: flex; }
+
+/* text 노드 */
+.node.text .card { background: color-mix(in srgb, var(--nc, var(--surface)) 9%, var(--bg)); }
+.textbody { padding: 12px 14px; font: 14px/1.65 var(--ui); overflow: auto; flex: 1; }
+.textbody h3 { margin: 0 0 4px; font-size: 15px; }
+.textbody p { margin: 0 0 6px; } .textbody ul { margin: 0 0 6px; padding-left: 18px; }
+.textbody textarea { width: 100%; height: 100%; border: 0; background: transparent; color: var(--fg); font: 13px/1.6 var(--mono); resize: none; outline: none; }
+/* link 노드 */
+.linkbody { padding: 10px 14px; font-size: 12.5px; }
+.linkbody .url { font: 12px var(--mono); color: var(--accent); word-break: break-all; }
+.linkbody .off { margin-top: 6px; color: var(--muted); font-size: 11.5px; }
+/* group */
+.node.group { border-radius: 14px; border: calc(1.5px / var(--k)) dashed color-mix(in srgb, var(--nc, var(--fg)) 45%, transparent);
+  background: color-mix(in srgb, var(--nc, var(--fg)) 6%, transparent); }
+.glabel { position: absolute; left: 0; bottom: 100%; margin-bottom: calc(6px / var(--k)); white-space: nowrap;
+  font: 650 calc(13px / max(var(--k), .55)) var(--ui); color: color-mix(in srgb, var(--nc, var(--fg)) 80%, var(--fg)); cursor: move; }
+
+/* 연결 손잡이 · 크기 손잡이 */
+.h { position: absolute; width: calc(12px / var(--k)); height: calc(12px / var(--k)); border-radius: 50%; background: var(--bg);
+  border: calc(2px / var(--k)) solid var(--accent); opacity: 0; transform: translate(-50%, -50%); cursor: crosshair; z-index: 5; transition: opacity .1s; }
+.node:hover > .h, .node.sel > .h, #vp.linking .node > .h { opacity: 1; }
+.h.snap { opacity: 1; background: var(--accent); width: calc(16px / var(--k)); height: calc(16px / var(--k)); }
+.h.top { left: 50%; top: 0; } .h.bottom { left: 50%; top: 100%; } .h.left { left: 0; top: 50%; } .h.right { left: 100%; top: 50%; }
+.rz { position: absolute; right: calc(-5px / var(--k)); bottom: calc(-5px / var(--k)); width: calc(14px / var(--k)); height: calc(14px / var(--k)); cursor: nwse-resize; z-index: 5; }
+.node.sel > .rz::after { content: ""; position: absolute; inset: 25%; border-right: calc(2px / var(--k)) solid var(--accent); border-bottom: calc(2px / var(--k)) solid var(--accent); }
+#vp.pen .h, #vp.eraser .h, #vp.pen .rz, #vp.eraser .rz { display: none; }
+
+/* 연결선 */
+#edges path.e { fill: none; stroke-width: 1.8; }
+#edges path.hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; }
+#edges g.sel path.e { stroke-width: 3; }
+#knobs circle.knob { fill: var(--bg); stroke: var(--accent); stroke-width: 2; cursor: grab; }
+#knobs circle.knob:hover { fill: var(--accent); }
+.elabel { position: absolute; transform: translate(-50%, -50%); background: var(--board); color: var(--muted); padding: 1px 7px; border-radius: 6px;
+  font: calc(12px / max(var(--k), .6)) var(--ui); white-space: nowrap; border: 1px solid var(--border); }
+
+/* 선택 막대 · 펜 막대 */
+.float { position: fixed; z-index: 30; display: none; align-items: center; gap: 4px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 12px; padding: 5px 6px; box-shadow: 0 10px 28px -10px color-mix(in srgb, var(--fg) 35%, transparent); }
+.float.open { display: flex; }
+.sw { width: 20px; height: 20px; border-radius: 50%; border: 0; cursor: pointer; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 18%, transparent); }
+.sw[aria-pressed="true"] { outline: 2px solid var(--fg); outline-offset: 2px; }
+.sw.none { background: linear-gradient(135deg, var(--bg) 45%, var(--c1) 45%, var(--c1) 55%, var(--bg) 55%); }
+.vsep { width: 1px; align-self: stretch; margin: 2px 4px; background: var(--border); }
+.fbtn { font: 12px var(--ui); border: 1px solid var(--border); background: var(--bg); color: var(--fg); border-radius: 7px; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+.fbtn:hover { border-color: var(--accent); color: var(--accent); }
+.fbtn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--bg)); }
+#penbar { left: 50%; transform: translateX(-50%); top: 60px; }
+
+/* JSON 패널 */
+.json { width: 0; overflow: hidden; background: var(--surface); border-left: 1px solid var(--border); transition: width .2s; display: flex; flex-direction: column; }
+.json.open { width: 380px; }
+.json header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.json header b { flex: 1; }
+.json .note { padding: 8px 12px; font-size: 11.5px; color: var(--muted); border-bottom: 1px solid var(--border); min-width: 380px; }
+.json pre { margin: 0; padding: 10px 12px; font: 11.5px/1.5 var(--mono); overflow: auto; flex: 1; min-width: 380px; white-space: pre; }
+.json .k { color: var(--accent); } .json .x { color: var(--c6); font-weight: 600; }
+
+#toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 9px 14px; border-radius: 9px;
+  font-size: 13px; z-index: 99; display: none; max-width: 560px; box-shadow: 0 8px 24px -8px #0006; }
+</style>
+</head>
+<body>
+<header class="bar">
+  <span class="brand">캔버스<small>세션412-지도.canvas</small></span>
+  <div class="seg" id="toolSeg">
+    <button data-v="select" aria-pressed="true" title="선택·이동 (V)">선택</button><button data-v="pen" title="펜 (P)">펜<span class="stage-tag">3단계</span></button><button data-v="eraser" title="지우개 (E)">지우개</button>
+  </div>
+  <span class="hint" id="hint">빈 곳 드래그 = 이동 · Ctrl+휠 = 확대 · 빈 곳 더블클릭 = 글 상자 · 가장자리 점을 끌어 연결(가까운 점에 붙음) · 선을 누르면 끝점을 옮길 수 있음 · 왼쪽 문서를 끌어다 놓기</span>
+  <button class="btn" id="zoomOut" title="축소">−</button><span class="zoomlbl" id="zoomLbl">100%</span><button class="btn" id="zoomIn" title="확대">＋</button>
+  <button class="btn" id="fitBtn" title="전체 맞춤 (Shift+1)">맞춤</button>
+  <div class="seg" id="themeSeg"><button data-v="light">라이트</button><button data-v="paper" aria-pressed="true">페이퍼</button><button data-v="dark">다크</button></div>
+  <button class="btn" id="jsonBtn" aria-pressed="false">JSON</button>
+</header>
+
+<div class="main">
+  <aside class="side">
+    <h4>워크스페이스</h4>
+    <p>끌어서 캔버스에 놓으면 카드가 됩니다. 원본 파일은 그대로입니다.</p>
+    <ul id="wsList"></ul>
+  </aside>
+  <div id="vp" tabindex="0">
+    <div id="world">
+      <div id="groups"></div>
+      <svg id="edges"></svg>
+      <div id="cards"></div>
+      <div id="labels"></div>
+      <svg id="ink"></svg>
+      <svg id="knobs"></svg>
+    </div>
+  </div>
+  <aside class="json" id="json">
+    <header><b>JSON Canvas 1.0</b><button class="fbtn" id="copyJson">복사</button></header>
+    <div class="note">이 파일이 디스크에 저장되는 모양 그대로입니다. <span class="x">x-readme-ink</span>는 우리 확장 필드(드로잉) — 옵시디언이 저장할 때 보존하는지 실측이 필요합니다.</div>
+    <pre id="jsonPre"></pre>
+  </aside>
+</div>
+
+<div class="float" id="selbar"></div>
+<div class="float" id="penbar"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ───────── 데모 워크스페이스 (실제 앱에서는 색인·디스크에서 온다) ───────── */
+const DOCS = {
+  "reports/session-412.md": { title: "세션 보고서 — 검색 색인 재구성", inbox: "바뀜 03:12",
+    outline: [["h1", "세션 보고서"], ["h2", "무엇을 했나"], ["h2", "바꾼 것"], ["h2", "위험과 남은 일"]],
+    excerpt: "전역 검색이 느려지던 원인은 부팅 때마다 색인 전체를 다시 쓰던 데 있었다. 색인 재구성은 증분 방식으로 바꿨다." },
+  "reports/bench-index.md": { title: "벤치마크 — 증분 색인",
+    outline: [["h1", "벤치마크"], ["h2", "조건"], ["h2", "결과"], ["h3", "콜드 캐시"], ["h3", "웜 캐시"]],
+    excerpt: "문서 1,200개 · NVMe · 콜드 캐시 기준으로 4.1초 → 2.5초. 웜 캐시에서는 0.3초 안팎으로 차이가 없다." },
+  "notes/mtime-risk.md": { title: "mtime 을 믿어도 되나", inbox: "새 문서",
+    outline: [["h1", "mtime 을 믿어도 되나"], ["h2", "되돌리는 도구들"], ["h2", "대안: 크기+해시"], ["h2", "대안: 파일 ID"]],
+    excerpt: "동기화 도구 중에는 내용을 바꾸고도 mtime 을 되돌려 놓는 것이 있다. 그런 파일은 증분 색인에서 다시 읽히지 않는다." },
+  "notes/rollback.md": { title: "롤백 절차",
+    outline: [["h1", "롤백 절차"], ["h2", "색인 버리기"], ["h2", "스냅샷에서 복원"]],
+    excerpt: "색인이 꼬였다고 판단되면 workspace.db 의 file_index 만 지우고 재시작한다. 원본 문서는 건드리지 않는다." },
+  "design/adr-0003.md": { title: "ADR 0003 — 표시 펜",
+    outline: [["h1", "ADR 0003"], ["h2", "맥락"], ["h2", "결정"], ["h3", "스냅샷 고정 앵커"], ["h3", "펜 세트와 뜻"], ["h2", "대안과 기각"]],
+    excerpt: "위치는 좌표가 아니라 스냅샷 원문의 글자 범위다. 표시를 다는 순간 그 문서의 지금 판을 고정한다." },
+  "todo.md": { title: "다음 세션 할 일",
+    outline: [["h1", "다음 세션"], ["h2", "측정"], ["h2", "정리"]],
+    excerpt: "크기+해시와 파일 ID 두 방식을 같은 문서 묶음으로 재 본다. 결과를 bench-index.md 에 덧붙인다." },
+  "reports/session-411.md": { title: "세션 보고서 — 툴바 접기",
+    outline: [["h1", "세션 보고서"], ["h2", "원인"], ["h2", "단계 셋"]],
+    excerpt: "겹침의 원인은 줄어들게 둔 것이다. 넘치게 두면 잴 수 있다." },
+};
+
+/* ───────── JSON Canvas 1.0 — 이 객체가 곧 파일 내용 ───────── */
+const canvas = {
+  nodes: [
+    { id: "g-agent", type: "group", x: -40, y: -70, width: 880, height: 720, color: "5", label: "에이전트 산출물 — 10/9 밤" },
+    { id: "g-mine",  type: "group", x: 920, y: -70, width: 520, height: 720, color: "3", label: "내 정리" },
+    { id: "n-412",   type: "file", file: "reports/session-412.md", x: 0,   y: 0,   width: 380, height: 300 },
+    { id: "n-bench", type: "file", file: "reports/bench-index.md", x: 420, y: 0,   width: 380, height: 260 },
+    { id: "n-mtime", type: "file", file: "notes/mtime-risk.md",    x: 0,   y: 350, width: 380, height: 260, color: "1" },
+    { id: "n-roll",  type: "file", file: "notes/rollback.md",      x: 420, y: 330, width: 380, height: 240 },
+    { id: "n-why",   type: "text", text: "### 왜 느렸나?\n부팅마다 색인을 **전체** 다시 썼다.\n- 증분으로 바꿈 → 40%\n- mtime 위험은 남음", x: 960, y: 0, width: 320, height: 180, color: "3" },
+    { id: "n-adr",   type: "file", file: "design/adr-0003.md", subpath: "#결정", x: 960, y: 230, width: 420, height: 250 },
+    { id: "n-todo",  type: "file", file: "todo.md", x: 500, y: 730, width: 360, height: 210, color: "4" },
+    { id: "n-spec",  type: "link", url: "https://jsoncanvas.org/spec/1.0/", x: 1500, y: 0, width: 300, height: 120 },
+  ],
+  edges: [
+    { id: "e1", fromNode: "n-412",   fromSide: "right",  toNode: "n-bench", toSide: "left",  label: "근거" },
+    { id: "e2", fromNode: "n-412",   fromSide: "bottom", toNode: "n-mtime", toSide: "top",   label: "위험", color: "1" },
+    { id: "e3", fromNode: "n-mtime", fromSide: "right",  toNode: "n-roll",  toSide: "left",  label: "대비" },
+    { id: "e4", fromNode: "n-bench", fromSide: "right",  toNode: "n-why",   toSide: "left",  label: "요약" },
+    { id: "e5", fromNode: "n-mtime", fromSide: "bottom", toNode: "n-todo",  toSide: "left",  label: "후속", color: "4" },
+  ],
+};
+let ink = [];                  // 3단계 — 저장할 때 "x-readme-ink" 확장 필드로
+const PEN_COLORS = { yellow: ["#ffd23f", "#a87300"], orange: ["#ffad66", "#b8561c"], pink: ["#ff94b8", "#c0304e"], green: ["#9fe08a", "#2e7a3b"], blue: ["#8ccdfa", "#2a5ca8"] };
+
+/* ───────── 상태 ───────── */
+const vp = document.getElementById("vp"), world = document.getElementById("world"),
+      groupsEl = document.getElementById("groups"), cardsEl = document.getElementById("cards"), edgesEl = document.getElementById("edges"),
+      labelsEl = document.getElementById("labels"), knobsEl = document.getElementById("knobs"), inkEl = document.getElementById("ink");
+let view = { x: 0, y: 0, k: 1 }, tool = "select", sel = null /* {kind:'node'|'edge', id} */, theme = "paper";
+let pen = { kind: "pencil", color: "pink" }, seq = 1;
+const byId = id => canvas.nodes.find(n => n.id === id);
+const elOf = id => world.querySelector(`.node[data-id="${id}"]`);
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ───────── 화면 좌표 ↔ 캔버스 좌표 ───────── */
+function toWorld(cx, cy) { const r = vp.getBoundingClientRect(); return [(cx - r.left - view.x) / view.k, (cy - r.top - view.y) / view.k]; }
+function lodOf(k) { return k < .72 ? 0 : 1; }
+const LOD_NAME = ["제목만", "아웃라인"];
+function applyView() {
+  world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`;
+  document.documentElement.style.setProperty("--k", view.k);
+  const lod = lodOf(view.k);
+  world.className = "lod" + lod;
+  document.getElementById("zoomLbl").textContent = `${Math.round(view.k * 100)}% · ${LOD_NAME[lod]}`;
+  const g = 24 * view.k;
+  vp.style.backgroundSize = `${g}px ${g}px`;
+  vp.style.backgroundPosition = `${view.x}px ${view.y}px`;
+  vp.style.setProperty("--dz", Math.max(.6, Math.min(1.4, view.k)));
+  placeFloat();
+}
+function zoomAt(factor, cx, cy) {
+  const r = vp.getBoundingClientRect(), px = cx - r.left, py = cy - r.top;
+  const k2 = Math.max(.15, Math.min(2.5, view.k * factor));
+  view.x = px - (px - view.x) * k2 / view.k; view.y = py - (py - view.y) * k2 / view.k; view.k = k2;
+  applyView();
+}
+function fit() {
+  const xs = canvas.nodes.flatMap(n => [n.x, n.x + n.width]), ys = canvas.nodes.flatMap(n => [n.y - 30, n.y + n.height]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const r = vp.getBoundingClientRect(), pad = 60;
+  view.k = Math.max(.15, Math.min(1.2, Math.min((r.width - pad * 2) / (x1 - x0), (r.height - pad * 2) / (y1 - y0))));
+  view.x = (r.width - (x1 - x0) * view.k) / 2 - x0 * view.k;
+  view.y = (r.height - (y1 - y0) * view.k) / 2 - y0 * view.k;
+  applyView();
+}
+
+/* ───────── 노드 그리기 ───────── */
+function md(text) {                    // text 노드용 아주 작은 마크다운
+  let html = "", inList = false;
+  for (const raw of text.split("\n")) {
+    let l = esc(raw).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`(.+?)`/g, "<code>$1</code>");
+    if (/^- /.test(raw)) { if (!inList) { html += "<ul>"; inList = true; } html += `<li>${l.slice(2)}</li>`; continue; }
+    if (inList) { html += "</ul>"; inList = false; }
+    if (/^#{1,3} /.test(raw)) html += `<h3>${l.replace(/^#{1,3} /, "")}</h3>`;
+    else if (raw.trim()) html += `<p>${l}</p>`;
+  }
+  return html + (inList ? "</ul>" : "");
+}
+function nodeHTML(n) {
+  const handles = ["top", "right", "bottom", "left"].map(s => `<span class="h ${s}" data-side="${s}"></span>`).join("") + `<span class="rz"></span>`;
+  if (n.type === "group") return `<div class="glabel">${esc(n.label || "그룹")}</div>${handles}`;
+  if (n.type === "file") {
+    const d = DOCS[n.file] || { title: n.file.split("/").pop(), outline: [], excerpt: "(워크스페이스에 없는 파일)", body: "" };
+    const badge = d.inbox ? `<span class="badge">${d.inbox}</span>` : "";
+    return `<div class="card">
+      <div class="head"><span class="ico">md</span><span class="title">${esc(d.title)}</span>${badge}</div>
+      <div class="path">${esc(n.file)}${n.subpath ? " " + esc(n.subpath) : ""}</div>
+      <div class="lod1"><ul class="outline">${d.outline.map(([h, t]) => `<li class="${h}">${esc(t)}</li>`).join("")}</ul><p class="excerpt">${esc(d.excerpt)}</p></div>
+      <div class="far">${esc(d.title)}${badge}</div></div>${handles}`;
+  }
+  if (n.type === "text") {
+    const first = (n.text.split("\n").find(l => l.trim()) || "").replace(/^#+ /, "");
+    return `<div class="card"><div class="textbody">${md(n.text)}</div><div class="far">${esc(first)}</div></div>${handles}`;
+  }
+  if (n.type === "link") {
+    let host = n.url; try { host = new URL(n.url).host; } catch {}
+    return `<div class="card"><div class="head"><span class="ico">url</span><span class="title">${esc(host)}</span></div>
+      <div class="linkbody"><div class="url">${esc(n.url)}</div><div class="off">오프라인 앱 — 미리보기를 가져오지 않습니다. 누르면 브라우저로.</div></div>
+      <div class="far">${esc(host)}</div></div>${handles}`;
+  }
+  return "";
+}
+function renderNodes() {
+  // JSON Canvas: 배열 순서가 z 순서다. 그룹은 언제나 아래에 오도록 앞에 둔다.
+  groupsEl.innerHTML = ""; cardsEl.innerHTML = "";
+  for (const n of canvas.nodes) {
+    const el = document.createElement("div");
+    el.className = `node ${n.type}` + (sel?.kind === "node" && sel.id === n.id ? " sel" : "");
+    el.dataset.id = n.id;
+    if (n.color) { el.dataset.color = n.color; el.style.setProperty("--nc", colorOf(n.color)); }
+    el.innerHTML = nodeHTML(n);
+    (n.type === "group" ? groupsEl : cardsEl).appendChild(el);
+    place(el, n);
+  }
+  renderEdges(); renderJSON();
+}
+function place(el, n) { Object.assign(el.style, { left: n.x + "px", top: n.y + "px", width: n.width + "px", height: n.height + "px" }); }
+function colorOf(c) { return /^#/.test(c) ? c : `var(--c${c})`; }
+
+/* ───────── 연결선 ───────── */
+const NORM = { top: [0, -1], bottom: [0, 1], left: [-1, 0], right: [1, 0] };
+function anchor(n, side) {
+  return { top: [n.x + n.width / 2, n.y], bottom: [n.x + n.width / 2, n.y + n.height], left: [n.x, n.y + n.height / 2], right: [n.x + n.width, n.y + n.height / 2] }[side];
+}
+function autoSides(a, b) {
+  const dx = (b.x + b.width / 2) - (a.x + a.width / 2), dy = (b.y + b.height / 2) - (a.y + a.height / 2);
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? ["right", "left"] : ["left", "right"]) : (dy > 0 ? ["bottom", "top"] : ["top", "bottom"]);
+}
+function curve(p, s1, q, s2) {
+  const dist = Math.hypot(q[0] - p[0], q[1] - p[1]), c = Math.max(30, Math.min(160, dist * .4));
+  const n1 = NORM[s1], n2 = s2 ? NORM[s2] : [-(q[0] - p[0]) / (dist || 1), -(q[1] - p[1]) / (dist || 1)];
+  const c1 = [p[0] + n1[0] * c, p[1] + n1[1] * c], c2 = [q[0] + n2[0] * c, q[1] + n2[1] * c];
+  const mid = [(p[0] + 3 * c1[0] + 3 * c2[0] + q[0]) / 8, (p[1] + 3 * c1[1] + 3 * c2[1] + q[1]) / 8];
+  const d = `M${p[0]},${p[1]} C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${q[0]},${q[1]}`;
+  const ang = Math.atan2(q[1] - c2[1], q[0] - c2[0]), L = 11, W = 5.5;
+  const arrow = `M${q[0]},${q[1]} L${q[0] - L * Math.cos(ang) + W * Math.sin(ang)},${q[1] - L * Math.sin(ang) - W * Math.cos(ang)} L${q[0] - L * Math.cos(ang) - W * Math.sin(ang)},${q[1] - L * Math.sin(ang) + W * Math.cos(ang)}Z`;
+  return { d, arrow, mid };
+}
+function renderEdges(temp) {
+  let svg = "", labels = "", knobs = "";
+  for (const e of canvas.edges) {
+    const a = byId(e.fromNode), b = byId(e.toNode); if (!a || !b) continue;
+    const [as, bs] = autoSides(a, b);
+    const s1 = e.fromSide || as, s2 = e.toSide || bs;
+    const { d, arrow, mid } = curve(anchor(a, s1), s1, anchor(b, s2), s2);
+    const col = e.color ? colorOf(e.color) : "var(--edge)", on = sel?.kind === "edge" && sel.id === e.id;
+    svg += `<g data-edge="${e.id}" class="${on ? "sel" : ""}"><path class="e" d="${d}" stroke="${col}"/>${e.toEnd === "none" ? "" : `<path d="${arrow}" fill="${col}"/>`}<path class="hit" d="${d}"/></g>`;
+    if (on) knobs += [["from", anchor(a, s1)], ["to", anchor(b, s2)]].map(([end, p]) => `<circle class="knob" data-end="${end}" data-edge-knob="${e.id}" cx="${p[0]}" cy="${p[1]}" r="${7 / view.k}"/>`).join("");
+    if (e.label) labels += `<div class="elabel" style="left:${mid[0]}px;top:${mid[1]}px">${esc(e.label)}</div>`;
+  }
+  if (temp) { const { d } = curve(temp.p, temp.side, temp.q, temp.qSide || null); svg += `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 5"/>`; }
+  edgesEl.innerHTML = svg; labelsEl.innerHTML = labels; knobsEl.innerHTML = knobs;
+}
+
+/* ───────── 드로잉 (3단계) ───────── */
+function smooth(pts) {
+  if (pts.length < 2) return pts.length ? `M${pts[0][0]},${pts[0][1]} l.1,0` : "";
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const m = [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2];
+    d += ` Q${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)} ${m[0].toFixed(1)},${m[1].toFixed(1)}`;
+  }
+  const l = pts[pts.length - 1]; return d + ` L${l[0].toFixed(1)},${l[1].toFixed(1)}`;
+}
+function renderInk(live) {
+  const all = live ? [...ink, live] : ink;
+  if (!all.length) { inkEl.innerHTML = ""; return; }
+  const xs = all.flatMap(s => s.points.map(p => p[0])), ys = all.flatMap(s => s.points.map(p => p[1]));
+  const x0 = Math.min(...xs) - 40, y0 = Math.min(...ys) - 40, w = Math.max(...xs) - x0 + 80, h = Math.max(...ys) - y0 + 80;
+  const reg = `filterUnits="userSpaceOnUse" x="${x0}" y="${y0}" width="${w}" height="${h}" color-interpolation-filters="sRGB"`;
+  const defs = `<defs><filter id="fpc" ${reg}><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="2" result="g"/>
+    <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.4 1.75" result="ga"/><feComposite in="SourceGraphic" in2="ga" operator="in"/></filter>
+    <filter id="fhl" ${reg}><feTurbulence type="fractalNoise" baseFrequency="0.04 0.09" numOctaves="2" seed="4" result="e"/>
+    <feDisplacementMap in="SourceGraphic" in2="e" scale="3.5" xChannelSelector="R" yChannelSelector="G"/></filter></defs>`;
+  const hl = all.filter(s => s.kind === "marker").map(s => `<path data-ink="${s.id}" d="${smooth(s.points)}" fill="none" stroke="${PEN_COLORS[s.color][0]}" stroke-opacity="${theme === "dark" ? .45 : .55}" stroke-width="16" stroke-linecap="butt" stroke-linejoin="round"/>`).join("");
+  const pc = all.filter(s => s.kind === "pencil").map(s => `<path data-ink="${s.id}" d="${smooth(s.points)}" fill="none" stroke="${PEN_COLORS[s.color][theme === "dark" ? 0 : 1]}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`).join("");
+  inkEl.innerHTML = defs + `<g filter="url(#fhl)" style="mix-blend-mode:${theme === "dark" ? "screen" : "multiply"}">${hl}</g><g filter="url(#fpc)">${pc}</g>`;
+}
+
+/* ───────── 상호작용 ───────── */
+let drag = null, spaceDown = false;
+const cap = e => { try { vp.setPointerCapture(e.pointerId); } catch {} };
+vp.addEventListener("pointerdown", e => {
+  if (e.button === 1 || spaceDown) return startPan(e);
+  if (e.button !== 0) return;
+  const [wx, wy] = toWorld(e.clientX, e.clientY);
+  if (tool === "pen") {
+    const s = { id: "i" + seq++, kind: pen.kind, color: pen.color, points: [[wx, wy]] };
+    drag = { type: "ink", s }; cap(e); return;
+  }
+  if (tool === "eraser") { drag = { type: "erase" }; erase(wx, wy); cap(e); return; }
+  const h = e.target.closest(".h"), rz = e.target.closest(".rz"), nodeEl = e.target.closest(".node"), edgeG = e.target.closest("[data-edge]");
+  if (e.target.closest("textarea")) return;
+  const knob = e.target.closest("[data-edge-knob]");
+  if (knob) {                            // 선택한 선의 끝점을 끌어 다른 연결점·카드로 옮긴다
+    const ed = canvas.edges.find(x => x.id === knob.dataset.edgeKnob), end = knob.dataset.end;
+    const a = byId(ed.fromNode), b = byId(ed.toNode), [as, bs] = autoSides(a, b);
+    const fixed = end === "from" ? b : a, side = end === "from" ? (ed.toSide || bs) : (ed.fromSide || as);
+    drag = { type: "relink", ed, end, fixed, side }; vp.classList.add("linking"); cap(e); return;
+  }
+  if (h) {
+    const n = byId(h.parentElement.dataset.id), side = h.dataset.side;
+    drag = { type: "link", from: n, side }; vp.classList.add("linking"); cap(e); return;
+  }
+  if (rz) { const n = byId(rz.parentElement.dataset.id); select("node", n.id); drag = { type: "resize", n, sx: wx, sy: wy, w: n.width, h: n.height }; cap(e); return; }
+  if (edgeG) { select("edge", edgeG.dataset.edge); return; }
+  if (nodeEl) {
+    const n = byId(nodeEl.dataset.id);
+    select("node", n.id);
+    // 그룹을 옮기면 안에 완전히 들어 있는 노드가 같이 간다(옵시디언과 같은 동작)
+    const members = n.type === "group" ? canvas.nodes.filter(m => m !== n && m.x >= n.x && m.y >= n.y && m.x + m.width <= n.x + n.width && m.y + m.height <= n.y + n.height) : [];
+    drag = { type: "move", sx: wx, sy: wy, items: [n, ...members].map(m => ({ m, x: m.x, y: m.y })) };
+    cap(e); return;
+  }
+  select(null); startPan(e);
+});
+function startPan(e) { drag = { type: "pan", cx: e.clientX, cy: e.clientY, x: view.x, y: view.y }; vp.classList.add("panning"); cap(e); }
+vp.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const [wx, wy] = toWorld(e.clientX, e.clientY);
+  if (drag.type === "pan") { view.x = drag.x + e.clientX - drag.cx; view.y = drag.y + e.clientY - drag.cy; applyView(); }
+  else if (drag.type === "move") {
+    const snap = v => Math.round(v / 10) * 10;
+    for (const it of drag.items) { it.m.x = snap(it.x + wx - drag.sx); it.m.y = snap(it.y + wy - drag.sy); place(elOf(it.m.id), it.m); }
+    renderEdges(); placeFloat();
+  } else if (drag.type === "resize") {
+    drag.n.width = Math.max(160, Math.round((drag.w + wx - drag.sx) / 10) * 10); drag.n.height = Math.max(80, Math.round((drag.h + wy - drag.sy) / 10) * 10);
+    place(elOf(drag.n.id), drag.n); renderEdges(); placeFloat();
+  } else if (drag.type === "link" || drag.type === "relink") {
+    const from = drag.type === "link" ? drag.from : drag.fixed;
+    const t = snapTarget(wx, wy, from);
+    renderEdges({ p: anchor(from, drag.side), side: drag.side, q: t ? anchor(t.node, t.side) : [wx, wy], qSide: t?.side });
+  } else if (drag.type === "ink") {
+    const pts = drag.s.points, l = pts[pts.length - 1];
+    if (Math.hypot(wx - l[0], wy - l[1]) > 1.5 / view.k) { pts.push([wx, wy]); renderInk(drag.s); }
+  } else if (drag.type === "erase") erase(wx, wy);
+});
+vp.addEventListener("pointerup", e => {
+  if (!drag) return;
+  const d = drag; drag = null; vp.classList.remove("panning", "linking");
+  const [wx, wy] = toWorld(e.clientX, e.clientY);
+  clearSnap();
+  if (d.type === "link") {
+    const t = snapTarget(wx, wy, d.from, true);
+    if (t) {
+      canvas.edges.push({ id: "e" + seq++, fromNode: d.from.id, fromSide: d.side, toNode: t.node.id, toSide: t.side });
+      toast("연결했습니다. 선을 누르면 양 끝에 손잡이가 생겨 연결 위치를 옮길 수 있습니다.");
+    }
+    renderEdges(); renderJSON();
+  } else if (d.type === "relink") {
+    const t = snapTarget(wx, wy, d.fixed, true);
+    if (t) {
+      if (d.end === "from") { d.ed.fromNode = t.node.id; d.ed.fromSide = t.side; d.ed.toSide = d.side; }
+      else { d.ed.toNode = t.node.id; d.ed.toSide = t.side; d.ed.fromSide = d.side; }
+    }
+    renderEdges(); renderJSON(); placeFloat();
+  } else if (d.type === "ink") { if (d.s.points.length > 1) ink.push(d.s); renderInk(); renderJSON(); }
+  else if (d.type === "move" || d.type === "resize") renderJSON();
+});
+function nodeAt(x, y, except) {
+  const hits = canvas.nodes.filter(n => n !== except && x >= n.x && x <= n.x + n.width && y >= n.y && y <= n.y + n.height);
+  return hits.filter(n => n.type !== "group").pop() || hits.pop() || null;
+}
+/* 끌고 있는 끝이 어느 카드의 어느 연결점에 붙을지 — 가장 가까운 변의 점에 달라붙고, 그 점을 강조한다 */
+function snapTarget(x, y, except, quiet) {
+  clearSnap();
+  const pad = 28 / view.k;
+  const near = canvas.nodes.filter(n => n !== except && x >= n.x - pad && x <= n.x + n.width + pad && y >= n.y - pad && y <= n.y + n.height + pad);
+  const node = near.filter(n => n.type !== "group").pop() || near.pop();
+  if (!node) return null;
+  const side = nearestSide(node, x, y);
+  if (!quiet) elOf(node.id)?.querySelector(`.h.${side}`)?.classList.add("snap");
+  return { node, side };
+}
+function clearSnap() { for (const h of world.querySelectorAll(".h.snap")) h.classList.remove("snap"); }
+function nearestSide(n, x, y) {
+  const d = { left: Math.abs(x - n.x), right: Math.abs(x - n.x - n.width), top: Math.abs(y - n.y), bottom: Math.abs(y - n.y - n.height) };
+  return Object.entries(d).sort((a, b) => a[1] - b[1])[0][0];
+}
+function erase(x, y) {
+  const r = 10 / view.k, before = ink.length;
+  ink = ink.filter(s => !s.points.some(p => Math.hypot(p[0] - x, p[1] - y) < r + (s.kind === "marker" ? 8 : 0)));
+  if (ink.length !== before) { renderInk(); renderJSON(); }
+}
+vp.addEventListener("wheel", e => {
+  const body = e.target.closest(".textbody");
+  if (body && !e.ctrlKey && body.scrollHeight > body.clientHeight) return;   // 본문 단계 카드는 안에서 스크롤
+  e.preventDefault();
+  if (e.ctrlKey) zoomAt(Math.exp(-e.deltaY * .0022), e.clientX, e.clientY);
+  else { view.x -= e.deltaX; view.y -= e.deltaY; applyView(); }
+}, { passive: false });
+vp.addEventListener("dblclick", e => {
+  if (tool !== "select") return;
+  const nodeEl = e.target.closest(".node");
+  const [wx, wy] = toWorld(e.clientX, e.clientY);
+  if (!nodeEl || byId(nodeEl.dataset.id).type === "group") {
+    const n = { id: "t" + seq++, type: "text", text: "", x: Math.round((wx - 140) / 10) * 10, y: Math.round((wy - 50) / 10) * 10, width: 280, height: 120 };
+    canvas.nodes.push(n); select("node", n.id); editText(n); return;
+  }
+  const n = byId(nodeEl.dataset.id);
+  if (n.type === "text") editText(n);
+  else if (n.type === "file") toast(`실제 앱: ${n.file} 이(가) 탭으로 열립니다${n.subpath ? ` (${n.subpath} 위치로)` : ""}.`);
+  else if (n.type === "link") toast("실제 앱: 기본 브라우저로 엽니다.");
+});
+function editText(n) {
+  renderNodes();
+  const el = elOf(n.id).querySelector(".textbody");
+  el.innerHTML = `<textarea spellcheck="false" placeholder="마크다운으로 적기…">${esc(n.text)}</textarea>`;
+  const ta = el.querySelector("textarea"); ta.focus();
+  ta.addEventListener("pointerdown", ev => ev.stopPropagation());
+  ta.addEventListener("blur", () => {
+    n.text = ta.value;
+    if (!n.text.trim()) { canvas.nodes = canvas.nodes.filter(m => m !== n); select(null); }
+    renderNodes();
+  });
+}
+
+/* ───────── 선택 막대 ───────── */
+const selbar = document.getElementById("selbar");
+function select(kind, id) { sel = kind ? { kind, id } : null; renderNodes(); buildSelbar(); }
+function buildSelbar() {
+  if (!sel || tool !== "select") { selbar.classList.remove("open"); return; }
+  const obj = sel.kind === "node" ? byId(sel.id) : canvas.edges.find(e => e.id === sel.id);
+  if (!obj) { selbar.classList.remove("open"); return; }
+  selbar.innerHTML = `<button class="sw none" data-c="" title="색 없음" aria-pressed="${!obj.color}"></button>` +
+    [1, 2, 3, 4, 5, 6].map(c => `<button class="sw" data-c="${c}" style="background:var(--c${c})" aria-pressed="${obj.color === String(c)}"></button>`).join("") +
+    `<span class="vsep"></span>` + (sel.kind === "edge" ? `<button class="fbtn" data-act="label">라벨</button><button class="fbtn" data-act="flip" title="화살표 방향 뒤집기">⇄</button>` : "") + `<button class="fbtn" data-act="del">지우기</button>`;
+  selbar.classList.add("open"); placeFloat();
+}
+function placeFloat() {
+  if (!selbar.classList.contains("open") || !sel) return;
+  const r = vp.getBoundingClientRect();
+  let x, y;
+  if (sel.kind === "node") { const n = byId(sel.id); if (!n) return; x = view.x + (n.x + n.width / 2) * view.k; y = view.y + n.y * view.k - (n.type === "group" ? 30 : 0); }
+  else { const g = edgesEl.querySelector(`[data-edge="${sel.id}"] path.e`); if (!g) return; const b = g.getBoundingClientRect(); x = b.left - r.left + b.width / 2; y = b.top - r.top; }
+  selbar.style.left = Math.max(8, r.left + x - selbar.offsetWidth / 2) + "px";
+  selbar.style.top = Math.max(56, r.top + y - selbar.offsetHeight - 12) + "px";
+}
+selbar.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b || !sel) return;
+  const obj = sel.kind === "node" ? byId(sel.id) : canvas.edges.find(x => x.id === sel.id);
+  if ("c" in b.dataset) { if (b.dataset.c) obj.color = b.dataset.c; else delete obj.color; select(sel.kind, sel.id); }
+  else if (b.dataset.act === "del") delSel();
+  else if (b.dataset.act === "flip") {
+    [obj.fromNode, obj.toNode] = [obj.toNode, obj.fromNode]; [obj.fromSide, obj.toSide] = [obj.toSide, obj.fromSide];
+    for (const k of ["fromSide", "toSide"]) if (obj[k] === undefined) delete obj[k];
+    select("edge", obj.id);
+  }
+  else if (b.dataset.act === "label") {
+    const cur = obj.label || "";
+    b.outerHTML = `<input id="lblIn" value="${esc(cur)}" placeholder="라벨" style="font:12px var(--ui);width:110px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg)">`;
+    const inp = document.getElementById("lblIn"); inp.focus();
+    inp.addEventListener("keydown", ev => { if (ev.key === "Enter") { obj.label = inp.value.trim() || undefined; if (!obj.label) delete obj.label; select("edge", obj.id); } });
+  }
+});
+function delSel() {
+  if (!sel) return;
+  if (sel.kind === "node") { canvas.nodes = canvas.nodes.filter(n => n.id !== sel.id); canvas.edges = canvas.edges.filter(e => e.fromNode !== sel.id && e.toNode !== sel.id); }
+  else canvas.edges = canvas.edges.filter(e => e.id !== sel.id);
+  select(null);
+}
+
+/* ───────── 펜 막대 ───────── */
+const penbar = document.getElementById("penbar");
+function buildPenbar() {
+  penbar.innerHTML = `<button class="fbtn" data-k="pencil" aria-pressed="${pen.kind === "pencil"}">색연필</button><button class="fbtn" data-k="marker" aria-pressed="${pen.kind === "marker"}">형광펜</button><span class="vsep"></span>` +
+    Object.keys(PEN_COLORS).map(c => `<button class="sw" data-pc="${c}" style="background:${PEN_COLORS[c][0]}" aria-pressed="${pen.color === c}"></button>`).join("") +
+    `<span class="vsep"></span><button class="fbtn" data-act="clear">모두 지우기</button>`;
+}
+penbar.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.k) pen.kind = b.dataset.k;
+  if (b.dataset.pc) pen.color = b.dataset.pc;
+  if (b.dataset.act === "clear") { ink = []; renderInk(); renderJSON(); }
+  buildPenbar();
+});
+function setTool(t) {
+  tool = t;
+  for (const b of document.querySelectorAll("#toolSeg button")) b.setAttribute("aria-pressed", b.dataset.v === t);
+  vp.classList.toggle("pen", t === "pen"); vp.classList.toggle("eraser", t === "eraser");
+  penbar.classList.toggle("open", t === "pen"); if (t === "pen") buildPenbar();
+  buildSelbar();
+}
+
+/* ───────── JSON 패널 ───────── */
+const jsonPanel = document.getElementById("json");
+function fileJSON() {
+  const out = { nodes: canvas.nodes, edges: canvas.edges };
+  if (ink.length) out["x-readme-ink"] = { version: 1, strokes: ink.map(s => ({ ...s, points: s.points.map(p => [Math.round(p[0]), Math.round(p[1])]) })) };
+  return out;
+}
+function renderJSON() {
+  if (!jsonPanel.classList.contains("open")) return;
+  const txt = JSON.stringify(fileJSON(), (k, v) => k === "points" ? `§${JSON.stringify(v)}§` : v, 2)
+    .replace(/"§(.*?)§"/g, (_, p) => p.replace(/\\"/g, '"'));
+  document.getElementById("jsonPre").innerHTML = esc(txt)
+    .replace(/&quot;(x-readme-ink)&quot;/g, '<span class="x">&quot;$1&quot;</span>')
+    .replace(/&quot;([a-zA-Z]+)&quot;:/g, '<span class="k">&quot;$1&quot;</span>:');
+}
+document.getElementById("jsonBtn").addEventListener("click", e => {
+  const o = jsonPanel.classList.toggle("open"); e.currentTarget.setAttribute("aria-pressed", o); renderJSON();
+  setTimeout(placeFloat, 220);
+});
+document.getElementById("copyJson").addEventListener("click", () => {
+  navigator.clipboard?.writeText(JSON.stringify(fileJSON(), null, 2)).then(() => toast("복사했습니다 — 옵시디언 볼트에 .canvas 로 저장하면 그대로 열립니다(드로잉 제외)."), () => toast("클립보드에 접근할 수 없습니다."));
+});
+
+/* ───────── 워크스페이스 → 캔버스 ───────── */
+const wsList = document.getElementById("wsList");
+wsList.innerHTML = Object.entries(DOCS).map(([p, d]) =>
+  `<li draggable="true" data-path="${p}" title="${p}"><span class="ico">md</span><span class="nm">${esc(d.title)}</span>${d.inbox ? '<span class="dot"></span>' : ""}</li>`).join("");
+wsList.addEventListener("dragstart", e => { const li = e.target.closest("li"); e.dataTransfer.setData("text/x-readme-path", li.dataset.path); e.dataTransfer.effectAllowed = "copy"; });
+vp.addEventListener("dragover", e => { if (e.dataTransfer.types.includes("text/x-readme-path")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
+vp.addEventListener("drop", e => {
+  const p = e.dataTransfer.getData("text/x-readme-path"); if (!p) return;
+  e.preventDefault();
+  const [wx, wy] = toWorld(e.clientX, e.clientY);
+  const n = { id: "f" + seq++, type: "file", file: p, x: Math.round((wx - 180) / 10) * 10, y: Math.round((wy - 40) / 10) * 10, width: 360, height: 240 };
+  canvas.nodes.push(n); select("node", n.id);
+});
+
+/* ───────── 키보드 · 컨트롤 ───────── */
+addEventListener("keydown", e => {
+  if (e.target.closest?.("textarea, input")) return;
+  if (e.code === "Space") { spaceDown = true; vp.classList.add("space"); e.preventDefault(); }
+  if (e.key === "Delete" || e.key === "Backspace") delSel();
+  if (e.key === "v" || e.key === "V") setTool("select");
+  if (e.key === "p" || e.key === "P") setTool("pen");
+  if (e.key === "e" || e.key === "E") setTool("eraser");
+  if (e.key === "!" || (e.shiftKey && e.code === "Digit1")) fit();
+  if (e.key === "Escape") { select(null); setTool("select"); }
+});
+addEventListener("keyup", e => { if (e.code === "Space") { spaceDown = false; vp.classList.remove("space"); } });
+document.getElementById("toolSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTool(b.dataset.v); });
+document.getElementById("zoomIn").addEventListener("click", () => { const r = vp.getBoundingClientRect(); zoomAt(1.25, r.left + r.width / 2, r.top + r.height / 2); });
+document.getElementById("zoomOut").addEventListener("click", () => { const r = vp.getBoundingClientRect(); zoomAt(.8, r.left + r.width / 2, r.top + r.height / 2); });
+document.getElementById("fitBtn").addEventListener("click", fit);
+document.getElementById("themeSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  for (const x of e.currentTarget.children) x.setAttribute("aria-pressed", x === b);
+  theme = b.dataset.v; document.documentElement.dataset.theme = theme; renderInk();
+});
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 3200); }
+addEventListener("resize", () => placeFloat());
+
+/* ───────── 시연용 드로잉: mtime 카드를 휘감는 고리 + 화살표 ───────── */
+(function seedInk() {
+  const n = byId("n-mtime"), cx = n.x + n.width / 2, cy = n.y + n.height / 2, pts = [];
+  for (let i = 0; i <= 90; i++) { const t = Math.PI * .8 + i / 90 * Math.PI * 2.15, k = 1 + .04 * Math.sin(3 * t) + .05 * i / 90;
+    pts.push([cx + (n.width / 2 + 26) * k * Math.cos(t), cy + (n.height / 2 + 24) * k * Math.sin(t)]); }
+  ink.push({ id: "i-loop", kind: "pencil", color: "pink", points: pts });
+  // 형광펜은 카드 글자 위가 아니라 캔버스 공간에 — 카드 내용은 확대 단계마다 배치가 바뀌어 그 위 드로잉은 어긋난다
+  const g = byId("g-mine");
+  ink.push({ id: "i-mark", kind: "marker", color: "yellow", points: [[g.x - 4, g.y - 12], [g.x + 40, g.y - 13], [g.x + 82, g.y - 11]] });
+})();
+
+/* #lod0 · #lod1 · #json · #pen · #group(그룹 안 선 선택) · #snap(연결 중 스냅) — 캡처용 상태 */
+renderNodes(); renderInk(); fit();
+const hs = location.hash.slice(1).split(",");
+if (hs.includes("json")) document.getElementById("jsonBtn").click();
+if (hs.includes("lod1")) { const r = vp.getBoundingClientRect(); zoomAt(.9 / view.k, r.left + r.width * .42, r.top + r.height * .4); }
+if (hs.includes("lod0")) { const r = vp.getBoundingClientRect(); zoomAt(.4 / view.k, r.left + r.width / 2, r.top + r.height / 2); }
+if (hs.includes("group")) { const r = vp.getBoundingClientRect(); view.k = 1; view.x = r.width / 2 - 400; view.y = r.height / 2 - 330; applyView(); select("edge", "e3"); }
+if (hs.includes("pen")) setTool("pen");
+if (hs.includes("relink")) {           // 실제 히트 테스트(elementFromPoint)로 끝점 옮기기를 재현하고 결과를 제목에 적는다
+  const r = vp.getBoundingClientRect(); view.k = 1; view.x = r.width / 2 - 650; view.y = r.height / 2 - 650; applyView();
+  select("edge", "e5");
+  const before = canvas.edges.length, from0 = JSON.stringify([byId("n-mtime").id, canvas.edges.find(e => e.id === "e5").fromSide]);
+  const k = knobsEl.querySelector('[data-end="to"]').getBoundingClientRect(), kx = k.left + k.width / 2, ky = k.top + k.height / 2;
+  const hit = document.elementFromPoint(kx, ky);
+  const ev = (type, x, y, tgt) => (tgt || vp).dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0, pointerId: 1 }));
+  ev("pointerdown", kx, ky, hit);
+  const t = byId("n-roll"), tx = r.left + view.x + t.x + t.width - 20, ty = r.top + view.y + t.y + t.height + 6;
+  ev("pointermove", tx, ty); ev("pointerup", tx, ty);
+  const e5 = canvas.edges.find(e => e.id === "e5");
+  document.title = `RELINK hit=${hit.tagName}.${hit.getAttribute("class")} edges=${before}->${canvas.edges.length} e5=${e5.fromNode}:${e5.fromSide}->${e5.toNode}:${e5.toSide} from0=${from0}`;
+}
+if (hs.includes("snap")) {
+  const r = vp.getBoundingClientRect(); view.k = 1; view.x = r.width / 2 - 650; view.y = r.height / 2 - 650; applyView();
+  const h = elOf("n-roll").querySelector(".h.bottom").getBoundingClientRect(), t = byId("n-todo");
+  const ev = (type, x, y, tgt) => (tgt || vp).dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0, pointerId: 1 }));
+  ev("pointerdown", h.left + h.width / 2, h.top + h.height / 2, elOf("n-roll").querySelector(".h.bottom"));
+  ev("pointermove", r.left + view.x + (t.x + t.width - 30) + 0, r.top + view.y + t.y + 14);
+}
+</script>
+</body>
+</html>
