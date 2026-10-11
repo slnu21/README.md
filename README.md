@@ -18,7 +18,7 @@
 - **오프라인** — 앱은 외부로 아무것도 보내지 않는다. [개인정보 처리방침](docs/legal/privacy.md)
 
 ### 설치
-Microsoft Store 에서 **README.md** 를 검색하거나, [GitHub 릴리스](https://github.com/slnu21/README.md/releases)에서 설치 파일을 받는다.
+[Microsoft Store](https://apps.microsoft.com/detail/9N9QMXQPND3H) 에서 받거나(검색어 **README.md**), [GitHub 릴리스](https://github.com/slnu21/README.md/releases)에서 설치 파일을 받는다.
 
 ### AI 에이전트 연결 (선택)
 Claude Code 같은 MCP 지원 에이전트가 **이 앱의 워크스페이스를 검색하고 읽게** 할 수 있다. 따로 설치할 것은 없다 — 앱 자신이 서버를 겸한다.
@@ -56,7 +56,7 @@ claude mcp add --scope user readme-md -- readme-md mcp
 - **Offline** — the App sends nothing off your device. [Privacy Policy](docs/legal/privacy.md)
 
 ### Install
-Search for **README.md** in the Microsoft Store, or download an installer from [GitHub Releases](https://github.com/slnu21/README.md/releases).
+Get it from the [Microsoft Store](https://apps.microsoft.com/detail/9N9QMXQPND3H) (search for **README.md**), or download an installer from [GitHub Releases](https://github.com/slnu21/README.md/releases).
 
 ### Connecting an AI agent (optional)
 An MCP-capable agent such as Claude Code can **search and read this App's workspace**. Nothing extra to install — the App itself is the server.
