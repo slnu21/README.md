@@ -65,7 +65,7 @@
 
 - 기록할 것: 에이전트가 도구를 *실제로 고르는지* · 결과 모양이 쓸 만한지 · 오류 문구 · 스코프 때문에 막힌 경우
   · 제어 도구(`place_doc`·`open_in_app`)를 켰을 때의 흐름.
-- 이미 아는 후보: `open_in_app` 의 `line` 인자(열면서 그 줄로).
+- 이미 아는 후보: `open_in_app` 의 `line` 인자(열면서 그 줄로). → ✅ 2026-10-11(실사용 전에 미리 — 사용자 결정).
 - 작은 것은 이 단위에서 고치고, 큰 것은 1.1 로 미룬다.
 - **사용자용 안내를 쓴다** — README(ko/en)에 "에이전트 연결" 절 · Claude Code / Claude Desktop 설정 예.
   지금은 설계 문서([features/agent-bridge.md](features/agent-bridge.md))와 앱 안 패널뿐이다.

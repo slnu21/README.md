@@ -2,6 +2,13 @@
 // 파이프라인: content → Web Worker(markdown-it) → DOMPurify 정화 → 샌드박스 iframe(srcdoc).
 // 디바운스(previewDelay 설정, 기본 500ms). 테마 토큰을 iframe에 주입해 동기화. 로컬 이미지는 asset 프로토콜로 재작성.
 // 재렌더는 srcdoc 통째 리로드 → 직전 상단 소스 줄을 저장·복원해 스크롤 위치 유지(restoreLineRef).
+import {
+  canSyncScroll,
+  planReveal,
+  restoreLineFor,
+  takeRevealOnLoad,
+  type PendingReveal,
+} from "../lib/reveal";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TocItem } from "../lib/markdown";
@@ -82,10 +89,12 @@ interface PreviewProps {
    *  앱에서 열지/OS에 넘길지는 호스트가 결정한다. `how` 는 수식어에서 온 목적지
    *  (맨클릭=here · Ctrl/⌘=beside · Alt=reveal). */
   onOpenPath?: (path: string, how: OpenHow) => void;
+  /** 이 문서를 이 줄에 보여 달라는 요청(호스트가 경로가 맞을 때만 넘긴다). 그려진 뒤에 처리한다. */
+  reveal?: { line: number; seq: number } | null;
 }
 
 export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
-  { content, path, themeId, onToc, onSourceLine, onOpenPath },
+  { content, path, themeId, onToc, onSourceLine, onOpenPath, reveal },
   ref,
 ) {
   const { t } = useTranslation();
@@ -96,6 +105,14 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   const restoreLineRef = useRef<number | null>(null); // 재렌더(srcdoc 리로드) 직전 상단 소스 줄 → 로드 후 복원
   const pathRef = useRef(path);
   pathRef.current = path;
+  // 줄 보여 주기(reveal)는 **이 문서가 실제로 그려진 iframe** 에서만 맞다. 탭을 막 바꾼 순간의 iframe 은
+  // 아직 앞 문서다 → 어느 경로의 HTML 이 들어 있는지(bodyPath → srcPath → loadedPath)를 따라간다.
+  const bodyPathRef = useRef<string | null>(null);
+  const srcPathRef = useRef<string | null>(null);
+  const loadedPathRef = useRef<string | null>(null);
+  const inFlightRef = useRef(false); // srcdoc 을 넣고 load 를 아직 못 받은 동안
+  const pendingRevealRef = useRef<PendingReveal | null>(null);
+  const handledRevealRef = useRef(0);
   const onTocRef = useRef(onToc);
   onTocRef.current = onToc;
   const onSourceLineRef = useRef(onSourceLine);
@@ -140,7 +157,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
       // 소스 줄 → 렌더 위치로 스크롤(기능 8).
       scrollToLine(line: number) {
         const doc = iframeRef.current?.contentDocument;
-        if (doc) scrollDocToLine(doc, line);
+        if (doc && canSyncScroll(loadedPathRef.current, pathRef.current)) scrollDocToLine(doc, line);
       },
     }),
     [],
@@ -160,6 +177,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
       const clean = sanitizeHtml(html);
       void inlineImages(clean, dirOf(pathRef.current)).then((withImg) => {
         if (id !== reqId.current) return; // 인라인(비동기) 후 최신 요청만 반영
+        bodyPathRef.current = pathRef.current;
         setBodyHtml(withImg);
       });
     };
@@ -217,7 +235,14 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
       if (cancelled || token !== buildToken.current) return;
       // srcdoc 재대입은 iframe 문서를 통째로 리로드 → scrollTop 0 초기화. 직전 상단 소스 줄을
       // 저장했다가 onIframeLoad에서 복원해 "맨 위로 튐"을 막는다(테마/글꼴/줌 변경 시에도 위치 보존).
-      restoreLineRef.current = iframe.contentDocument ? topSourceLine(iframe.contentDocument) : null;
+      // 같은 문서를 다시 그릴 때만 — 다른 문서면 새 문서는 맨 위에서(restoreLineFor).
+      restoreLineRef.current = restoreLineFor({
+        loadedPath: loadedPathRef.current,
+        nextPath: bodyPathRef.current,
+        top: iframe.contentDocument ? topSourceLine(iframe.contentDocument) : null,
+      });
+      srcPathRef.current = bodyPathRef.current;
+      inFlightRef.current = true;
       iframe.srcdoc = buildDoc(finalBody, themeId, font, docOpts);
     })();
     return () => {
@@ -228,6 +253,27 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     // 빠뜨리면 즉시 반영되지 않는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bodyHtml, themeId, themeRev, isDemo, fontRead, previewZoom, readingWidth, diagramWidth, textDirection]);
+
+  // 줄 보여 주기 — 이미 이 문서가 그려져 있으면 지금, 아니면(또는 다시 그리는 중이면) 다음 load 에서.
+  useEffect(() => {
+    if (!reveal || reveal.seq === handledRevealRef.current) return;
+    handledRevealRef.current = reveal.seq;
+    const doc = iframeRef.current?.contentDocument;
+    const plan = planReveal({
+      line: reveal.line,
+      path: pathRef.current,
+      loadedPath: loadedPathRef.current,
+      inFlight: inFlightRef.current,
+    });
+    if (plan.now && doc) scrollDocToLine(doc, reveal.line);
+    pendingRevealRef.current = plan.pending;
+  }, [reveal?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 미뤄 둔 요청의 문서를 그리기 전에 다른 탭으로 옮겨 갔으면 버린다 — 몇 시간 뒤 그 문서를 다시
+  // 열었을 때 화면이 그 줄로 튀면 안 된다.
+  useEffect(() => {
+    if (pendingRevealRef.current && pendingRevealRef.current.path !== path) pendingRevealRef.current = null;
+  }, [path]);
 
   // Esc로 라이트박스 닫기.
   useEffect(() => {
@@ -248,7 +294,15 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     if (!doc) return;
     // 리로드로 0이 된 스크롤을 직전 위치(소스 줄)로 복원. 아래 scroll 리스너 부착 전에 해서
     // 프로그램적 스크롤이 역동기화(onSourceLine) 에코를 유발하지 않도록 한다.
-    if (restoreLineRef.current != null) {
+    loadedPathRef.current = srcPathRef.current;
+    inFlightRef.current = false;
+    // 줄 보여 주기 요청이 이 문서 것이면 그것이 직전 위치 복원을 이긴다.
+    const revealAt = takeRevealOnLoad(pendingRevealRef.current, loadedPathRef.current);
+    if (revealAt != null) {
+      pendingRevealRef.current = null;
+      restoreLineRef.current = null;
+      scrollDocToLine(doc, revealAt);
+    } else if (restoreLineRef.current != null) {
       scrollDocToLine(doc, restoreLineRef.current);
       restoreLineRef.current = null;
     }

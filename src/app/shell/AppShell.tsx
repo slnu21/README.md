@@ -1,10 +1,11 @@
 // 앱 셸 — 시안(docs/mockups/md-reader-shell.html) 이식 + 파일/폴더 열기·워크스페이스 트리(WBS 510).
 // 에디터는 현재 원문 표시(읽기 전용). 실제 편집=WBS 522, 미리보기 렌더=WBS 511.
+import { revealFor } from "../lib/reveal";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, collectImportedPaths, type TreeNode } from "../store";
 import { BUILTIN_THEMES, listThemeIds, themes } from "../themes";
-import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onOpenFileBeside, inboxList, onWindowCloseRequested, winDestroy, revealInExplorer, openWithDefault, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
+import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onOpenFileBeside, onRevealLine, inboxList, onWindowCloseRequested, winDestroy, revealInExplorer, openWithDefault, type SearchHit, winMinimize, winToggleMaximize, winClose } from "../lib/tauri";
 import { Icon, IconSprite, type IconName } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { Preview, type PreviewHandle } from "./Preview";
@@ -169,6 +170,8 @@ export function AppShell() {
   // 두 번째 패널은 **이미 열린 탭**만 보여 준다(내용을 따로 들고 있지 않다 → 저장·외부 변경이
   // 자동으로 반영된다). 탭이 닫히면 store 의 reconcilePanes 가 secondaryPath 를 비운다.
   const secondary = tabs.find((tb) => tb.path === secondaryPath) ?? null;
+  // 줄 보여 주기 요청(에이전트 브리지 open_in_app(line)) — 각 패널에는 자기 문서 것일 때만 넘긴다.
+  const reveal = useAppStore((s) => s.reveal);
   const dual = readerMode && readerSplit && !!secondary;
   const splitStyle = splitTemplate({
     mode: dual ? "readerSplit" : readerMode ? "reader" : "edit",
@@ -348,12 +351,31 @@ export function AppShell() {
         else unlistenBeside = fn;
       })
       .catch(() => {});
+    // 줄 지정은 open-file 과 따로 온다 — 스토어에 걸어 두면 그 문서를 그리는 패널이 자기 차례에 처리한다.
+    let unlistenReveal: (() => void) | undefined;
+    void onRevealLine(({ path, line }) => useAppStore.getState().revealLine(path, line))
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlistenReveal = fn;
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
       unlisten?.();
       unlistenBeside?.();
+      unlistenReveal?.();
     };
   }, [isDemo, openIncoming]);
+
+  // 편집기도 같은 줄로(리딩 모드에선 숨어 있지만 편집으로 돌아오면 그 자리다). 편집기는 문서마다 다시
+  // 마운트되므로(key=path) 활성 문서가 요청한 문서가 된 다음 렌더에 처리하면 된다.
+  const editorRevealSeq = useRef(0);
+  useEffect(() => {
+    const r = revealFor(reveal, activePath);
+    if (!r || r.seq === editorRevealSeq.current) return;
+    editorRevealSeq.current = r.seq;
+    editorRef.current?.scrollToLine(r.line);
+  }, [reveal, activePath]);
 
   // 툴바는 좁아지면 단계적으로 접힌다 — 라벨을 버리고(icons), 그래도 모자라면 버튼들을
   // 메뉴 하나로(menu). px 중단점이 아니라 실제로 재서 정한다(lib/toolbarFit.ts 의 주석).
@@ -863,7 +885,10 @@ export function AppShell() {
       if (cancelled) return;
       try {
         const p = await takePendingOpen();
-        if (p && !cancelled) await openIncoming([p]);
+        if (p && !cancelled) {
+          await openIncoming([p.path]);
+          if (p.line) useAppStore.getState().revealLine(p.path, p.line);
+        }
       } catch {
         /* 대기 파일 없음/실패는 무시 */
       }
@@ -1459,6 +1484,7 @@ export function AppShell() {
                     editorRef.current?.scrollToLine(line);
                   }}
                   onOpenPath={(p, how) => void openLinkTarget(p, how)}
+                  reveal={revealFor(reveal, active.path)}
                 />
                 <OutlineOverlay items={outline} onSelect={(id) => previewRef.current?.scrollToHeading(id)} />
               </section>
@@ -1486,6 +1512,7 @@ export function AppShell() {
                     themeId={themeId}
                     onToc={setOutlineB}
                     onOpenPath={(p, how) => void openLinkTarget(p, how)}
+                    reveal={revealFor(reveal, secondary.path)}
                   />
                   <OutlineOverlay items={outlineB} onSelect={(id) => previewRefB.current?.scrollToHeading(id)} />
                 </section>

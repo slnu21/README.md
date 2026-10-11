@@ -164,7 +164,12 @@ export function editorExtensions(
   const emit = (view: EditorView) => {
     if (!onSyncLine) return;
     if (raf) cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => onSyncLine(topVisibleLine(view)));
+    raf = requestAnimationFrame(() => {
+      // 숨겨진 편집기(리딩 모드 = display:none)는 scrollTop 0 으로 scroll 을 한 번 쏜다 — 그걸 넘기면
+      // 미리보기가 맨 위로 끌려간다(옆 패널을 여는 순간 주 패널이 처음으로 돌아가던 것).
+      if (!view.scrollDOM.clientHeight) return;
+      onSyncLine(topVisibleLine(view));
+    });
   };
   return [
     lineNumbers(),
