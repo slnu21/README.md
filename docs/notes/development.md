@@ -294,6 +294,15 @@ head 를 늘린다(시각 이동) — 모드가 바꾸는 것은 문단 기준 �
 - 앱 화면 스크린샷은 `--screenshot` + `--virtual-time-budget=8000` 으로 찍는다 — 마운트 →
   픽스처 열기 → 미리보기 렌더의 비동기 사슬을 가상 시간이 기다려 준다(`probe:rtl -- --shot`).
 
+## 앱을 닫았다고 믿기 전에 — 새 앱이 종료 코드 0 으로 바로 끝나면 single-instance 다
+
+`taskkill /PID <앱>`(강제 아님)으로는 앱이 닫히지 않는다. 그 상태로 새 판 exe 를 띄우면 single-instance 가 인자를
+옛 창에 넘기고 **종료 코드 0** 으로 곧장 끝난다. 이어지는 CDP 검사는 살아 있는 옛 앱 페이지를 상대로 전부 통과하고,
+DB 는 판올림을 안 거친 채다. U6 업데이트 실측에서 "새 앱이 3ms 만에 끝났다 · DB 가 그대로 v3"라는 숫자로 잡았다.
+닫을 때는 `/T /F` 로 끊고 **프로세스가 실제로 사라졌는지 확인**하며, 새 앱은 측정 내내 살아 있는지 본다
+([packaging/update-check](../../packaging/update-check/README.md)). 같은 날 같은 증상의 다른 원인 — PowerShell 명령
+문자열에 넣은 `'D:\build…'` 의 `\b` 를 JS 가 백스페이스로 먹어 강제 종료 필터가 아무것도 안 잡았다. 경로는 환경변수로 넘긴다.
+
 ## 알려진 TODO
 - 아이콘: `src/src-tauri/icons/`의 기본 아이콘을 교체(`npm run tauri icon <path>`).
 - Win10 오프라인 지원 시 `webviewInstallMode`를 `offlineInstaller`/`fixedRuntime`로(번들 증가). [deployment/webview2.md](../deployment/webview2.md).

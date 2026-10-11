@@ -40,6 +40,7 @@ claude mcp add --scope user readme-md -- readme-md mcp
   **문서를 고치거나 지우는 도구는 없다**(에이전트는 이미 파일로 그렇게 할 수 있다).
 - **볼 수 있는 범위는 워크스페이스에 넣은 폴더·파일뿐**이다. 문서를 워크스페이스에 배치하거나 앱 창에 여는 제어 도구는 **기본으로 꺼져 있고** 설정에서 켤 때만 동작한다.
 - 연결은 같은 PC 안의 표준 입출력(stdio)뿐이고 앱은 네트워크 포트를 열지 않는다. 다만 **연결한 에이전트가 읽어 간 내용은 그 에이전트가 처리한다**(많은 에이전트가 온라인 서비스로 보낸다) — [방침 4절](docs/legal/privacy.md).
+- **업데이트할 때**: 에이전트가 연결돼 있는 동안 Windows 는 앱이 실행 중인 것으로 본다. 업데이트가 안 받아지거나 미뤄지면 앱과 에이전트 세션을 닫았다가 다시 연다. 업데이트 뒤 에이전트가 끊겼으면 다시 연결한다(Claude Code 는 `/mcp`).
 - 끊기: `claude mcp remove --scope user readme-md` (또는 설정 파일에서 항목 삭제).
 
 도구 계약 상세: [docs/design/features/agent-bridge.md](docs/design/features/agent-bridge.md)
@@ -77,6 +78,7 @@ When `claude mcp list` shows `readme-md: readme-md mcp - ✔ Connected`, you're 
   **There are no tools to edit or delete documents** (an agent can already do that through files).
 - **It can only see folders and files you put in your workspace.** Control tools that place a document in the workspace or open it in the App window are **off by default** and work only after you enable them in Settings.
 - The connection is standard input/output (stdio) on the same PC; the App opens no network port. However, **what a connected agent reads is handled by that agent** (many send it to their online service) — see [Privacy Policy, section 4](docs/legal/privacy.md).
+- **When updating**: while an agent is connected, Windows treats the App as running. If an update won't install or is postponed, close the App and your agent sessions, then reopen them. If the agent is disconnected after an update, reconnect it (`/mcp` in Claude Code).
 - To disconnect: `claude mcp remove --scope user readme-md` (or delete the entry from the config file).
 
 Tool contract: [docs/design/features/agent-bridge.md](docs/design/features/agent-bridge.md)
