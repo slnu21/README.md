@@ -204,8 +204,13 @@ export const onWindowCloseRequested = (
 export const winDestroy = (): Promise<void> => getCurrentWindow().destroy();
 
 // ── 파일 연결(.md) 실행 인자 ──
-/** 콜드 스타트 시 .md 연결/명령행으로 넘어온 대기 파일 경로(없으면 null). 부팅 시 1회 호출. */
-export const takePendingOpen = (): Promise<string | null> => invoke<string | null>("take_pending_open");
+/** 열어야 할 파일과, 있으면 보여 줄 줄(1-based — 에이전트 브리지 `open_in_app(line)` 이 `--line=N` 으로 붙인다). */
+export type PendingFile = { path: string; line: number | null };
+/** 콜드 스타트 시 .md 연결/명령행으로 넘어온 대기 파일(없으면 null). 부팅 시 1회 호출. */
+export const takePendingOpen = (): Promise<PendingFile | null> => invoke<PendingFile | null>("take_pending_open");
+/** 웜 스타트에서 열린 파일의 줄 지정 — `open-file`/`open-file-beside` 바로 뒤에 따로 온다. */
+export const onRevealLine = (cb: (f: { path: string; line: number }) => void): Promise<UnlistenFn> =>
+  listen<{ path: string; line: number }>("reveal-line", (e) => cb(e.payload));
 /** 실행 중 앱에 .md 연결로 새 파일이 넘어올 때(웜 스타트, single-instance) 이벤트 구독. */
 export const onOpenFile = (cb: (path: string) => void): Promise<UnlistenFn> =>
   listen<string>("open-file", (e) => cb(e.payload));

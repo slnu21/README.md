@@ -63,7 +63,7 @@ Application 이 그대로 단다** — 새 `<Application>` 을 만들면 시작 
 | `read_section` | `path` · `heading?` · `fromLine?` · `toLine?` | `{path, fromLine, toLine, totalLines, truncated, text}` | 섹션 단위 읽기 = 토큰 절약 |
 | `list_workspace` | 없음 | `{tree[]}` — `{id, kind, name, path?, children[], childrenFromDisk?}` | **가상 배치**는 디스크에 없다 |
 | `place_doc` ⚑ | `path` · `folder?` | `{id, name, created}` | 파일을 **안 옮기고** 참조만 더한다 |
-| `open_in_app` ⚑ | `path` · `beside?` | `{opened, beside}` | 사람의 **화면**에 띄운다 |
+| `open_in_app` ⚑ | `path` · `beside?` · `line?` | `{opened, beside, line}` | 사람의 **화면**에 띄운다(그 줄로) |
 
 ⚑ = **제어 도구**. 기본은 꺼짐이고, 설정의 [에이전트 연결]에서 켜야 동작한다.
 
@@ -112,7 +112,20 @@ ATX(`#`)만 본다. **펜스 코드블록 안과 YAML frontmatter 안은 건너�
 에이전트는 재시도한다.
 
 `open_in_app` 은 우리 exe 를 다시 띄우고 single-instance 가 경로를 기존 창으로 넘긴다. 앱이 꺼져
-있으면 실행한다(그때는 `beside` 가 의미 없다). 띄울 때 **표준 입출력을 물려주지 않는다** — 안
+있으면 실행한다(그때는 `beside` 가 의미 없다).
+
+`line`(1-based, `outline`·`read_section` 과 같은 번호)을 주면 **그 줄이 위에 오게** 미리보기·편집기를 스크롤한다 —
+에이전트가 "3절 결론을 보세요"라고 할 때 사람이 직접 찾지 않게. argv 로는 **한 토큰 `--line=N`** 으로 넘긴다
+(두 토큰이면 숫자가 경로 후보로 읽힐 수 있다 — 첫 "존재하는 파일"을 고르므로). 웜 스타트는 `open-file` 다음에
+`reveal-line` 을 따로 쏘고, 콜드 스타트는 대기열(`take_pending_open`)이 `{path, line}` 을 돌려준다.
+**스크롤은 그 문서가 실제로 그려진 iframe 에서만 한다** — 미리보기 iframe 은 탭을 바꿔도 다시 안 만들어져서
+요청 순간엔 앞 문서가 들어 있고, 곧 올 load 의 "직전 위치 복원"이 덮어쓴다. 그래서 iframe 에 어느 경로가
+그려졌는지 따라가 지금 할지 다음 load 에 할지 정하고, 미룬 요청은 **그 경로의 load 에서만** 쓴다
+(아니면 나중에 타자 한 번에 화면이 그 줄로 튀어 돌아간다 — `app/lib/reveal.ts`). 잘못된 `line`(0·음수·소수·
+문자)은 도구 오류로 돌려준다.
+같은 이유로 **직전 위치 복원도 같은 문서를 다시 그릴 때만** 한다(`restoreLineFor`) — 전에는 문서가 바뀌어도 앞 문서의
+줄을 새 문서에 넘겨, 줄 이동 검증이 복원 덕에 우연히 통과할 수 있었다. 편집기 → 미리보기 동기화도 이 패널의 문서가
+그려져 있을 때만(`canSyncScroll`), 숨은 편집기(리딩 모드)의 scroll 은 무시한다. 띄울 때 **표준 입출력을 물려주지 않는다** — 안
 그러면 앱이 우리 MCP 파이프를 붙든 채로 산다.
 
 ## 안 하는 것 (설계상)

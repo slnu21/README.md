@@ -95,12 +95,13 @@ pub fn catalog() -> Value {
         },
         {
             "name": "open_in_app",
-            "description": "Open a document in the user's README.md window so they can read it right now. Launches the app if it is not running. Requires the user to enable control tools in Settings.",
+            "description": "Open a document in the user's README.md window so they can read it right now, optionally scrolled to a line (point the user at the exact section you mean). Launches the app if it is not running. Requires the user to enable control tools in Settings.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "path": { "type": "string", "description": "Absolute path to an existing .md/.markdown/.mdx/.txt file." },
-                    "beside": { "type": "boolean", "description": "Open in the side panel and keep the current document focused. Ignored on a cold start." }
+                    "beside": { "type": "boolean", "description": "Open in the side panel and keep the current document focused. Ignored on a cold start." },
+                    "line": { "type": "integer", "minimum": 1, "description": "1-based line to scroll to, as returned by outline/read_section. Omit to open at the top." }
                 },
                 "required": ["path"]
             }
@@ -328,18 +329,43 @@ fn place_doc(conn: &Connection, args: &Value) -> Result<Value, String> {
 fn open_in_app(args: &Value) -> Result<Value, String> {
     let path = existing_doc(args)?;
     let beside = args.get("beside").and_then(Value::as_bool).unwrap_or(false);
+    let line = line_arg(args)?;
     let exe = std::env::current_exe().map_err(|e| format!("실행 파일 경로를 알 수 없습니다: {e}"))?;
 
     let mut cmd = Command::new(exe);
-    if beside {
-        cmd.arg("--beside");
-    }
-    cmd.arg(&path);
+    cmd.args(launch_args(&path, beside, line));
     // **표준 입출력을 물려주면 안 된다** — 앱이 우리 MCP 파이프를 붙든 채로 살아 있게 된다.
     cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     cmd.spawn().map_err(|e| format!("앱을 띄우지 못했습니다: {e}"))?;
     // 이미 떠 있으면 single-instance 가 경로를 기존 창으로 넘기고 이 프로세스는 곧 끝난다.
-    Ok(json!({ "opened": path, "beside": beside }))
+    Ok(json!({ "opened": path, "beside": beside, "line": line }))
+}
+
+/// `line` 인자 — 없으면 None, 있으면 1 이상의 정수여야 한다. 문자열 숫자도 받는다(모델이 흔히 그렇게 보낸다).
+fn line_arg(args: &Value) -> Result<Option<u32>, String> {
+    let Some(v) = args.get("line").filter(|v| !v.is_null()) else {
+        return Ok(None);
+    };
+    let n = v
+        .as_u64()
+        .or_else(|| v.as_str().and_then(|s| s.trim().parse::<u64>().ok()))
+        .filter(|&n| n >= 1 && n <= u32::MAX as u64)
+        .ok_or_else(|| format!("line 은 1 이상의 정수여야 합니다(outline 의 줄 번호): {v}"))?;
+    Ok(Some(n as u32))
+}
+
+/// 앱을 다시 띄울 인자. 줄은 **한 토큰**(`--line=N`)으로 붙인다 — 두 토큰이면 숫자가 따로 떨어져
+/// 경로 후보로 읽힐 수 있다(argv 에서 첫 "존재하는 파일"을 고르므로 `120` 이라는 파일이 있으면 틀린다).
+fn launch_args(path: &str, beside: bool, line: Option<u32>) -> Vec<String> {
+    let mut v = Vec::new();
+    if beside {
+        v.push("--beside".to_string());
+    }
+    if let Some(n) = line {
+        v.push(format!("{}{n}", crate::LINE_FLAG));
+    }
+    v.push(path.to_string());
+    v
 }
 
 fn list_workspace(conn: &Connection) -> Result<Value, String> {
@@ -401,6 +427,28 @@ mod tests {
         let text = cat.to_string();
         for forbidden in ["write_doc", "create_doc", "delete_doc", "edit_doc", "move_doc"] {
             assert!(!text.contains(forbidden), "{forbidden} 는 있으면 안 된다");
+        }
+    }
+
+    #[test]
+    fn open_line_is_one_token_and_round_trips() {
+        let a = launch_args(r"C:\d\r.md", true, Some(214));
+        assert_eq!(a, vec!["--beside", "--line=214", r"C:\d\r.md"]);
+        // 앱 쪽 파서가 같은 토큰을 읽는다.
+        let argv = std::iter::once("exe".to_string()).chain(a);
+        assert_eq!(crate::line_from_args(argv), Some(214));
+        assert_eq!(launch_args("x.md", false, None), vec!["x.md"]);
+    }
+
+    #[test]
+    fn line_arg_validates() {
+        assert_eq!(line_arg(&json!({})).unwrap(), None);
+        assert_eq!(line_arg(&json!({ "line": null })).unwrap(), None);
+        assert_eq!(line_arg(&json!({ "line": 7 })).unwrap(), Some(7));
+        assert_eq!(line_arg(&json!({ "line": " 12 " })).unwrap(), Some(12));
+        for bad in [json!(0), json!(-3), json!(1.5), json!("abc"), json!(true)] {
+            let e = line_arg(&json!({ "line": bad })).unwrap_err();
+            assert!(e.contains("line"), "{e}");
         }
     }
 

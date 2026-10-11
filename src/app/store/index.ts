@@ -1,6 +1,7 @@
 // 전역 상태 (Zustand): 테마·언어·뷰 프리퍼런스 + 워크스페이스 트리·탭·즐겨찾기·최근.
 // 워크스페이스(가상 폴더 UUID 그래프 + imported 폴더 디스크 파생)/즐겨찾기/최근은 SQLite(단일 소스),
 // 부팅·변경마다 refreshWorkspace 로 재로딩. 테마·언어·뷰는 localStorage(persist)로 즉시 복원.
+import type { Reveal } from "../lib/reveal";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { defaultThemeId } from "../themes";
@@ -65,6 +66,7 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 
 /** 토스트 식별자. 시각이 아니라 순번이면 충분하고, 같은 밀리초에 두 번 떠도 구분된다. */
 let noticeSeq = 0;
+let revealSeq = 0;
 
 const isFolderKind = (k: TreeKind) =>
   k === "virtual_folder" || k === "imported_folder" || k === "disk_folder";
@@ -208,6 +210,11 @@ interface AppState {
    *  id 는 같은 문구가 연달아 떠도 표시 시간이 다시 시작되도록 매번 새로 준다. */
   notice: { id: number; text: string; kind: "info" | "error" } | null;
 
+  /** 이 문서를 이 줄(1-based)에 보여 달라는 요청 — 에이전트 브리지 `open_in_app(line)`. 비영속.
+   *  seq 는 같은 자리를 다시 요청해도 다시 움직이도록 매번 새로 준다. 문서가 아직 안 열렸어도
+   *  들고 있다가, 그 문서를 그리는 미리보기·편집기가 자기 차례에 처리한다(lib/reveal.ts). */
+  reveal: Reveal | null;
+
   roots: TreeNode[]; // 워크스페이스 트리(그래프+디스크 파생)
   resyncBusy: number; // 진행 중인 재색인 수(0보다 크면 새로고침 버튼이 회전) — 비영속
   expanded: Record<string, boolean>; // 폴더 펼침 상태(key 기준)
@@ -251,6 +258,7 @@ interface AppState {
   swapPanes: () => void;
 
   showNotice: (text: string, kind?: "info" | "error") => void;
+  revealLine: (path: string, line: number) => void;
   dismissNotice: () => void;
 
   hydrate: () => Promise<void>;
@@ -325,6 +333,7 @@ export const useAppStore = create<AppState>()(
       secondaryPath: null,
       readerRatio: 0.5,
       notice: null,
+      reveal: null,
 
       roots: [],
       resyncBusy: 0,
@@ -387,6 +396,7 @@ export const useAppStore = create<AppState>()(
       // id 를 매번 새로 만든다 — 같은 문구를 다시 띄워도 Toast 의 표시 시간이 다시 시작된다.
       showNotice: (text, kind = "info") => set({ notice: { id: ++noticeSeq, text, kind } }),
       dismissNotice: () => set({ notice: null }),
+      revealLine: (path, line) => set({ reveal: { path, line, seq: ++revealSeq } }),
 
       // 부팅 시 로드 = refreshWorkspace + 세션 복원(마지막 열린 파일 재오픈).
       hydrate: async () => {
