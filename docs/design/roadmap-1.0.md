@@ -69,6 +69,7 @@
 - 작은 것은 이 단위에서 고치고, 큰 것은 1.1 로 미룬다.
 - **사용자용 안내를 쓴다** — README(ko/en)에 "에이전트 연결" 절 · Claude Code / Claude Desktop 설정 예.
   지금은 설계 문서([features/agent-bridge.md](features/agent-bridge.md))와 앱 안 패널뿐이다.
+  → ✅ 2026-10-11 루트 README 재구성(ko/en 사용자 절 + 연결 절). Store URL 은 U4 에서 확인 후 추가.
 
 ### U3 · `privacy-docs` — 방침·문서 정리 (1 세션) — ✅ 2026-10-11
 

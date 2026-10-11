@@ -36,6 +36,10 @@ Store 가 헤드리스 앱이라며 거부한다. → [notes/development.md](../
 claude mcp add --scope user readme-md -- "<설치 경로>\md-reader.exe" mcp
 ```
 
+```powershell
+claude mcp add --scope user readme-md -- readme-md mcp   # Store 설치본(별칭) — 사용자 안내는 루트 README
+```
+
 **Store 설치본은 짧은 이름을 쓴다** — MSIX 가 App Execution Alias `readme-md.exe` 를 PATH 에 올린다
 (패키지 안 exe 경로는 잠겨 있고 버전마다 바뀌어 설정에 적을 수 없다). 별칭은 **기존 단일
 Application 이 그대로 단다** — 새 `<Application>` 을 만들면 시작 메뉴 항목이 늘고, 숨기면 Store 가
