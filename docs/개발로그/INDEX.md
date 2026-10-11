@@ -4,6 +4,7 @@
 이 폴더는 2026-09-18 부터다 — 그 전 단위들의 기록은 `CLAUDE.md` "현재 상태"와 [CHANGELOG](../CHANGELOG.md)에 있다.
 
 ## 2026-10-11
+- [(04) [v1.0 U2] README — 사용자 안내 ko/en(무엇을 하나·설치) + AI 에이전트 연결 절(Claude Code 한 줄·설정 JSON·스코프·방침 4절 연결) · 개발 안내는 아래로](2026-10-11-04-readme-agent.md)
 - [(03) [v1.0 U3] 개인정보 처리방침 — 에이전트 연결 절 신설 · 로컬 저장을 실물로(검색 색인·문서 기록 = 본문 사본) · architecture/overview 실물 기준 재작성(CSP null 등 낡은 문장)](2026-10-11-03-privacy-docs.md)
 - [(02) [v1.0] 기동 단축 — 렌더러(markdown-it·KaTeX·hljs)를 첫 번들에서 지연 import 로 빼기 · 첫 JS 1,774→1,035KB(gzip 585→349) · 기동 효과는 잠정(측정 중 고부하) · U2 브리지 실사용 연결](2026-10-11-02-startup-split.md)
 - [(01) [v1.0 U1] 성능 예산 — 기준선·예산·재는 법(Rust perf.rs · probe:perf · perf-app) + 재 보니 5천 문서 색인 132.8초(FTS UNINDEXED O(N²)) → v4 마이그레이션·커밋 묶기·ORDER BY rank 로 6.0초 · 검색 86→8.5ms](2026-10-11-01-perf-budget.md)
