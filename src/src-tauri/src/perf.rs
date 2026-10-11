@@ -4,7 +4,7 @@
 //!
 //! ```text
 //! cd src/src-tauri
-//! cargo test --release --lib perf -- --ignored --nocapture
+//! cargo test --release --lib perf::perf_ -- --ignored --nocapture
 //! ```
 //!
 //! 메모리 DB 를 쓰지 않는 이유: 색인 비용의 큰 몫이 **커밋마다의 fsync** 인데 메모리 DB 는 그걸
@@ -176,7 +176,7 @@ fn check_budget(section: &str, got: &Value) -> Vec<String> {
 }
 
 #[test]
-#[ignore = "성능 측정 — cargo test --release --lib perf -- --ignored --nocapture"]
+#[ignore = "성능 측정 — cargo test --release --lib perf::perf_ -- --ignored --nocapture"]
 fn perf_index_search_bridge() {
     let base = std::env::temp_dir().join(format!("readme-perf-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&base);

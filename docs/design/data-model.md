@@ -105,7 +105,7 @@ CREATE TABLE file_meta (          -- 증분 재인덱싱 판단(FTS는 mtime/siz
 - **부팅 재색인(v0.7.0)**: `hydrate()` 후 imported 루트마다 `search_index_folder`. 앱이 꺼진 동안의 추가·삭제를 여기서 반영한다.
 - **prune(v0.7.0)**: `index_folder` 가 walk 하며 본 경로를 모아 두었다가, `file_meta` 에만 남은 행을 지운다. 증분 색인은 추가·수정만 반영해 삭제된 파일이 검색 결과에 계속 남았다. 하위 판정은 `under_root`(구분자 경계 요구) — `LIKE 'path%'` 만 쓰면 형제 접두어(`C:\a` → `C:\ab\x.md`)까지 지우고, 경로 안의 `%`·`_` 가 와일드카드로 먹는다.
 - **커밋 묶기(v1.0)**: `index_folder` 는 200개마다 끊어 커밋한다 — 자동 커밋이면 파일 하나에 WAL fsync 서넛이고, 끝까지 한 덩어리면 포그라운드 쓰기가 `busy_timeout` 까지 기다린다.
-- **파일 하나 = 한 덩어리(v1.0)**: `index_file`·`remove_path` 는 SAVEPOINT 안에서 돈다(기록 뜨기 · 옛 색인 행 지우기 · 새 행 · 메타 = 네 문장). 감시기·단일 재색인 경로는 바깥 트랜잭션이 없어 문장마다 커밋됐고, 지우기와 넣기 사이에 읽는 쪽(앱 검색·브리지)이 그 문서를 못 봤다 — U6 실측에서 브리지 검색 13,943회 중 899회가 문서를 놓쳤다(고친 뒤 0). 폴더 색인의 묶음 트랜잭션 안에서는 그 일부로 합쳐진다.
+- **파일 하나 = 한 덩어리(v1.0)**: `index_file`·`remove_path` 의 네 문장(기록 뜨기 · 옛 색인 행 지우기 · 새 행 · 메타)은 한 트랜잭션이다(`search.rs` `atomically`). 감시기·단일 재색인 경로는 바깥 트랜잭션이 없어 문장마다 커밋됐고, 지우기와 넣기 사이에 읽는 쪽(앱 검색·브리지)이 그 문서를 못 봤다 — U6 실측에서 브리지 검색 13,943회 중 899회가 문서를 놓쳤다(고친 뒤 0). 바깥 트랜잭션(폴더 색인의 묶음)이 이미 있으면 아무것도 더하지 않는다 — 파일마다 SAVEPOINT 를 걸면 FTS5 가 그때마다 색인을 내려 써서 첫 색인이 35% 느려지고 DB 가 10% 커진다([performance.md](performance.md) 함정 6).
 - **검색 정렬**: `ORDER BY rank`(= bm25)이지 `ORDER BY bm25(file_index)` 가 아니다 — 후자는 맞은 행 전부의 `snippet()` 을 만든 뒤 LIMIT 한다([performance.md](performance.md)).
 - **즐겨찾기/최근**: `favorite`(토글)·`recent`(upsert + 상한 50) 갱신.
 - **삭제**: 노드 삭제는 FTS 무관(D1). 디스크 삭제(notify Remove) 시 `search_remove_path` 로 인덱스 정리.
