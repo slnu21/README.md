@@ -1,7 +1,7 @@
 {
   "_": "성능 예산 = 회귀 감시선(목표 아님). 기준선(2026-10-11, i5-9400F)의 약 1.5~2배, 번들은 약 10%. 근거·기준선·재는 법: docs/design/performance.md. 값을 올릴 때는 그 문서의 기준선 표도 함께 고친다.",
   "index": {
-    "_": "Rust · cargo test --release --lib perf -- --ignored --nocapture · 5천 문서(18.5MB, 지프 분포) 진짜 파일 DB",
+    "_": "Rust · cargo test --release --lib perf::perf_ -- --ignored --nocapture · 5천 문서(18.5MB, 지프 분포) 진짜 파일 DB",
     "index_first_ms": 15000,
     "reindex_noop_ms": 1500,
     "reindex_100_changed_ms": 3000,
@@ -19,15 +19,15 @@
     "read_section_small_median_ms": 5
   },
   "frontend": {
-    "_": "npm run probe:perf · Edge 헤드리스 · 프로덕션 빌드 · 3회 중앙값 · 미리보기 디바운스 0(렌더 경로 비용)",
+    "_": "npm run probe:perf · Edge 헤드리스 · 프로덕션 빌드 · 3회 중앙값 · 미리보기 디바운스 0(렌더 경로 비용). 타자 예산은 2026-10-11 저녁 고친 기준선(30.7 ms — 친 줄이 화면에 보이는 채로)의 약 1.5배. 처음 기준선 25 ms 는 화면 밖 타자였다(performance.md 함정 5)",
     "small_preview_ms": 200,
     "mid_preview_ms": 600,
     "mid_rerender_ms": 400,
     "big_editor_ms": 300,
     "big_preview_ms": 3000,
     "big_rerender_ms": 3000,
-    "type_median_ms": 40,
-    "type_p95_ms": 50,
+    "type_median_ms": 45,
+    "type_p95_ms": 60,
     "gallery_ms": 2500
   },
   "bundle": {

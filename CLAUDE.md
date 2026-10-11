@@ -27,7 +27,7 @@ npm run probe:mermaid  # mermaid 렌더 실측 검사(Edge 헤드리스). `-- --
 npm run probe:layout   # 리딩 분할 레이아웃 실측(Edge 헤드리스, 진짜 앱 셸을 마운트)
 npm run probe:perf     # 성능 예산(프로덕션 빌드 + Edge 헤드리스 · 번들·문서 열기·타자·재렌더·갤러리)
 node tools/perf-app.mjs  # 릴리스 exe 기동·메모리(릴리스 때 손으로 · 실사용 데이터 비켜 놓고 원복)
-# Rust 성능(5천 문서 색인·검색·브리지): cd src-tauri; cargo test --release --lib perf -- --ignored --nocapture
+# Rust 성능(5천 문서 색인·검색·브리지): cd src-tauri; cargo test --release --lib perf::perf_ -- --ignored --nocapture
 npm run tauri dev      # 데스크톱 실행 (Rust 필요)
 npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 ```

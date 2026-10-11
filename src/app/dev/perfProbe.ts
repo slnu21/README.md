@@ -130,15 +130,26 @@ async function run(): Promise<ProbeResult> {
     const mid = view.state.doc.line(Math.floor(view.state.doc.lines / 2));
     view.dispatch({ selection: { anchor: mid.to }, scrollIntoView: true });
     await painted();
+    // **친 줄이 화면에 보이는 채로 잰다.** 화면 밖 타자는 다시 그릴 줄이 없어 싸다 — v0.10.0 까지는 문서를
+    // 바꿀 때 앞 문서 위치가 따라오는 버그(06 에서 고침)가 편집기를 맨 위로 끌어올린 채 쟀고, 기준선 25.5ms 가
+    // 그 착시였다(보이는 줄에서 재면 약 31ms). 다시 그렇게 되면 숫자가 좋아 보여도 측정이 틀린 것이다.
+    const offscreen = () => {
+      const head = view.state.selection.main.head;
+      if (view.visibleRanges.some((r) => r.from <= head && head <= r.to)) return null;
+      return view.state.doc.lineAt(view.lineBlockAtHeight(view.scrollDOM.scrollTop).from).number;
+    };
     const xs: number[] = [];
+    let away: number | null = offscreen();
     for (let i = 0; i < 40; i++) {
       const at = view.state.selection.main.head;
       const t0 = performance.now();
       view.dispatch({ changes: { from: at, insert: "x" }, selection: { anchor: at + 1 }, userEvent: "input.type" });
       await painted();
       xs.push(performance.now() - t0);
+      away ??= offscreen();
       await sleep(60); // 빠른 타자(초당 10타 안팎)
     }
+    if (away != null) fail(`[type] 친 줄(${mid.number})이 화면 밖이었다(편집기 위쪽 줄 ${away}) — 화면 밖 타자는 싸서 숫자가 거짓으로 좋아진다.`);
     metrics.type_median_ms = r1(median(xs));
     metrics.type_p95_ms = r1(p95(xs));
     if (st().tabs.find((t) => t.path === "C:/perf/big.md")?.content.length !== big.length + 40)

@@ -139,30 +139,39 @@ fn fts_rowid_of(conn: &Connection, path: &str) -> Result<Option<i64>, String> {
 
 /// 문장 여럿을 **한 덩어리로** 실행한다 — 끝까지 가거나, 하나도 안 남기거나.
 ///
-/// 색인 한 파일 = 기록 뜨기 · 옛 색인 행 지우기 · 새 행 넣기 · 메타 고치기, 네 문장이다. 폴더 색인은
-/// 바깥 트랜잭션(`index_folder` 의 묶음)이 감싸지만 **감시기·단일 재색인은 아무것도 안 감싸** 문장마다
-/// 따로 커밋됐다. 그러면 지우기와 넣기 사이에 읽는 쪽(앱 검색 · 브리지 `search_docs`)이 그 문서를 못
-/// 본다 — U6 업데이트 실측에서 에이전트 검색 13,943회 중 899회가 30건 중 몇 건을 놓쳤다. 도중에
-/// 실패하면 행은 지워지고 새 행은 없는 채로 남는다.
+/// 색인 한 파일 = 기록 뜨기 · 옛 색인 행 지우기 · 새 행 넣기 · 메타 고치기, 네 문장이다. **감시기·단일
+/// 재색인은 아무것도 안 감싸** 문장마다 따로 커밋됐다. 그러면 지우기와 넣기 사이에 읽는 쪽(앱 검색 · 브리지
+/// `search_docs`)이 그 문서를 못 본다 — U6 업데이트 실측에서 에이전트 검색 13,943회 중 899회가 30건 중
+/// 몇 건을 놓쳤다. 도중에 실패하면 행은 지워지고 새 행은 없는 채로 남는다.
 ///
-/// SAVEPOINT 라 바깥 트랜잭션 안에서는 그 일부로 합쳐지고, 밖에서는 그 자체로 한 트랜잭션이다.
+/// **바깥 트랜잭션이 이미 있으면(폴더 색인의 묶음) 아무것도 더하지 않는다.** 읽는 쪽은 커밋 전까지 어차피
+/// 아무것도 못 본다. 처음엔 SAVEPOINT 로 감쌌는데, FTS5 는 SAVEPOINT 마다 메모리에 모아 둔 색인을 디스크
+/// 조각으로 내려 써서 5천 문서 첫 색인이 6.4 → 8.8 s(번갈아 두 번 잼), DB 가 49 → 54 MB 로 커졌다
+/// (performance.md 함정). 그 대신 묶음 안에서 한 파일이 SQL 오류로 멈추면 그 파일만 반쯤 고친 채 묶음과
+/// 함께 커밋될 수 있다 — 이 함수 전부터 그랬고, 다음 색인이 메타 mtime 차이로 다시 고친다.
+///
+/// 바깥이 없으면 `BEGIN IMMEDIATE` — 처음부터 쓰기 잠금을 잡는다. DEFERRED 로 읽고 나서 쓰기로 올리면 그 사이
+/// 다른 연결(백그라운드 색인)이 커밋했을 때 `busy_timeout` 을 안 기다리고 바로 BUSY 로 실패한다.
 /// 덤으로 감시기 경로의 커밋(= WAL fsync)이 파일당 서넛에서 하나로 준다.
-fn in_savepoint<T>(conn: &Connection, f: impl FnOnce(&Connection) -> Result<T, String>) -> Result<T, String> {
-    conn.execute_batch("SAVEPOINT index_one").map_err(|e| e.to_string())?;
+fn atomically<T>(conn: &Connection, f: impl FnOnce(&Connection) -> Result<T, String>) -> Result<T, String> {
+    if !conn.is_autocommit() {
+        return f(conn);
+    }
+    conn.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
     match f(conn) {
         Ok(v) => {
-            conn.execute_batch("RELEASE index_one").map_err(|e| e.to_string())?;
+            conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
             Ok(v)
         }
         Err(e) => {
-            let _ = conn.execute_batch("ROLLBACK TO index_one; RELEASE index_one");
+            let _ = conn.execute_batch("ROLLBACK");
             Err(e)
         }
     }
 }
 
 pub(crate) fn remove_path(conn: &Connection, path: &str) -> Result<(), String> {
-    in_savepoint(conn, |c| remove_path_unguarded(c, path))
+    atomically(conn, |c| remove_path_unguarded(c, path))
 }
 
 fn remove_path_unguarded(conn: &Connection, path: &str) -> Result<(), String> {
@@ -184,7 +193,7 @@ fn remove_path_unguarded(conn: &Connection, path: &str) -> Result<(), String> {
 /// 단일 파일 인덱싱. mtime/size 동일하면 skip. 접근 불가/과대/바이너리는 인덱스에서 제거.
 /// 반환: 실제로 (재)인덱싱했으면 true.
 pub(crate) fn index_file(conn: &Connection, path: &str) -> Result<bool, String> {
-    in_savepoint(conn, |c| index_file_unguarded(c, path))
+    atomically(conn, |c| index_file_unguarded(c, path))
 }
 
 fn index_file_unguarded(conn: &Connection, path: &str) -> Result<bool, String> {
@@ -584,8 +593,8 @@ mod tests {
     }
 
     #[test]
-    fn savepoint_nests_inside_the_folder_batch() {
-        // index_folder 의 묶음 트랜잭션 안에서 부르면 그 일부가 된다 — 바깥을 되돌리면 같이 사라진다.
+    fn inside_the_folder_batch_it_is_part_of_the_batch() {
+        // index_folder 의 묶음 트랜잭션 안에서 부르면 그 일부다(BEGIN 을 겹쳐 열면 오류) — 바깥을 되돌리면 같이 사라진다.
         let c = db();
         let d = tmp("nested");
         let f = d.join("a.md");
