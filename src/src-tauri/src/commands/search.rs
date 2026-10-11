@@ -96,13 +96,11 @@ fn norm_key(s: &str) -> String {
 }
 
 /// `root` 하위로 인덱스에 남아 있는 경로들. LIKE 는 거친 필터, 판정은 `under_root`.
+/// file_meta 만 본다 — v4 부터 색인 행은 전부 메타의 짝이다(file_index 를 LIKE 로 훑으면 전체 스캔).
 fn indexed_under(conn: &Connection, root: &str) -> Result<Vec<String>, String> {
     let like = format!("{}%", root.trim_end_matches(['/', '\\']));
     let mut stmt = conn
-        .prepare(
-            "SELECT real_path FROM file_meta WHERE real_path LIKE ?1
-             UNION SELECT real_path FROM file_index WHERE real_path LIKE ?1",
-        )
+        .prepare("SELECT real_path FROM file_meta WHERE real_path LIKE ?1")
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map(params![like], |r| r.get::<_, String>(0))
@@ -118,18 +116,25 @@ fn indexed_under(conn: &Connection, root: &str) -> Result<Vec<String>, String> {
 }
 
 /// 색인이 들고 있는 (mtime, 내용). 기록을 뜨기 직전에만 쓴다.
+/// **rowid 로 찾는다** — `file_index.real_path` 는 UNINDEXED 라 경로로 찾으면 전체 스캔이다(v4).
 fn last_indexed(conn: &Connection, path: &str) -> Option<(i64, String)> {
-    let mtime: i64 = conn
-        .query_row("SELECT mtime FROM file_meta WHERE real_path = ?1", params![path], |r| r.get(0))
+    conn.query_row(
+        "SELECT m.mtime, f.content FROM file_meta m JOIN file_index f ON f.rowid = m.fts_rowid
+         WHERE m.real_path = ?1",
+        params![path],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )
+    .optional()
+    .ok()
+    .flatten()
+}
+
+/// 이 경로의 색인 행 rowid(file_meta 가 짝으로 들고 있는 것).
+fn fts_rowid_of(conn: &Connection, path: &str) -> Result<Option<i64>, String> {
+    conn.query_row("SELECT fts_rowid FROM file_meta WHERE real_path = ?1", params![path], |r| r.get(0))
         .optional()
-        .ok()
-        .flatten()?;
-    let text: String = conn
-        .query_row("SELECT content FROM file_index WHERE real_path = ?1", params![path], |r| r.get(0))
-        .optional()
-        .ok()
-        .flatten()?;
-    Some((mtime, text))
+        .map(Option::flatten)
+        .map_err(|e| e.to_string())
 }
 
 pub(crate) fn remove_path(conn: &Connection, path: &str) -> Result<(), String> {
@@ -139,8 +144,10 @@ pub(crate) fn remove_path(conn: &Connection, path: &str) -> Result<(), String> {
     if let Some((last_mtime, last_text)) = last_indexed(conn, path) {
         let _ = crate::commands::history::capture(conn, path, &last_text, last_mtime);
     }
-    conn.execute("DELETE FROM file_index WHERE real_path = ?1", params![path])
-        .map_err(|e| e.to_string())?;
+    if let Some(rowid) = fts_rowid_of(conn, path)? {
+        conn.execute("DELETE FROM file_index WHERE rowid = ?1", params![rowid])
+            .map_err(|e| e.to_string())?;
+    }
     conn.execute("DELETE FROM file_meta WHERE real_path = ?1", params![path])
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -168,15 +175,16 @@ pub(crate) fn index_file(conn: &Connection, path: &str) -> Result<bool, String> 
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0);
 
-    let prev: Option<(i64, i64)> = conn
+    let prev: Option<(i64, i64, Option<i64>)> = conn
         .query_row(
-            "SELECT mtime, size FROM file_meta WHERE real_path = ?1",
+            "SELECT mtime, size, fts_rowid FROM file_meta WHERE real_path = ?1",
             params![path],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
         .optional()
         .map_err(|e| e.to_string())?;
-    if let Some((pm, ps)) = prev {
+    // 짝 색인 행이 없는 메타(v4 이전에 어긋난 것)는 같은 mtime 이어도 다시 색인한다.
+    if let Some((pm, ps, Some(_))) = prev {
         if pm == mtime && ps == size {
             return Ok(false);
         }
@@ -194,17 +202,21 @@ pub(crate) fn index_file(conn: &Connection, path: &str) -> Result<bool, String> 
     if let Some((last_mtime, last_text)) = last_indexed(conn, path) {
         let _ = crate::commands::history::capture(conn, path, &last_text, last_mtime);
     }
-    conn.execute("DELETE FROM file_index WHERE real_path = ?1", params![path])
-        .map_err(|e| e.to_string())?;
+    if let Some(rowid) = prev.and_then(|p| p.2) {
+        conn.execute("DELETE FROM file_index WHERE rowid = ?1", params![rowid])
+            .map_err(|e| e.to_string())?;
+    }
     conn.execute(
         "INSERT INTO file_index (real_path, content) VALUES (?1, ?2)",
         params![path, content],
     )
     .map_err(|e| e.to_string())?;
+    let rowid = conn.last_insert_rowid();
     conn.execute(
-        "INSERT INTO file_meta (real_path, mtime, size, indexed_at) VALUES (?1, ?2, ?3, ?4)
-         ON CONFLICT(real_path) DO UPDATE SET mtime=excluded.mtime, size=excluded.size, indexed_at=excluded.indexed_at",
-        params![path, mtime, size, now_ms()],
+        "INSERT INTO file_meta (real_path, mtime, size, indexed_at, fts_rowid) VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(real_path) DO UPDATE SET mtime=excluded.mtime, size=excluded.size,
+           indexed_at=excluded.indexed_at, fts_rowid=excluded.fts_rowid",
+        params![path, mtime, size, now_ms(), rowid],
     )
     .map_err(|e| e.to_string())?;
     Ok(true)
@@ -218,13 +230,18 @@ pub(crate) fn index_file(conn: &Connection, path: &str) -> Result<bool, String> 
 /// 별도 stat 없이 여기서 함께 정리한다.
 ///
 /// 반환: (인덱싱한 수, 정리한 수).
-fn index_folder(conn: &Connection, root: &Path) -> Result<(u32, u32), String> {
+pub(crate) fn index_folder(conn: &Connection, root: &Path) -> Result<(u32, u32), String> {
     let root_s = root.to_string_lossy().into_owned();
     // 이 루트를 **처음** 가져오는가. 처음이면 그 안의 문서는 전부 이미 있던 것이므로 받은
     // 문서함에 올리지 않는다 — 폴더를 가져오자마자 수백 건이 뜨면 신호가 아니라 소음이다.
     // 반대로 이미 아는 루트를 다시 훑는 것(부팅 재색인)이면 바뀐 것은 알림 대상이 맞다:
     // **앱이 꺼져 있는 동안 에이전트가 써 놓은 것**이 정확히 그 경우다.
     let fresh_root = indexed_under(conn, &root_s)?.is_empty();
+    // **커밋을 묶는다** — 자동 커밋이면 파일 하나에 문장 서넛 = WAL fsync 서넛이다. 다만 한 덩어리로
+    // 끝까지 묶으면 그동안 포그라운드 쓰기(앱 저장의 mark_seen 등)가 busy_timeout 까지 기다리므로
+    // BATCH 개마다 끊는다. 중간에 실패하면 Transaction 이 drop 되며 그 묶음만 되돌린다.
+    const BATCH: u32 = 200;
+    let mut tx = Some(conn.unchecked_transaction().map_err(|e| e.to_string())?);
     let mut count = 0u32;
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut stack = vec![root.to_path_buf()];
@@ -253,6 +270,12 @@ fn index_folder(conn: &Connection, root: &Path) -> Result<(u32, u32), String> {
                     if fresh_root {
                         let _ = crate::commands::inbox::mark_seen(conn, &ps, None);
                     }
+                    if count.is_multiple_of(BATCH) {
+                        if let Some(t) = tx.take() {
+                            t.commit().map_err(|e| e.to_string())?;
+                        }
+                        tx = Some(conn.unchecked_transaction().map_err(|e| e.to_string())?);
+                    }
                 }
                 seen.insert(norm_key(&ps));
             }
@@ -266,6 +289,9 @@ fn index_folder(conn: &Connection, root: &Path) -> Result<(u32, u32), String> {
             remove_path(conn, &stale)?;
             removed += 1;
         }
+    }
+    if let Some(t) = tx.take() {
+        t.commit().map_err(|e| e.to_string())?;
     }
     Ok((count, removed))
 }
@@ -303,12 +329,17 @@ pub(crate) fn match_rows(
     like: Option<&str>,
     limit: i64,
 ) -> Result<Vec<(String, String)>, String> {
+    // **`ORDER BY rank` 이지 `ORDER BY bm25(file_index)` 가 아니다.** 순서는 같다(rank 의 기본값이
+    // bm25). 그런데 bm25() 로 정렬하면 SQLite 가 정렬하므로 맞은 행 *전부*의 snippet() 을 먼저
+    // 만들고(문서를 다시 토큰화한다) 나서 LIMIT 으로 자른다. rank 는 FTS5 가 안에서 정렬·LIMIT 해
+    // snippet() 이 LIMIT 개에만 돈다 — 흔한 낱말 5천 문서에서 74~121ms → 8~9ms
+    // (docs/design/performance.md). 두 단계 질의(rowid IN …)는 바깥 MATCH 를 rowid 마다 다시 돌려 더 느렸다.
     let mut stmt = conn
         .prepare(
             "SELECT real_path, snippet(file_index, 1, char(2), char(3), '…', 12) AS snip
              FROM file_index
              WHERE file_index MATCH ?1 AND (?2 IS NULL OR real_path LIKE ?2)
-             ORDER BY bm25(file_index) LIMIT ?3",
+             ORDER BY rank LIMIT ?3",
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
@@ -400,6 +431,153 @@ mod tests {
         assert_eq!(build_match("  "), None);
         // FTS5 연산자 문자는 걸러진다(구문 오류 차단)
         assert_eq!(build_match("a\"b OR* c"), Some("ab OR c*".into()));
+    }
+
+    // ── v4: 색인 행을 rowid 로 찾는다 ────────────────────────────────────────────────────────
+
+    fn db() -> Connection {
+        let mut c = Connection::open_in_memory().unwrap();
+        crate::db::migrate_for_test(&mut c).unwrap();
+        c
+    }
+
+    /// 테스트마다 따로 쓰는 임시 폴더(병렬 실행에서 서로 안 밟게 이름에 테스트명).
+    fn tmp(name: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("readme-search-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    /// 경로로 센 색인 행 수 — 테스트에서만 전체 스캔을 허락한다.
+    fn index_rows(c: &Connection, path: &str) -> i64 {
+        c.query_row("SELECT count(*) FROM file_index WHERE real_path = ?1", params![path], |r| r.get(0))
+            .unwrap()
+    }
+
+    fn meta_rowid(c: &Connection, path: &str) -> Option<i64> {
+        fts_rowid_of(c, path).unwrap()
+    }
+
+    #[test]
+    fn v4_upgrade_links_existing_rows_and_drops_orphans() {
+        let mut c = Connection::open_in_memory().unwrap();
+        crate::db::migrate_to_for_test(&mut c, 3).unwrap();
+        // v3 시절 상태: 정상 2 · 같은 경로 중복 1 · 메타 없는 색인 행 1 · 색인 행 없는 메타 1
+        c.execute_batch(
+            "INSERT INTO file_index(rowid, real_path, content) VALUES
+               (1, 'C:\\w\\a.md', 'alpha old'), (2, 'C:\\w\\b.md', 'beta'),
+               (3, 'C:\\w\\a.md', 'alpha new'), (4, 'C:\\w\\orphan.md', 'alpha orphan');
+             INSERT INTO file_meta(real_path, mtime, size, indexed_at) VALUES
+               ('C:\\w\\a.md', 10, 9, 0), ('C:\\w\\b.md', 20, 4, 0), ('C:\\w\\lost.md', 30, 5, 0);",
+        )
+        .unwrap();
+        crate::db::migrate_for_test(&mut c).unwrap();
+
+        assert_eq!(meta_rowid(&c, r"C:\w\a.md"), Some(3), "중복이면 가장 최근(큰 rowid) 행과 짝짓는다");
+        assert_eq!(meta_rowid(&c, r"C:\w\b.md"), Some(2));
+        assert_eq!(meta_rowid(&c, r"C:\w\lost.md"), None);
+        // 짝 없는 행(옛 중복·고아)은 지워져 검색에 영영 남지 않는다.
+        let left: i64 = c.query_row("SELECT count(*) FROM file_index", [], |r| r.get(0)).unwrap();
+        assert_eq!(left, 2);
+        let hits = match_rows(&c, "alpha*", None, 10).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, r"C:\w\a.md");
+        // 기록이 쓰는 "옛 내용"도 짝 행에서 나온다.
+        assert_eq!(last_indexed(&c, r"C:\w\a.md"), Some((10, "alpha new".into())));
+    }
+
+    #[test]
+    fn reindex_replaces_the_row_by_rowid_and_still_snapshots_the_old_text() {
+        let c = db();
+        let d = tmp("reindex");
+        let f = d.join("a.md");
+        let fs = f.to_string_lossy().into_owned();
+        std::fs::write(&f, "first version").unwrap();
+        assert!(index_file(&c, &fs).unwrap());
+        meta_rowid(&c, &fs).expect("색인하면 짝 rowid 가 적힌다");
+
+        std::fs::write(&f, "second version, longer").unwrap();
+        assert!(index_file(&c, &fs).unwrap());
+        // rowid 는 같을 수도 있다(FTS5 는 지운 뒤 max+1 을 다시 쓴다) — 짝이 맞는지만 본다.
+        let r2 = meta_rowid(&c, &fs).unwrap();
+        let at: String = c.query_row("SELECT real_path FROM file_index WHERE rowid = ?1", params![r2], |r| r.get(0)).unwrap();
+        assert_eq!(at, fs);
+        assert_eq!(index_rows(&c, &fs), 1, "옛 행이 남아 있으면 검색에 두 번 뜬다");
+        assert!(match_rows(&c, "first*", None, 10).unwrap().is_empty());
+        assert_eq!(match_rows(&c, "second*", None, 10).unwrap().len(), 1);
+        let snap: String = c
+            .query_row("SELECT content FROM doc_snapshot WHERE real_path = ?1", params![fs], |r| r.get(0))
+            .unwrap();
+        assert_eq!(snap, "first version", "덮기 직전 옛 내용을 기록에 떠야 한다");
+
+        remove_path(&c, &fs).unwrap();
+        assert_eq!(index_rows(&c, &fs), 0);
+        assert_eq!(meta_rowid(&c, &fs), None);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn meta_without_an_index_row_is_indexed_again() {
+        let c = db();
+        let d = tmp("lostrow");
+        let f = d.join("a.md");
+        let fs = f.to_string_lossy().into_owned();
+        std::fs::write(&f, "content").unwrap();
+        assert!(index_file(&c, &fs).unwrap());
+        assert!(!index_file(&c, &fs).unwrap(), "그대로면 건너뛴다");
+        // v4 이전에 어긋난 상태(메타는 있는데 색인 행이 없다)를 흉내 낸다.
+        c.execute("UPDATE file_meta SET fts_rowid = NULL WHERE real_path = ?1", params![fs]).unwrap();
+        c.execute("DELETE FROM file_index", []).unwrap();
+        assert!(index_file(&c, &fs).unwrap(), "mtime 이 같아도 짝이 없으면 다시 색인해야 한다");
+        assert_eq!(match_rows(&c, "content*", None, 10).unwrap().len(), 1);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn index_folder_commits_every_batch_and_the_tail() {
+        // 묶음 경계를 넘는 수(200 + 나머지)를 진짜 파일 DB 에 색인하고, **다른 연결**에서 본다 —
+        // 마지막 묶음 커밋을 빠뜨리면 이 연결에서는 보이고 남에게는 안 보인다.
+        let d = tmp("batch");
+        let ws = d.join("ws");
+        std::fs::create_dir_all(ws.join("sub")).unwrap();
+        for i in 0..450 {
+            let dir = if i % 2 == 0 { ws.clone() } else { ws.join("sub") };
+            std::fs::write(dir.join(format!("n{i}.md")), format!("note number{i} shared")).unwrap();
+        }
+        let dbp = d.join("t.db");
+        let mut c = crate::db::open_at(&dbp).unwrap();
+        crate::db::migrate_for_test(&mut c).unwrap();
+        assert_eq!(index_folder(&c, &ws).unwrap(), (450, 0));
+
+        let other = crate::db::open_at(&dbp).unwrap();
+        let n: i64 = other.query_row("SELECT count(*) FROM file_meta", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 450);
+        assert_eq!(match_rows(&other, "number449*", None, 10).unwrap().len(), 1);
+        // 하나 지우고 다시 훑으면 정리(prune)된다.
+        std::fs::remove_file(ws.join("n0.md")).unwrap();
+        assert_eq!(index_folder(&c, &ws).unwrap(), (0, 1));
+        assert!(match_rows(&other, "number0", None, 10).unwrap().is_empty());
+        drop((c, other));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn search_ranks_by_relevance_and_honours_the_limit() {
+        let c = db();
+        for (i, body) in ["apple", "apple apple apple banana", "banana", "apple banana"].iter().enumerate() {
+            c.execute(
+                "INSERT INTO file_index(real_path, content) VALUES (?1, ?2)",
+                params![format!("C:\\w\\{i}.md"), body],
+            )
+            .unwrap();
+        }
+        let hits = match_rows(&c, "apple", None, 2).unwrap();
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].0, r"C:\w\1.md", "많이 맞은 문서가 먼저(rank = bm25)");
+        assert!(hits[0].1.contains('\u{2}'), "스니펫에 강조 센티넬");
+        let scoped = match_rows(&c, "banana", Some(r"C:\w\2%"), 10).unwrap();
+        assert_eq!(scoped.len(), 1);
     }
 }
 

@@ -56,7 +56,8 @@ CREATE TABLE file_meta (          -- 증분 재인덱싱 판단(FTS는 mtime/siz
   real_path   TEXT PRIMARY KEY,
   mtime       INTEGER NOT NULL,
   size        INTEGER NOT NULL,
-  indexed_at  INTEGER NOT NULL
+  indexed_at  INTEGER NOT NULL,
+  fts_rowid   INTEGER              -- v4: 짝 file_index 행의 rowid (UNIQUE 색인)
 );
 ```
 
@@ -88,6 +89,14 @@ CREATE TABLE file_meta (          -- 증분 재인덱싱 판단(FTS는 mtime/siz
 재색인이 옛 내용을 덮기 **직전**에 뜬다(남의 쓰기를 가로챌 수 없으므로 그때가 마지막 기회다).
 상한·합치기 창은 [문서 기록](features/history.md).
 
+### `file_meta.fts_rowid` (schema v4)
+
+`file_index.real_path` 는 FTS5 의 `UNINDEXED` 열이라 **경로로 찾으면 표 전체를 훑는다**(파일 하나 색인에
+두 번 → 5천 문서 첫 색인 154초, O(N²)). 그래서 색인 행은 **rowid 로만** 찾는다 — `file_meta` 가 짝의 rowid 를
+들고 있다(`UNIQUE` 색인, 1:1). 판올림은 임시 표로 한 번 훑어 채우고, 짝 없는 색인 행(옛 중복·고아)은 지운다
+(rowid 로 다시는 닿을 수 없어 검색에 영영 남는다). 짝이 없는 메타(`fts_rowid IS NULL`)는 mtime 이 같아도 다시
+색인한다. 측정·근거: [performance.md](performance.md).
+
 ## 갱신 규칙
 - **가져오기**: `ws_import_folder` 로 imported_folder 루트 노드 추가 → 프런트가 `search_index_folder` 로 백그라운드 인덱싱(별도 연결).
 - **파일 감시(notify)**: imported 루트를 재귀 감시. 외부 변경 시 `file_index`/`file_meta` 증분 갱신(md/markdown/mdx/txt, ≤2MB), `index-updated` + `file-changed` emit. `file_meta.mtime/size` 동일하면 skip.
@@ -95,6 +104,8 @@ CREATE TABLE file_meta (          -- 증분 재인덱싱 판단(FTS는 mtime/siz
   - **`fs-structural`(v0.7.0)**: 구조 변경(`Create`·`Remove`·`Modify(Name)`)만 별도 emit → 프런트가 트리 재파생. Windows 백엔드는 **내용 변경을 `Modify(Any)` 로 주므로** 그건 제외한다(앱 자신의 저장마다 전체 재스캔이 도는 것을 막는다).
 - **부팅 재색인(v0.7.0)**: `hydrate()` 후 imported 루트마다 `search_index_folder`. 앱이 꺼진 동안의 추가·삭제를 여기서 반영한다.
 - **prune(v0.7.0)**: `index_folder` 가 walk 하며 본 경로를 모아 두었다가, `file_meta` 에만 남은 행을 지운다. 증분 색인은 추가·수정만 반영해 삭제된 파일이 검색 결과에 계속 남았다. 하위 판정은 `under_root`(구분자 경계 요구) — `LIKE 'path%'` 만 쓰면 형제 접두어(`C:\a` → `C:\ab\x.md`)까지 지우고, 경로 안의 `%`·`_` 가 와일드카드로 먹는다.
+- **커밋 묶기(v1.0)**: `index_folder` 는 200개마다 끊어 커밋한다 — 자동 커밋이면 파일 하나에 WAL fsync 서넛이고, 끝까지 한 덩어리면 포그라운드 쓰기가 `busy_timeout` 까지 기다린다.
+- **검색 정렬**: `ORDER BY rank`(= bm25)이지 `ORDER BY bm25(file_index)` 가 아니다 — 후자는 맞은 행 전부의 `snippet()` 을 만든 뒤 LIMIT 한다([performance.md](performance.md)).
 - **즐겨찾기/최근**: `favorite`(토글)·`recent`(upsert + 상한 50) 갱신.
 - **삭제**: 노드 삭제는 FTS 무관(D1). 디스크 삭제(notify Remove) 시 `search_remove_path` 로 인덱스 정리.
   - **알려진 구멍**: 언임포트(`ws_delete`)는 인덱스를 건드리지 않는다. 같은 `realPath` 가 두 부모 아래 import 될 수 있어(`find_by_parent_path` 는 부모별 중복만 막는다) 무조건 지우면 안 되기 때문. 필요해지면 "남은 imported_folder 중 그 경로를 덮는 게 없을 때만 정리"로 조건부 처리할 것.

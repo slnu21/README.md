@@ -66,6 +66,7 @@
 
 ## 성능(대용량)
 - CodeMirror 뷰포트 렌더 + 파싱 워커 오프로딩 + 디바운스 + 임베드 지연 + 무거운 의존성(mermaid/pdf.js) **코드 스플리팅**.
+- **기준선·예산·재는 법은 [performance.md](performance.md)** — Rust 측정(`perf.rs`) · `npm run probe:perf` · 실물(`tools/perf-app.mjs`)이 예산 파일 하나(`src/tools/perf-budget.json`)를 공유한다.
 
 ## 오프라인 / 보안
 - **CSP로 원격 네트워크 차단**, 모든 자산(폰트·테마·mermaid·KaTeX) 번들.

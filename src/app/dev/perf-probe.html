@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>perf probe</title>
+    <!-- 개발 전용 하네스. 앱 번들에 들어가지 않는다 — 앱 빌드의 진입점은 src/index.html 하나뿐이다.
+         tools/perf-probe.mjs 가 이 페이지를 **임시 폴더에 따로 프로덕션 빌드**해 띄운다(개발 모드 React 는
+         몇 배 느려 숫자가 의미를 잃는다). **진짜 앱을 그대로 마운트한다**(main.tsx). -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="../main.tsx"></script>
+    <script type="module" src="./perfProbe.ts"></script>
+  </body>
+</html>

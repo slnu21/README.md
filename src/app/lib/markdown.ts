@@ -203,7 +203,19 @@ export interface TocItem {
 
 /** md.parse 토큰에서 헤딩 아웃라인 추출. anchor 코어 룰이 부여한 실제 id(dedup 포함)를 사용. */
 export function extractToc(md: MarkdownIt, src: string): TocItem[] {
-  const tokens = md.parse(src, {});
+  return tocFromTokens(md.parse(src, {}));
+}
+
+/** 한 번 파싱해 HTML 과 아웃라인을 함께 — `md.render()` + `extractToc()` 는 같은 문서를 **두 번**
+ *  파싱한다(1MB 에서 177ms, docs/design/performance.md). `md.render(src)` 가 하는 일이 정확히
+ *  `parse` → `renderer.render` 이므로 결과는 같고, 아웃라인 id 가 화면의 id 와 같은 파싱에서 나온다. */
+export function renderWithToc(md: MarkdownIt, src: string): { html: string; toc: TocItem[] } {
+  const env = {};
+  const tokens = md.parse(src, env);
+  return { html: md.renderer.render(tokens, md.options, env), toc: tocFromTokens(tokens) };
+}
+
+function tocFromTokens(tokens: ReturnType<MarkdownIt["parse"]>): TocItem[] {
   const toc: TocItem[] = [];
   for (let i = 0; i < tokens.length; i++) {
     const tok = tokens[i];
