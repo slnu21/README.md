@@ -97,6 +97,24 @@ It starts fast and stays light. You keep all rights to what you write, for perso
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
 
+### v1.0.0 — ko-KR (초안 · 2026-10-12)
+- **1.0 — 에이전트가 쓴 문서를, 사람이 읽는 자리.** 0.10 에서 이어 붙인 에이전트 연결·받은 문서함·문서 기록을 실제로 써 보고, 재 보고, 고친 판입니다.
+- **에이전트가 문서를 띄울 때 그 줄로** — "3절의 결론을 보세요"라며 열면 그 자리가 화면 위에 옵니다(옆 패널·앱이 꺼져 있을 때도).
+- **큰 워크스페이스가 빨라졌습니다** — 문서 5천 개 폴더의 첫 색인 132초 → 6초, 검색 0.1초 → 0.01초. 앱이 처음 싣는 코드도 40% 줄였습니다.
+- **에이전트 연결 다듬기** — 워크스페이스 밖 문서를 읽으려 하면 다음에 할 일을 함께 알려 주고, 넓은 검색 범위도 받아 그 안의 워크스페이스 문서만 찾습니다.
+- **고친 것** — 다른 프로그램이 문서를 고치는 동안 검색에서 그 문서가 잠깐 빠지던 것 · 다른 문서를 열면 앞 문서를 읽던 높이에서 열리던 것 · 옆 패널을 열면 주 패널이 맨 위로 돌아가던 것.
+- **개인정보 처리방침에 에이전트 연결 절** — 앱은 아무것도 보내지 않습니다. 연결한 에이전트가 읽어 간 내용은 그 에이전트의 방침을 따릅니다.
+- 업데이트가 미뤄지면 앱과 에이전트 세션을 닫았다가 다시 열어 주세요(연결된 동안은 앱이 실행 중으로 보입니다).
+
+### v1.0.0 — en-US (draft · 2026-10-12)
+- **1.0 — where people read what agents write.** The agent connection, inbox and document history from 0.10, now used for real, measured and fixed.
+- **Agents open documents at the line** — "see the conclusion in section 3" puts that spot at the top of the screen (side panel, or even when the app was closed).
+- **Large workspaces are faster** — first index of a 5,000-document folder 132 s → 6 s, search 0.1 s → 0.01 s. 40% less code loaded at startup.
+- **Agent connection polish** — when an agent reaches outside your workspace it is told what to do next, and a wide search scope returns just the workspace documents inside it.
+- **Fixed** — a document briefly vanishing from search while another program edited it · a new document opening at the previous one's scroll height · the main panel jumping to the top when the side panel opened.
+- **Privacy Policy: new agent connection section** — the app sends nothing; what a connected agent reads follows that agent's policy.
+- If an update is postponed, close the app and your agent sessions and reopen them (while connected, the app counts as running).
+
 ### v0.10.0 — ko-KR
 - **에이전트 브리지** — Claude Code 같은 AI 에이전트가 README.md 의 워크스페이스를 **직접 들여다볼 수 있습니다.** 따로 설치할 것이 없습니다(앱과 같은 프로그램이 서버를 겸합니다). 에이전트가 얻는 것은 이 앱만 아는 넷입니다: 전문 검색 · 문서 목차 · 섹션만 읽기 · 내가 손으로 만든 워크스페이스 배치. **볼 수 있는 범위는 내가 워크스페이스에 넣어 둔 폴더·파일뿐이고, 문서를 고치거나 지우는 도구는 주지 않습니다.** 연결법은 설정 ▸ [에이전트 연결] 에서 버튼 하나로 복사합니다.
 - **받은 문서함** — 내가 안 보는 사이에 **누군가 만지고 간 문서**가 툴바의 알림 종에 모입니다. 앱이 꺼져 있던 동안 바뀐 것도 잡히니, 아침에 앱을 열면 밤새 늘어난 문서가 거기 있습니다. 열면 목록에서 빠지고, 내가 앱에서 저장한 문서는 들어오지 않습니다.
@@ -310,3 +328,4 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.8.0 업데이트 제출** — `release/v0.8.0/README_0.8.0_x64.msix`(동일 실신원 · `0.8.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.8.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.8.0** 문구 — **제출 완료(2026-08-30) · 게시 완료**(2026-09-02 확인: `Get-AppxPackage SlnU.README.md` → `0.8.0.0` · `SignatureKind=Store`). 제출 직전 직전 판(v0.7.1)이 게시 완료임을 확인해 동시 제출 충돌 없음. **GitHub 릴리스·태그 `v0.8.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.8.0>. **제출은 Partner Center 웹 — 사용자 직접.**
 - [x] **v0.9.0 업데이트 제출** — `release/v0.9.0/README_0.9.0_x64.msix`(동일 실신원 · `0.9.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.9.0 을 `.msix` 안에서 꺼내 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.9.0** 문구 — **제출 완료(2026-09-06, 사용자 직접) · 인증·게시 대기**. 직전 v0.8.0 이 게시 완료(2026-09-02 확인)라 동시 제출 충돌 없음. **GitHub 릴리스·태그 `v0.9.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.9.0> · 자산 4종(NSIS·MSIX·zip·NOTICES).
 - [x] **v0.10.0 업데이트 제출 → 게시 완료(2026-09-27 확인: `Get-AppxPackage SlnU.README.md` → `0.10.0.0` · `SignatureKind=Store`)** · **GitHub 릴리스 완료(2026-09-19)** <https://github.com/slnu21/README.md/releases/tag/v0.10.0>(`main` push + 애노테이트 태그 `v0.10.0` + 자산 4종 `state=uploaded`) · **Store 제출은 사용자 직접 — 대기.** `release/v0.10.0/README_0.10.0_x64.msix`(동일 실신원 · `0.10.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.10.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.10.0** 문구 — **산출물 준비 완료(2026-09-09) → RTL 수록으로 재빌드(2026-09-19)** — NSIS 5.56MB / MSIX 6.61MB / zip 6.49MB · 재빌드 MSIX 매니페스트 재확인(동일 실신원 · `0.10.0.0` · alias `readme-md.exe` · `<Application>` 1개 · 꺼낸 exe 0.10.0) · **릴리스 exe 실구동 통과**(CDP, 사용자 DB·프로필 비켜 놓고 원복: **RTL 픽스처를 argv 로 열어 설정 창 버튼으로 자동→오→왼→왼→오→자동 — 문서 루트 dir·문단 정렬·목록 여백·표 열 순서·편집기 줄 방향·거터 위치·영속 전부 프로브와 동일** · 툴바 3단계 1684 full / 1184 icons / 934 menu — 어느 폭에서도 겹침 0·넘침 0 · [⋯] 메뉴 9항목 · 테마 창 6카드에서 한지 적용 · 1380px 에서 한국어 full / 영어 icons · 탭 우클릭에 [문서 기록] · 미리보기 렌더·에이전트 연결 패널 정상). 직전 v0.9.0 이 **게시 완료**(2026-09-09 확인: `Get-AppxPackage SlnU.README.md` → `0.9.0.0` · `SignatureKind=Store`)라 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
+- [ ] **v1.0.0 업데이트 제출** — 리스팅 문구(이 파일 머리) · 스크린샷 새 세트 8장 · 소개 영상을 **같은 제출에서 교체**. "새로운 기능" 필드 = 위 **업데이트 내용 v1.0.0**. 버전 상향·태그·GitHub 릴리스·제출은 확인 게이트.
