@@ -70,6 +70,9 @@
 - **사용자용 안내를 쓴다** — README(ko/en)에 "에이전트 연결" 절 · Claude Code / Claude Desktop 설정 예.
   지금은 설계 문서([features/agent-bridge.md](features/agent-bridge.md))와 앱 안 패널뿐이다.
   → ✅ 2026-10-11 루트 README 재구성(ko/en 사용자 절 + 연결 절). Store URL 은 U4 에서 확인 후 추가.
+  → ✅ 2026-10-12 Store URL 추가(브리지 `read_section` 이 블로그 글에서 찾음 · `winget` 으로 게시자 SlnU 확인).
+- **기록**: [notes/bridge-dogfood.md](../notes/bridge-dogfood.md). 첫날 고친 것 다섯 — 스니펫 줄바꿈 · 스코프 밖 오류에
+  다음 수 · 오류 ko/en · 상위 폴더 `root` · `/` 경로 `root` 가 늘 0건이던 것(실구동에서 찾음). 1.1 후보 넷은 기록 끝 표.
 
 ### U3 · `privacy-docs` — 방침·문서 정리 (1 세션) — ✅ 2026-10-11
 
