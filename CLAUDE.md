@@ -25,6 +25,9 @@ npx tsc --noEmit       # 프론트 타입체크 (Rust 없이 가능)
 npm test               # 단위 테스트(vitest, node 환경 — DOM 없음)
 npm run probe:mermaid  # mermaid 렌더 실측 검사(Edge 헤드리스). `-- --shot out.png` 로 갤러리 캡처
 npm run probe:layout   # 리딩 분할 레이아웃 실측(Edge 헤드리스, 진짜 앱 셸을 마운트)
+npm run probe:perf     # 성능 예산(프로덕션 빌드 + Edge 헤드리스 · 번들·문서 열기·타자·재렌더·갤러리)
+node tools/perf-app.mjs  # 릴리스 exe 기동·메모리(릴리스 때 손으로 · 실사용 데이터 비켜 놓고 원복)
+# Rust 성능(5천 문서 색인·검색·브리지): cd src-tauri; cargo test --release --lib perf -- --ignored --nocapture
 npm run tauri dev      # 데스크톱 실행 (Rust 필요)
 npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 ```
@@ -47,7 +50,15 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **Store 패키징**: **MSIX → Store**(Microsoft 재서명 → 코드서명 인증서 불필요)가 기본. Tauri는 MSI/NSIS만 내므로 **MSIX 래핑 1단계** 필요. 매니페스트에 `runFullTrust`. 자세히: [docs/deployment/microsoft-store.md](docs/deployment/microsoft-store.md).
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
-## 현재 상태 (2026-10-10 기준)
+## 현재 상태 (2026-10-11 기준)
+- **[v1.0 U1] 성능 예산 — 기준선·예산·재는 법 + 재 보니 나온 것 고침**(`develop-perf-budget` · WBS #920). [performance.md](docs/design/performance.md). 1.0 계획 6절 결정 5건은 **전부 권장대로**(사용자 2026-10-11).
+  - **재 보니 5천 문서 첫 색인이 132.8초였다** — `file_index.real_path` 가 FTS5 `UNINDEXED` 열이라 `WHERE real_path = ?` 가 **표 전체를 훑고**, 파일 하나 색인에 두 번(옛 내용 읽기·지우기) → O(N²). **마이그레이션 v4**(사용자 승인): `file_meta.fts_rowid` + UNIQUE 색인, 색인 행은 rowid 로만 찾는다 · 판올림은 임시 표로 한 번 훑어 채움 · 짝 없는 색인 행(rowid 로 영영 못 닿음)은 지움. + **200개마다 커밋**(자동 커밋 = 파일당 WAL fsync 서넛). → **6.0초**. 100개 바뀐 아침 부팅 9.1 → 약 1초.
+  - **검색은 `ORDER BY rank`** — `ORDER BY bm25(file_index)` 는 맞은 행 **전부**의 `snippet()` 을 만든 뒤 LIMIT 한다. 흔한 낱말 86 → **8.5ms**, 브리지 `search_docs` 62 → 11.7ms. 두 단계 질의(`rowid IN`)는 바깥 MATCH 를 rowid 마다 다시 돌려 더 느렸다(실측).
+  - **워커의 목차용 중복 파싱 제거** — `md.render` + `extractToc` 이 같은 문서를 두 번 파싱했다 → `renderWithToc`(토큰 하나로 HTML·목차, 결과 동일을 테스트로). 1MB 재렌더 1.85 → 1.70초. 남은 1.2초는 iframe 배치.
+  - **장치 셋 + 예산 파일 하나**(`src/tools/perf-budget.json`, 기준선의 약 1.5~2배 = 회귀 감시선): Rust `src-tauri/src/perf.rs`(`#[ignore]`, **진짜 파일 DB** — 메모리 DB 는 fsync 를 숨긴다 · 지프 분포 픽스처 · `PERF {json}`) · **`npm run probe:perf`**(다른 프로브와 달리 **프로덕션 빌드** — 개발 React 는 타자 지연을 부풀린다 · `&worker` 로 진짜 렌더 경로) · `tools/perf-app.mjs`(릴리스 exe CDP · 처음 설치/`--returning`). 예산을 일부러 1로 내려 양쪽 FAIL 을 먼저 봤다. + 판올림 리허설(`rehearse_migration_on_a_copy` — **실사용 DB 사본**에 v3→v4 58ms, 269행 짝 맞음).
+  - **함정 넷**(performance.md §5): ① **픽스처가 숫자를 만든다** — 낱말 36개 균등 픽스처는 스니펫을 문서당 9ms 로 부풀려 "530ms" 를 냈다 → 지프 분포 ② `UNINDEXED` = 찾을 때 훑음 ③ 끝 표식을 문서마다 다르게(1MB 가 100KB 미리보기에 걸려 60ms 로 나옴) · 디스크 픽스처 CRLF ④ **Node 는 안 풀리는 약속을 기다리다 `finally` 없이 끝난다** — 실물 검증 스크립트가 그래서 **실사용 데이터가 비켜 둔 채 남았다**(즉시 원복, 손실 없음 — 크기·시각 대조). 사용자 데이터를 옮기는 스크립트는 `process.on("exit")` 에서 동기 원복 + 기다림마다 시간 제한.
+  - 실물(5회 중앙값): v0.10.0 처음 설치 WebView2 376 · 셸 965 · 첫 미리보기 1,611ms · 전용 246MB(프로세스 7). 재방문도 거의 같다. **회차 간 ±100~200ms 흔들림**(같은 판 재측정 셸 1,181). **다음 후보**: 첫 번들 1.8MB(gzip 585KB)에 마크다운 라이브러리가 워커와 **이중**(내보내기·데모 경로가 메인에서 import) → 지연 import 는 내보내기·프레젠테이션을 건드려 따로 단위.
+  - 검증: `tsc` · vitest **726 → 738**(`perfFixture`·`perf-budget`·`markdown.toc`) · `cargo test --lib` **79 → 84**(v4 판올림·rowid 교체·짝 없는 메타·묶음 커밋 경계·rank) · clippy 0 · `probe:mermaid`·`probe:layout`·`probe:rtl`·**`probe:perf`** PASS · **릴리스 모드 exe 실구동 9항목**(CDP 로 Tauri 커맨드 직접 — 301문서 가져오기(묶음 경계) · 재색인 중복 없음 · 옛 내용 기록 · prune · 지운 문서 기록 · 폴더 제거) · 실사용 데이터 비켜 놓고 원복 확인.
 - **[설계] 캔버스 — JSON Canvas 위의 "문서 지도" ADR 0004 + 동작 시안**(`develop-canvas-adr` · WBS #918). 사용자 제안 "md 파일들을 거대 캔버스에 배치하고 연결·드로잉". [ADR 0004](docs/design/decisions/0004-canvas-document-map.md) · 시안 [mockups/canvas.html](docs/mockups/canvas.html)(확대 두 단계 · 연결점 스냅 · 선 끝점 옮기기 · 펜 · JSON 패널 · `#relink` 자가 점검). **구현 0줄 — 1.2 후보(1.1 표시 펜 다음).**
   - **포맷 = JSON Canvas 1.0(MIT) 그대로, 디스크의 `.canvas`** — 옵시디언 호환 · 에이전트가 fs 로 씀(새 MCP 도구 0) · 받은 문서함·기록·감시기가 그대로 다룸. 모르는 필드 보존. 색 프리셋 1~6 은 테마 토큰.
   - **화이트보드가 아니라 문서 지도** — file 카드가 주인공, 더블클릭 = 탭. **카드는 두 단계까지**(72% 미만 제목 / 이상 아웃라인+첫 문단) — **본문·mermaid·수식 렌더 안 함**(사용자 결정). 아웃라인은 색인 + MCP `outline` 의 Rust 파서 재사용.
@@ -227,9 +238,9 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **Rust 설치됨** → `cargo check`/`tauri dev/build` 동작. 미리보기 iframe은 `sandbox="allow-same-origin"`(allow-scripts는 절대 미포함). CSP 하드닝 적용됨.
 
 ## 다음 단계
-- **▶ 지금 할 일 = v1.0 진행 계획**([docs/design/roadmap-1.0.md](docs/design/roadmap-1.0.md), 2026-10-10 작성). U1 `perf-budget`(기준선→예산→`probe:perf`) → U2 `bridge-dogfood`(Store 설치본 MCP 를 Claude Code 에 붙여 1주 실사용 + README 연결 안내, 겹쳐 진행) → U3 `privacy-docs`(**방침이 브리지를 모른다** — 연결한 에이전트에 문서가 건네짐) → U4 `listing-v100`(정체성 첫 문단 + 스크린샷 새 세트) → U5 `video-v100`(브리지 비트) → U6 `release-v100`(1.0.0 = 메이저 상향 확인 게이트). 계획 6절에 사용자 결정 대기 5건.
+- **▶ 지금 할 일 = v1.0 진행 계획**([docs/design/roadmap-1.0.md](docs/design/roadmap-1.0.md), 2026-10-10 작성). ~~U1 `perf-budget`~~ ✅(2026-10-11) → **다음: U2** `bridge-dogfood`(Store 설치본 MCP 를 Claude Code 에 붙여 1주 실사용 + README 연결 안내, 겹쳐 진행) → U3 `privacy-docs`(**방침이 브리지를 모른다** — 연결한 에이전트에 문서가 건네짐) → U4 `listing-v100`(정체성 첫 문단 + 스크린샷 새 세트) → U5 `video-v100`(브리지 비트) → U6 `release-v100`(1.0.0 = 메이저 상향 확인 게이트). 계획 6절 결정 5건은 전부 권장대로(2026-10-11). U1 이 남긴 후보(첫 번들 이중 적재 · 기동 셸 약 1초)는 1.0 전에 할지 U2 와 함께 판단.
 - **v1.0 로드맵**: ① 에이전트 브리지(읽기 도구 4 + CLI 겸용) ② 에이전트 연결 패널 + 제어 도구 2 ③ 받은 문서함·변경 배지(감시기 재사용) ④ 저장 스냅샷·되돌리기 ⑤ 1.0 위생(성능 예산·리스팅·영상). **①~④ 는 v0.10.0 으로 나갔다(GitHub 릴리스 2026-09-19 · Store 제출 대기) — 남은 것은 ⑤ 뿐이다.** 1.0 을 지금 붙이지 않은 이유: 소개 영상·스토어 스크린샷이 아직 v0.6.8 화면이고, 브리지는 실사용 노출을 한 번도 안 거쳤다. 위생 한 바퀴(성능 예산 · 리스팅/스크린샷 · 영상 갱신) 뒤에 1.0 을 헤드라인으로 낸다. **T7 유료화는 1.0 에 넣지 않는다** — 무료로 나간 기능을 유료로 돌리면 리뷰가 무너지고, 헤드라인 기능을 유료화하면 화제성을 스스로 죽인다. 유료화는 1.1 에서 신규 Pro 기능으로.
-- **1.1 후보 — 표시 펜**([ADR 0003](docs/design/decisions/0003-annotation-pens.md)): ② 앵커 코어(순수 로직) → ③ 저장(마이그레이션 v4·스냅샷 고정) → ④ 화면(SVG 층·트레이·메모·`probe:annot`) → ⑤ 내보내기·`list_annotations`·리뷰 요약 복사.
+- **1.1 후보 — 표시 펜**([ADR 0003](docs/design/decisions/0003-annotation-pens.md)): ② 앵커 코어(순수 로직) → ③ 저장(마이그레이션 **v5**·스냅샷 고정 — v4 는 색인 rowid 짝이 먼저 썼다) → ④ 화면(SVG 층·트레이·메모·`probe:annot`) → ⑤ 내보내기·`list_annotations`·리뷰 요약 복사.
 - **1.2 후보 — 캔버스(문서 지도)**([ADR 0004](docs/design/decisions/0004-canvas-document-map.md)): ① JSON Canvas 완전 지원 + 옵시디언 왕복 실측 → ② 카드 두 단계 + 받은 문서함·검색·기록·트리 연동 + `probe:canvas` → ③ 드로잉(`x-readme-ink` 보존 실측 먼저) → (별도) `.canvas` 파일 연결(MSIX, 확인 게이트).
 - **후속(로드맵)**: T7 상업화 게이팅(export·advancedThemes Pro — Store 트래픽·Pro 기능 확보 후), 내보내기 고도화(WebView2 `PrintToPdfAsync` 무대화상자 PDF — `commands/export.rs`), 설정 localStorage↔SQLite 이중화(저가치·보류).
 

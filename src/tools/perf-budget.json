@@ -1,0 +1,46 @@
+{
+  "_": "성능 예산 = 회귀 감시선(목표 아님). 기준선(2026-10-11, i5-9400F)의 약 1.5~2배, 번들은 약 10%. 근거·기준선·재는 법: docs/design/performance.md. 값을 올릴 때는 그 문서의 기준선 표도 함께 고친다.",
+  "index": {
+    "_": "Rust · cargo test --release --lib perf -- --ignored --nocapture · 5천 문서(18.5MB, 지프 분포) 진짜 파일 DB",
+    "index_first_ms": 15000,
+    "reindex_noop_ms": 1500,
+    "reindex_100_changed_ms": 3000,
+    "search_median_ms": 30,
+    "search_p95_ms": 50,
+    "search_narrow_median_ms": 10,
+    "migrate_v4_ms": 1000
+  },
+  "bridge": {
+    "_": "Rust · 같은 테스트 · tools::call 그대로(stdio 왕복만 빠짐)",
+    "search_docs_median_ms": 40,
+    "search_docs_p95_ms": 60,
+    "outline_1mb_median_ms": 20,
+    "read_section_1mb_median_ms": 20,
+    "read_section_small_median_ms": 5
+  },
+  "frontend": {
+    "_": "npm run probe:perf · Edge 헤드리스 · 프로덕션 빌드 · 3회 중앙값 · 미리보기 디바운스 0(렌더 경로 비용)",
+    "small_preview_ms": 200,
+    "mid_preview_ms": 600,
+    "mid_rerender_ms": 400,
+    "big_editor_ms": 300,
+    "big_preview_ms": 3000,
+    "big_rerender_ms": 3000,
+    "type_median_ms": 40,
+    "type_p95_ms": 50,
+    "gallery_ms": 2500
+  },
+  "bundle": {
+    "_": "npm run probe:perf · 앱 index.html 이 처음 싣는 JS·CSS(지연 청크 제외)",
+    "entry_js_kb": 1950,
+    "entry_js_gz_kb": 650,
+    "entry_css_gz_kb": 12
+  },
+  "app": {
+    "_": "node tools/perf-app.mjs · 릴리스 exe 실물 · 5회 중앙값 · 릴리스 때 손으로(프로브가 아니다)",
+    "cdp_ms": 800,
+    "shell_ms": 1500,
+    "preview_ms": 2500,
+    "private_mb": 350
+  }
+}

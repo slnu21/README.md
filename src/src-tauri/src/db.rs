@@ -84,6 +84,23 @@ const MIGRATIONS: &[&str] = &[
     CREATE INDEX idx_snapshot_path ON doc_snapshot(real_path, taken_at DESC);
     CREATE UNIQUE INDEX idx_snapshot_version ON doc_snapshot(real_path, mtime);
     "#,
+    // v4 — 색인 행을 경로가 아니라 rowid 로 찾는다. `file_index.real_path` 는 FTS5 의 UNINDEXED
+    // 열이라 `WHERE real_path = ?` 가 **표 전체를 훑는다** — 파일 하나 색인에 두 번(옛 내용 읽기 ·
+    // 지우기)이라 5천 문서 첫 색인이 154초였다(O(N²), docs/design/performance.md). file_meta 와
+    // file_index 는 1:1 이므로 file_meta 에 짝의 rowid 를 적어 두고 거기서 찾는다.
+    r#"
+    ALTER TABLE file_meta ADD COLUMN fts_rowid INTEGER;
+    -- 기존 행 채우기: 상관 서브쿼리로 하면 그 자체가 O(N²) 이다 → 한 번 훑어 임시 표에 색인.
+    CREATE TEMP TABLE fts_map AS SELECT rowid AS r, real_path AS p FROM file_index;
+    CREATE INDEX temp.fts_map_p ON fts_map(p);
+    UPDATE file_meta SET fts_rowid = (SELECT max(r) FROM fts_map WHERE p = file_meta.real_path);
+    DROP TABLE fts_map;
+    -- 짝 없는 색인 행(같은 경로 중복 · 메타 없는 행)은 rowid 로 다시는 닿을 수 없어 검색에 영영
+    -- 남는다 → 지금 지운다. 디스크 파일의 사본일 뿐이고, 메타가 없으면 기록도 이 내용을 못 쓴다.
+    DELETE FROM file_index
+      WHERE rowid NOT IN (SELECT fts_rowid FROM file_meta WHERE fts_rowid IS NOT NULL);
+    CREATE UNIQUE INDEX idx_file_meta_fts ON file_meta(fts_rowid);
+    "#,
 ];
 
 fn db_path(app: &AppHandle) -> Result<PathBuf, String> {

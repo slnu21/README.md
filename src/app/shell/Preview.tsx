@@ -122,7 +122,11 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   // 세 buildDoc 호출(데모 2 + 정규 1)이 같은 옵션을 쓰도록 한 곳에 모은다.
   const docOpts: BuildDocOpts = { extraCss: previewExtra, diagramWidth, textDirection };
   // 데모/스크린샷(?demo)에서는 헤드리스 캡처 타이밍 때문에 워커 대신 메인 스레드로 즉시 렌더.
-  const isDemo = new URLSearchParams(window.location.search).has("demo");
+  // 단 `&worker` 가 붙으면 데모여도 진짜 경로(워커)를 탄다 — 성능 프로브가 실제 렌더 비용을 재야 한다.
+  const isDemo = (() => {
+    const q = new URLSearchParams(window.location.search);
+    return q.has("demo") && !q.has("worker");
+  })();
 
   // 아웃라인 클릭 → iframe 내부 헤딩으로 스크롤. sandbox="allow-same-origin"(allow-scripts 미포함) 필요.
   useImperativeHandle(

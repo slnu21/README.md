@@ -12,6 +12,7 @@
     "probe:mermaid": "node tools/mermaid-probe.mjs",
     "probe:layout": "node tools/layout-probe.mjs",
     "probe:rtl": "node tools/rtl-probe.mjs",
+    "probe:perf": "node tools/perf-probe.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

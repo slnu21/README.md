@@ -157,7 +157,9 @@ list_annotations(path) → [{ kind, style, meaning, color, quote, note, state, l
 - 이 대응·diff 매핑·상태 판정은 **전부 순수 함수**다 → vitest 로 촘촘히 지킨다. diff 는 줄 단위 Myers +
   바뀐 줄 안 글자 단위 정도면 충분해 **직접 짠다**(라이브러리 = 새 의존성 = 확인 게이트, 이득이 없다).
 
-## 저장 — 마이그레이션 v4
+## 저장 — 마이그레이션 v5
+
+> v4 는 색인 rowid 짝(성능 예산 U1, 2026-10-11)이 먼저 썼다 — 표시 펜 저장은 v5 다.
 
 ```
 annotation(
@@ -200,7 +202,7 @@ annotation(
 
 1. ✅ ADR + 시안(이 문서)
 2. 앵커 코어 — 렌더↔소스 대응 · diff 매핑 · 상태 판정 (순수 로직 + vitest)
-3. 저장 — 마이그레이션 v4 · 스냅샷 고정/정리 예외 (Rust + `cargo test`)
+3. 저장 — 마이그레이션 v5 · 스냅샷 고정/정리 예외 (Rust + `cargo test`)
 4. 화면 — SVG 층 · 펜 트레이 · 여백 ＋ · 메모 접힘/툴팁/레일 · 테마 토큰 · **`probe:annot` 신설**
    (폭·테마·RTL·분할에서 표시가 글자를 따라가는지 기하로 잰다)
 5. 내보내기 · `list_annotations` · [리뷰 요약 복사]
