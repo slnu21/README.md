@@ -137,7 +137,35 @@ fn fts_rowid_of(conn: &Connection, path: &str) -> Result<Option<i64>, String> {
         .map_err(|e| e.to_string())
 }
 
+/// 문장 여럿을 **한 덩어리로** 실행한다 — 끝까지 가거나, 하나도 안 남기거나.
+///
+/// 색인 한 파일 = 기록 뜨기 · 옛 색인 행 지우기 · 새 행 넣기 · 메타 고치기, 네 문장이다. 폴더 색인은
+/// 바깥 트랜잭션(`index_folder` 의 묶음)이 감싸지만 **감시기·단일 재색인은 아무것도 안 감싸** 문장마다
+/// 따로 커밋됐다. 그러면 지우기와 넣기 사이에 읽는 쪽(앱 검색 · 브리지 `search_docs`)이 그 문서를 못
+/// 본다 — U6 업데이트 실측에서 에이전트 검색 13,943회 중 899회가 30건 중 몇 건을 놓쳤다. 도중에
+/// 실패하면 행은 지워지고 새 행은 없는 채로 남는다.
+///
+/// SAVEPOINT 라 바깥 트랜잭션 안에서는 그 일부로 합쳐지고, 밖에서는 그 자체로 한 트랜잭션이다.
+/// 덤으로 감시기 경로의 커밋(= WAL fsync)이 파일당 서넛에서 하나로 준다.
+fn in_savepoint<T>(conn: &Connection, f: impl FnOnce(&Connection) -> Result<T, String>) -> Result<T, String> {
+    conn.execute_batch("SAVEPOINT index_one").map_err(|e| e.to_string())?;
+    match f(conn) {
+        Ok(v) => {
+            conn.execute_batch("RELEASE index_one").map_err(|e| e.to_string())?;
+            Ok(v)
+        }
+        Err(e) => {
+            let _ = conn.execute_batch("ROLLBACK TO index_one; RELEASE index_one");
+            Err(e)
+        }
+    }
+}
+
 pub(crate) fn remove_path(conn: &Connection, path: &str) -> Result<(), String> {
+    in_savepoint(conn, |c| remove_path_unguarded(c, path))
+}
+
+fn remove_path_unguarded(conn: &Connection, path: &str) -> Result<(), String> {
     // 문서가 사라진다 — 색인이 들고 있던 마지막 내용을 여기서 한 판 떠 둔다. 지워진 문서야말로
     // 되돌리고 싶은 것이고, 색인이 비워지면 우리에게 남는 사본이 없다(commands/history.rs).
     // 실패는 무시 — 기록 하나 때문에 색인 정리를 실패시킬 이유가 없다.
@@ -156,6 +184,10 @@ pub(crate) fn remove_path(conn: &Connection, path: &str) -> Result<(), String> {
 /// 단일 파일 인덱싱. mtime/size 동일하면 skip. 접근 불가/과대/바이너리는 인덱스에서 제거.
 /// 반환: 실제로 (재)인덱싱했으면 true.
 pub(crate) fn index_file(conn: &Connection, path: &str) -> Result<bool, String> {
+    in_savepoint(conn, |c| index_file_unguarded(c, path))
+}
+
+fn index_file_unguarded(conn: &Connection, path: &str) -> Result<bool, String> {
     let meta = match std::fs::metadata(path) {
         Ok(m) => m,
         Err(_) => {
@@ -514,6 +546,58 @@ mod tests {
         remove_path(&c, &fs).unwrap();
         assert_eq!(index_rows(&c, &fs), 0);
         assert_eq!(meta_rowid(&c, &fs), None);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_failed_reindex_leaves_the_old_row_searchable() {
+        // 메타 갱신(마지막 문장)이 실패하게 만든다 — 그 전에 옛 행 지우기·새 행 넣기는 이미 지나갔다.
+        // 한 덩어리가 아니면 옛 행은 사라지고 짝 없는 새 행이 남는다(검색에서 그 문서가 빠지거나 두 번 뜬다).
+        let c = db();
+        let d = tmp("atomic");
+        let f = d.join("a.md");
+        let fs = f.to_string_lossy().into_owned();
+        std::fs::write(&f, "first version").unwrap();
+        assert!(index_file(&c, &fs).unwrap());
+        let before = meta_rowid(&c, &fs).unwrap();
+
+        c.execute_batch(
+            "CREATE TEMP TRIGGER fail_meta BEFORE UPDATE ON file_meta BEGIN SELECT RAISE(ABORT, 'injected'); END;",
+        )
+        .unwrap();
+        std::fs::write(&f, "second version, longer").unwrap();
+        assert!(index_file(&c, &fs).is_err());
+
+        assert_eq!(index_rows(&c, &fs), 1, "짝 없는 새 행이 남으면 안 된다");
+        assert_eq!(meta_rowid(&c, &fs), Some(before));
+        assert_eq!(match_rows(&c, "first*", None, 10).unwrap().len(), 1, "옛 내용은 그대로 찾아져야 한다");
+        assert!(match_rows(&c, "second*", None, 10).unwrap().is_empty());
+        let snaps: i64 = c.query_row("SELECT count(*) FROM doc_snapshot", [], |r| r.get(0)).unwrap();
+        assert_eq!(snaps, 0, "되돌린 덩어리의 기록도 남지 않는다(다음 색인이 다시 뜬다)");
+
+        // 막힌 것이 풀리면 다음 색인이 정상으로 끝난다.
+        c.execute_batch("DROP TRIGGER fail_meta;").unwrap();
+        assert!(index_file(&c, &fs).unwrap());
+        assert_eq!(index_rows(&c, &fs), 1);
+        assert_eq!(match_rows(&c, "second*", None, 10).unwrap().len(), 1);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn savepoint_nests_inside_the_folder_batch() {
+        // index_folder 의 묶음 트랜잭션 안에서 부르면 그 일부가 된다 — 바깥을 되돌리면 같이 사라진다.
+        let c = db();
+        let d = tmp("nested");
+        let f = d.join("a.md");
+        let fs = f.to_string_lossy().into_owned();
+        std::fs::write(&f, "nested content").unwrap();
+        {
+            let tx = c.unchecked_transaction().unwrap();
+            assert!(index_file(&tx, &fs).unwrap());
+            assert_eq!(index_rows(&tx, &fs), 1);
+            // drop = rollback
+        }
+        assert_eq!(index_rows(&c, &fs), 0, "바깥 트랜잭션을 되돌리면 안쪽도 없어야 한다");
         let _ = std::fs::remove_dir_all(&d);
     }
 
