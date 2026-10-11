@@ -1,7 +1,11 @@
 # Microsoft Store 리스팅 (KO / EN)
 
 제품: **README.md** · 카테고리: 생산성(Productivity) · 연령: 전체 이용가(no user-generated online content).
-스토어 등록 시 각 필드에 아래 문구를 복사해 사용. 스크린샷 4장 이상 별도 첨부.
+스토어 등록 시 각 필드에 아래 문구를 복사해 사용. 스크린샷 4장 이상 별도 첨부(1.0 은 새 세트 8장 — `docs/deployment/screenshots/`).
+
+> **v1.0.0 제출용 문구(2026-10-11 초안 · U4).** 지금 Store 에 걸린 것은 v0.10.0 까지의 문구다(이 파일의 git 기록).
+> 1.0 제출 때 아래로 통째 교체한다. 기능 목록은 Store 상한(20개 · 각 200자) 안에서 **넷으로 묶어 16줄** —
+> 에이전트 → 워크스페이스 → 읽기 → 쓰기·기본. 칸에 머리글을 못 넣으므로 순서가 곧 묶음이다.
 
 ---
 
@@ -10,43 +14,40 @@
 **앱 이름:** README.md
 
 **짧은 소개 (short description):**
-가볍고 100% 오프라인인 마크다운 리더 & 에디터. 쓰는 즉시 실시간 미리보기.
+에이전트가 쓴 문서를, 사람이 읽는 자리. AI 에이전트가 쏟아내는 마크다운을 내 구조로 묶어 읽는 가볍고 100% 오프라인인 리더 & 에디터.
 
 **설명 (description):**
-README.md는 가볍고 **100% 오프라인**인 마크다운 리더 & 에디터입니다. 인터넷도, 계정도, 추적도 없이 — 당신의 글은 온전히 당신의 기기에만 머뭅니다.
+README.md는 **AI 에이전트가 쓴 문서를 사람이 읽는 자리**입니다. Claude Code 같은 에이전트가 하루에도 수십 개씩 써 내는 보고서·설계 문서·메모를 원하는 구조로 묶어 두고, 제대로 조판된 화면으로 읽습니다.
 
-왼쪽에 마크다운을 쓰면 오른쪽에 조판된 문서가 **실시간으로** 나타납니다. 코드 문법 하이라이트, 수식(KaTeX), 다이어그램(Mermaid), 각주·표·콜아웃까지 그대로 렌더링됩니다. 다 쓴 문서는 이미지·폰트를 통째로 담은 **자기완결 HTML이나 PDF로 내보내기**할 수 있습니다.
+**에이전트와 한 짝으로 움직입니다.** 에이전트를 연결하면 내 워크스페이스를 검색하고, 큰 문서는 목차를 보고 필요한 절만 골라 읽습니다. 읽기 전용이고, 내가 워크스페이스에 넣어 둔 폴더·파일만 봅니다. 내가 안 보는 사이에 누군가 만지고 간 문서는 **받은 문서함**에 모이고, 덮어쓰인 문서는 **문서 기록**에서 이전 판으로 되돌릴 수 있습니다. 에이전트를 연결하지 않아도 이 둘은 그대로 동작합니다 — 누가 고쳤든 알아채고 되돌립니다.
 
-폴더를 열어 **워크스페이스 트리**로 문서를 오가고, 탭으로 여러 파일을 동시에 편집하세요. 흩어진 문서는 **가상 폴더로 드래그해** 원하는 구조로 정리할 수 있습니다. **워크스페이스 전역 검색**과 **정규식 찾기·바꾸기**, 문서 아웃라인, 즐겨찾기로 문서가 많아도 빠르게 다룹니다. **명령 팔레트(Ctrl+Shift+P)**와 **파일 퀵오픈(Ctrl+P)**으로 손을 키보드에서 떼지 않아도 됩니다.
+**파일은 그대로, 배치는 내 마음대로.** 폴더를 가져와 가상 폴더로 다시 묶어도 원본 파일은 한 자리도 움직이지 않습니다. 폴더에 문서가 생기거나 지워지면 몇 초 안에 반영되고, 워크스페이스 전역 검색·명령 팔레트(Ctrl+Shift+P)·파일 퀵오픈(Ctrl+P)으로 문서가 많아도 빠르게 오갑니다.
 
-집중해서 읽는 **리딩 모드**, 발표용 **프레젠테이션(전체화면 슬라이드)**, 그리고 **라이트·다크·페이퍼(종이 질감)** 테마로 눈이 편한 읽기·쓰기 환경을 제공합니다.
+읽기는 **실시간 미리보기**부터 **리딩 모드(두 문서 나란히)**, **프레젠테이션**까지. 수식(KaTeX)·다이어그램(Mermaid)·코드 하이라이트·각주·표·콜아웃이 그대로 그려지고, 라이트·다크·페이퍼·한지·전자잉크 테마에 내 테마까지 더할 수 있습니다. 페르시아어·아랍어처럼 오른쪽에서 왼쪽으로 쓰는 글도 문단마다 방향을 맞춥니다. 쓰기도 충실합니다 — 서식 단축키·표 도구·자동완성·이미지 붙여넣기, 다 쓴 문서는 HTML·PDF로 내보냅니다.
 
-빠르게 켜지고, 메모리를 적게 쓰며, 군더더기가 없습니다. README·메모·문서 작성에 딱 맞는 도구입니다. 작성한 문서의 모든 권리는 당신의 것이며, 개인·상업 용도 모두 자유롭게 쓸 수 있습니다.
+**100% 오프라인.** 인터넷도, 계정도, 추적도 없습니다. 앱은 당신의 글을 어디에도 보내지 않으며, 모든 데이터는 기기 안에 머뭅니다. 단, **직접 연결한 AI 에이전트가 읽어 간 내용은 그 에이전트가 처리합니다**(많은 에이전트가 자신의 온라인 서비스로 보냅니다). 에이전트와의 연결은 같은 PC 안에서만 이루어지고, 앱은 네트워크 포트를 열지 않습니다.
+
+빠르게 켜지고 가볍습니다. 작성한 문서의 모든 권리는 당신의 것이며, 개인·상업 용도 모두 자유롭게 쓸 수 있습니다.
 
 **주요 기능 (features):**
-- 실시간 분할 미리보기 — 쓰는 즉시 조판된 문서 확인
-- 코드 문법 하이라이트 · 수식(KaTeX) · 다이어그램(Mermaid)
-- HTML · PDF 내보내기 — 이미지·폰트까지 담은 자기완결 파일
-- `.md`·`.markdown` 파일 연결 — 더블클릭으로 바로 열기
-- 가상 폴더로 흩어진 문서를 원하는 구조로 정리(드래그 배치)
-- 워크스페이스 전역 전문검색 · 전역 찾기·바꾸기(정규식) · 문서 아웃라인 · 즐겨찾기
-- 명령 팔레트(Ctrl+Shift+P) · 파일 퀵오픈(Ctrl+P) — 키보드 중심 내비게이션
-- 리딩 모드 · 프레젠테이션(전체화면 슬라이드) · 이미지 라이트박스 · 양방향 스크롤 동기화
-- 데이터 안전 — 닫기 전 저장 확인 · 세션 복원 · 자동저장(옵션)
-- 100% 오프라인 · 계정/추적 없음 · 완전한 프라이버시
-- 폴더 워크스페이스 트리 + 다중 탭 편집(순서 변경)
-- CodeMirror 6 마크다운 에디터 (서식 단축키 · 자동 목록 · 우클릭 메뉴 · 찾기/바꾸기 · 실행 취소)
-- 읽기·에디터 글꼴 선택(고급 번들 폰트) · 확대·축소
-- 테마 6종 — 라이트 · 다크 · 페이퍼 · **한지**(먹빛 글자에 주사색 강조) · **전자잉크**(무채색) · **컬러 전자잉크**(무채색 바탕에 강조만 유채색)
-- 내 테마 만들기 — 테마가 폴더 안의 파일이라 열어서 고치고, 모양(CSS)까지 더해 남과 주고받기
-- **에이전트 브리지** — AI 에이전트(Claude Code 등)가 내 워크스페이스를 검색·목차·섹션 단위로 조회(읽기 전용 · 워크스페이스 안으로 범위 제한 · 설정에서 켜고 끄기)
-- **받은 문서함** — 밖에서 바뀐 문서를 알림 종에 모아 표시(앱이 꺼져 있던 동안의 변경도)
-- **문서 기록 · 되돌리기** — 덮어쓰기 직전 내용을 남겨 이전 판으로 복원
-- 저장 · 외부 변경 자동 감지·리로드 · 최근 파일
-- 한국어 · English UI · **본문은 오른쓰기 언어(페르시아어·아랍어·히브리어)도** — 문단마다 방향 자동 판정, 코드는 항상 왼쓰기
-- 가볍고 빠른 실행, 작은 용량
+- 에이전트 브리지(MCP) — Claude Code 등 AI 에이전트가 내 워크스페이스를 검색·목차·절 단위로 읽음(읽기 전용 · 넣어 둔 폴더만 · 설정에서 연결 명령 복사)
+- 받은 문서함 — 밖에서 바뀌거나 새로 생긴 문서를 알림 종에 모아 표시(앱이 꺼져 있던 동안의 변경도)
+- 문서 기록 · 되돌리기 — 덮어쓰이기 직전 판을 남겨 언제든 되돌림(되돌린 것도 다시 되돌림)
+- 가상 폴더 — 파일은 옮기지 않고 배치만 내 구조로(드래그) · 가져온 폴더 자동 동기화
+- 워크스페이스 전역 전문검색 · 전역 찾기·바꾸기(정규식) · 문서 아웃라인 · 즐겨찾기 · 최근
+- 명령 팔레트(Ctrl+Shift+P) · 파일 퀵오픈(Ctrl+P) · 단축키 도움말(F1)
+- 실시간 분할 미리보기 · 양방향 스크롤 동기화
+- 리딩 모드(두 문서 나란히) · 프레젠테이션(전체화면 슬라이드) · 이미지 라이트박스
+- 수식(KaTeX) · 다이어그램(Mermaid) · 코드 하이라이트 · 각주·표·콜아웃
+- 테마 6종(라이트·다크·페이퍼·한지·전자잉크·컬러 전자잉크) + 파일로 내 테마·스타일 팩을 만들어 주고받기
+- 오른쪽→왼쪽 문자(페르시아어·아랍어·히브리어) — 문단마다 방향, 코드는 언제나 왼→오
+- CodeMirror 6 편집기 — 서식 단축키 · 자동 목록 · 표 도구 · 자동완성 · 이미지 붙여넣기
+- 새 문서 · 다중 탭 · 외부 변경 자동 반영 · 닫기 전 저장 확인 · 세션 복원 · 자동저장(옵션)
+- HTML(이미지·폰트까지 담은 자기완결) · PDF 내보내기 · HTML 복사
+- `.md`·`.markdown` 파일 연결 · 글꼴 선택(번들 폰트) · 확대·축소 · 한국어/영어
+- 100% 오프라인 · 계정·추적 없음 · 가볍고 빠름
 
-**검색어 (search terms, 최대 7):** 마크다운, markdown, 에디터, 미리보기, 오프라인, 노트, README
+**검색어 (최대 7):** 마크다운, markdown, 마크다운 뷰어, 에디터, 오프라인, MCP, AI 에이전트
 
 ---
 
@@ -55,43 +56,40 @@ README.md는 가볍고 **100% 오프라인**인 마크다운 리더 & 에디터�
 **App name:** README.md
 
 **Short description:**
-A lightweight, fully offline Markdown reader & editor with instant live preview.
+Where people read what agents write. A lightweight, fully offline Markdown reader & editor that gathers the documents your AI agents produce into a workspace you arrange.
 
 **Description:**
-README.md is a lightweight, **100% offline** Markdown reader and editor. No internet, no account, no tracking — your writing stays entirely on your device.
+README.md is **where people read what AI agents write**. Agents like Claude Code turn out reports, design docs and notes by the dozen every day — gather them into the structure you want and read them properly typeset.
 
-Type Markdown on the left and watch a typeset document appear on the right, **live** — with code syntax highlighting, math (KaTeX), diagrams (Mermaid), footnotes, tables, and callouts rendered as you write. When you're done, **export a self-contained HTML or PDF** with images and fonts embedded.
+**It works hand in hand with your agent.** Connect one and it can search your workspace, look at a large document's outline, and read just the section it needs. It is read-only and sees only the folders and files you put in your workspace. Documents that something touched while you were away collect in the **Inbox**, and an overwritten document can be rolled back in **Document history**. Both work without any agent connected, too — whoever changed a file, you notice and you can go back.
 
-Open a folder to browse documents in the **workspace tree**, and edit several files at once with tabs. Tidy scattered documents by **dragging them into virtual folders**. Handle large collections fast with **workspace-wide search**, **regex find & replace**, a document outline, and favorites — and stay on the keyboard with the **command palette (Ctrl+Shift+P)** and **file quick-open (Ctrl+P)**.
+**Files stay put; the layout is yours.** Import folders and regroup them with virtual folders — the original files never move. New or deleted files in a folder show up within seconds, and workspace-wide search, the command palette (Ctrl+Shift+P) and file quick-open (Ctrl+P) keep large collections fast to move through.
 
-Read distraction-free in **Reading mode**, present with **full-screen slides**, and work comfortably in **Light, Dark, and Paper** themes.
+Read with **live preview**, **Reading mode with two documents side by side**, or **full-screen presentation**. Math (KaTeX), diagrams (Mermaid), code highlighting, footnotes, tables and callouts render as written, in Light, Dark, Paper, Hanji and E-Paper themes — or one you make yourself. Right-to-left scripts such as Persian and Arabic get the right direction paragraph by paragraph. Writing is well covered too — formatting shortcuts, table tools, autocomplete and image paste — and finished documents export to HTML or PDF.
 
-It starts fast, uses little memory, and stays out of your way — perfect for READMEs, notes, and documentation. You keep all rights to what you write, for personal and commercial use alike.
+**100% offline.** No internet, no account, no tracking. The App sends your writing nowhere, and all of its data stays on your device. However, **content read by an AI agent you connect is handled by that agent** (many send it to their own online service). The connection to an agent stays on the same PC, and the App opens no network port.
+
+It starts fast and stays light. You keep all rights to what you write, for personal and commercial use alike.
 
 **Features:**
-- Live split preview — see the typeset document as you type
-- Code syntax highlighting · math (KaTeX) · diagrams (Mermaid)
-- Export to HTML · PDF — self-contained files with images & fonts embedded
-- `.md`/`.markdown` file association — open on double-click
-- Organize scattered documents into virtual folders (drag to arrange)
-- Global full-text search · find & replace across the workspace (regex) · document outline · favorites
-- Command palette (Ctrl+Shift+P) · file quick-open (Ctrl+P) — keyboard-first navigation
-- Reading mode · Presentation (full-screen slides) · image lightbox · two-way scroll sync
-- Data safety — save prompt before closing · session restore · optional autosave
-- 100% offline · no account or tracking · fully private
-- Folder workspace tree + multi-tab editing (reorderable)
-- CodeMirror 6 Markdown editor (formatting shortcuts, auto lists, right-click menu, find & replace, undo/redo)
-- Reading/editor font selection (bundled premium fonts) · zoom
-- Six themes — Light, Dark, Paper, **Hanji** (ink on Korean mulberry paper), **E-Paper** (fully achromatic) and **Color E-Paper** (achromatic page, color only on accents)
-- Make your own — themes are editable files in a folder; change colors, add shapes with CSS, and share the result as one file
-- **Agent bridge** — an AI agent (Claude Code and the like) can search, outline and read sections of your workspace (read-only · scoped to your workspace · toggled in Settings)
-- **Inbox** — documents changed outside the app collect under the toolbar bell, including changes made while the app was closed
-- **Document history · restore** — the version from just before an overwrite is kept, so you can go back
-- Save, external-change auto-reload, recent files
-- Korean · English UI · **right-to-left scripts (Persian, Arabic, Hebrew) in documents** — direction per paragraph, code always left-to-right
-- Lightweight and fast, small footprint
+- Agent bridge (MCP) — AI agents such as Claude Code can search, outline and read sections of your workspace (read-only · only what you added · copy the connect command from Settings)
+- Inbox — documents changed or created outside the App collect under the toolbar bell, including changes made while it was closed
+- Document history · restore — the version from just before an overwrite is kept so you can go back (a restore can be undone too)
+- Virtual folders — arrange documents your way without moving files (drag) · imported folders stay in sync
+- Workspace-wide full-text search · find & replace across files (regex) · outline · favorites · recent files
+- Command palette (Ctrl+Shift+P) · file quick-open (Ctrl+P) · shortcut help (F1)
+- Live split preview · two-way scroll sync
+- Reading mode (two documents side by side) · presentation (full-screen slides) · image lightbox
+- Math (KaTeX) · diagrams (Mermaid) · code highlighting · footnotes, tables, callouts
+- Six themes (Light, Dark, Paper, Hanji, E-Paper, Color E-Paper) + make your own themes and style packs as files and share them
+- Right-to-left scripts (Persian, Arabic, Hebrew) — direction per paragraph, code always left-to-right
+- CodeMirror 6 editor — formatting shortcuts · auto lists · table tools · autocomplete · image paste
+- New document · multiple tabs · auto-reload on external change · save prompt on close · session restore · optional autosave
+- Export to self-contained HTML (images and fonts embedded) · PDF · copy as HTML
+- `.md`/`.markdown` file association · font choice (bundled fonts) · zoom · Korean / English UI
+- 100% offline · no account, no tracking · lightweight and fast
 
-**Search terms (max 7):** markdown, editor, preview, offline, notes, README, md
+**Search terms (max 7):** markdown, markdown viewer, markdown editor, offline, MCP, AI agent, README
 
 ---
 
