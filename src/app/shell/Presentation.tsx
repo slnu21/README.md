@@ -2,7 +2,7 @@
 // 렌더 파이프라인은 미리보기와 동일(createMarkdown→DOMPurify→same-origin iframe). 스크립트 미주입.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { createMarkdown } from "../lib/markdown";
+import { loadMarkdown } from "../lib/markdownLazy";
 import { sanitizeHtml } from "../lib/sanitize";
 import { renderMermaid } from "../lib/mermaid";
 import { buildDoc } from "../lib/renderDoc";
@@ -53,6 +53,7 @@ export function Presentation({
     if (!iframe) return;
     let cancelled = false;
     void (async () => {
+      const { createMarkdown } = await loadMarkdown();
       const md = createMarkdown();
       const body0 = await inlineImages(sanitizeHtml(md.render(slides[cur])), dirOf(path));
       const body = await renderMermaid(body0, themeId);

@@ -4,7 +4,8 @@
 // 재렌더는 srcdoc 통째 리로드 → 직전 상단 소스 줄을 저장·복원해 스크롤 위치 유지(restoreLineRef).
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { createMarkdown, extractToc, type TocItem } from "../lib/markdown";
+import type { TocItem } from "../lib/markdown";
+import { loadMarkdown } from "../lib/markdownLazy";
 import { sanitizeHtml } from "../lib/sanitize";
 import { renderMermaid } from "../lib/mermaid";
 import { useAppStore } from "../store";
@@ -175,6 +176,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     const iframe = iframeRef.current;
     void (async () => {
       try {
+        const { createMarkdown, extractToc } = await loadMarkdown();
         const md = createMarkdown();
         onTocRef.current?.(extractToc(md, content));
         const body = await inlineImages(sanitizeHtml(md.render(content)), dirOf(pathRef.current));

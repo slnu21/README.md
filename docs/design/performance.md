@@ -89,11 +89,16 @@ cargo test --release --lib rehearse -- --ignored --nocapture
 
 ### 번들 (앱 `index.html` 이 처음 싣는 것)
 
-| 항목 | 지금 | 예산 |
-|---|---:|---:|
-| 첫 JS | 1,774 KB(gzip 585 KB) | 1,950 KB(gzip 650 KB) |
-| 첫 CSS | 38.6 KB(gzip 7.7 KB) | gzip 12 KB |
-| 자산 전체(지연 청크 포함) | 7.17 MB | — |
+| 항목 | U1 기준선 | 지금(렌더러 지연 import 후) | 예산 |
+|---|---:|---:|---:|
+| 첫 JS | 1,774 KB(gzip 585 KB) | **1,035 KB(gzip 349 KB)** | 1,150 KB(gzip 390 KB) |
+| 첫 CSS | 38.6 KB(gzip 7.7 KB) | 같음 | gzip 12 KB |
+| 자산 전체(지연 청크 포함) | 7.17 MB | 7.17 MB | — |
+
+첫 청크 구성(압축 전, `node tools/bundle-map.mjs`): 전에는 KaTeX 1,213 · highlight.js 215 · markdown-it 161 KB 가
+들어 있었다(합계 4,276 중 약 40%). 지금 상위는 react-dom 548 · @codemirror/view 439 · @codemirror/state 142 ·
+@tauri-apps/api 106 · dompurify 106 KB(합계 2,481). `lang-markdown` 이 HTML 블록용으로 HTML·JS·CSS 문법을
+정적으로 묶는 것(약 200 KB)은 패치 없이는 못 뺀다.
 
 지연 청크: 마크다운 워커 752 KB · mermaid 코어 593 KB(+ 다이어그램별) · KaTeX 261 KB.
 설치 크기(v0.10.0): NSIS 5.56 MiB · MSIX 6.61 MiB · portable zip 6.49 MiB.
@@ -145,7 +150,7 @@ cargo test --release --lib rehearse -- --ignored --nocapture
 
 | 후보 | 근거 | 크기 |
 |---|---|---|
-| 첫 번들에서 마크다운 라이브러리 빼기 | 렌더는 워커가 하는데 메인 번들도 markdown-it·KaTeX·highlight.js 를 싣는다(내보내기·데모 경로가 직접 import). 지연 import 로 첫 JS 를 크게 줄일 수 있다 — WebView2 가 뜬 뒤 셸까지 약 600 ms 의 일부 | 내보내기·프레젠테이션 경로를 건드림 → 따로 단위 |
+| ~~첫 번들에서 마크다운 라이브러리 빼기~~ | ✅ 2026-10-11 `startup-split` — 메인 스레드는 `lib/markdownLazy.ts` 로만 렌더러에 닿는다(내보내기·프레젠테이션·데모). 편집기 자동완성 목록은 `lib/fenceLangs.ts`(하이라이트 목록과 같은지 테스트). 첫 JS 1,774 → 1,035 KB. **기동 시간 효과는 잠정**: 게임 부하(CPU 70~80%) 아래 번갈아 잰 "WebView2 → 셸" 구간이 새 판 631·724 / v0.10.0 772·799 ms(약 100 ms) — 한가할 때 다시 잰다 | 끝 |
 | 첫 미리보기 | 셸 → 미리보기 약 650 ms(워커 기동 + 워커 청크 752 KB 적재 + 렌더) | 위와 함께 |
 | 1MB 미리보기 배치 | iframe 파싱·배치가 약 1.2 s. `content-visibility:auto` 가 후보지만 화면 밖 위치가 어림값이 되어 스크롤 동기화·찾기·프로브 기하가 흔들린다 | 1MB 는 드물다 — 보류 |
 | 유휴 메모리 | 246 MB 대부분이 WebView2 바탕 | 우리 쪽 여지 작음 |

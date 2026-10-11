@@ -4,6 +4,7 @@
 이 폴더는 2026-09-18 부터다 — 그 전 단위들의 기록은 `CLAUDE.md` "현재 상태"와 [CHANGELOG](../CHANGELOG.md)에 있다.
 
 ## 2026-10-11
+- [(02) [v1.0] 기동 단축 — 렌더러(markdown-it·KaTeX·hljs)를 첫 번들에서 지연 import 로 빼기 · 첫 JS 1,774→1,035KB(gzip 585→349) · 기동 효과는 잠정(측정 중 고부하) · U2 브리지 실사용 연결](2026-10-11-02-startup-split.md)
 - [(01) [v1.0 U1] 성능 예산 — 기준선·예산·재는 법(Rust perf.rs · probe:perf · perf-app) + 재 보니 5천 문서 색인 132.8초(FTS UNINDEXED O(N²)) → v4 마이그레이션·커밋 묶기·ORDER BY rank 로 6.0초 · 검색 86→8.5ms](2026-10-11-01-perf-budget.md)
 
 ## 2026-10-10

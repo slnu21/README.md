@@ -2,7 +2,7 @@
 //  · 로컬 이미지 → data URI 내장(asset URL은 CSP상 fetch 불가 → Rust로 바이트 읽음)
 //  · 선택 읽기 폰트 → data URI @font-face 내장(앱오리진 url()은 앱 밖에서 깨짐)
 //  · CSS/코드하이라이트/수식(MathML)/mermaid(SVG)는 buildDoc이 이미 인라인
-import { createMarkdown } from "../../lib/markdown";
+import { loadMarkdown } from "../../lib/markdownLazy";
 import { sanitizeHtml } from "../../lib/sanitize";
 import { renderMermaid } from "../../lib/mermaid";
 import { buildDoc } from "../../lib/renderDoc";
@@ -44,6 +44,7 @@ async function embedFontCss(readFontId: string): Promise<string> {
 
 /** 자기완결 HTML 문서 문자열 생성. extraCss=인쇄용 @page 등 추가 규칙. */
 export async function buildExportHtml(p: ExportParams, extraCss = ""): Promise<string> {
+  const { createMarkdown } = await loadMarkdown();
   const md = createMarkdown();
   const rendered = sanitizeHtml(md.render(p.content));
   const withImages = await inlineImages(rendered, dirOf(p.path));

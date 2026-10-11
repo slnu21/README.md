@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createMarkdown, extractToc, renderWithToc } from "./markdown";
+import { createMarkdown, extractToc, renderWithToc, HIGHLIGHT_LANGS } from "./markdown";
+import { FENCE_LANGS } from "./fenceLangs";
 import { bigDoc } from "../dev/perfFixture";
 
 // 워커는 renderWithToc 한 번으로 HTML 과 아웃라인을 만든다(파싱 한 번). 예전 두 호출과
@@ -29,6 +30,12 @@ const SAMPLE = [
   "",
   "[^1]: 각주 내용",
 ].join("\n");
+
+describe("FENCE_LANGS — 편집기 자동완성 목록", () => {
+  it("하이라이트되는 언어와 정확히 같다(첫 번들을 가볍게 하려고 목록을 따로 뒀으니 어긋나면 안 된다)", () => {
+    expect(FENCE_LANGS).toEqual(HIGHLIGHT_LANGS);
+  });
+});
 
 describe("renderWithToc — 한 번 파싱", () => {
   it("md.render + extractToc 와 같은 결과(각주·중복 id·컨테이너·수식 포함)", () => {

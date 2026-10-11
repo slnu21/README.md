@@ -13,7 +13,7 @@ import { editorActions } from "./actions";
 import { markdownCompletions, type CompletionSources } from "./complete";
 import { imagePaste, type SaveImage } from "./imagePaste";
 import { tablePaste } from "./tables";
-import { FENCE_LANGS } from "../../lib/markdown";
+import { FENCE_LANGS } from "../../lib/fenceLangs";
 import { textDirection, type TextDirection } from "./direction";
 
 export type { CompletionSources } from "./complete";
