@@ -31,9 +31,9 @@
     "gallery_ms": 2500
   },
   "bundle": {
-    "_": "npm run probe:perf · 앱 index.html 이 처음 싣는 JS·CSS(지연 청크 제외)",
-    "entry_js_kb": 1950,
-    "entry_js_gz_kb": 650,
+    "_": "npm run probe:perf · 앱 index.html 이 처음 싣는 JS·CSS(지연 청크 제외). 2026-10-11 렌더러를 메인에서 지연 import 로 빼며 조였다(1,774→1,035KB) — 넘으면 무엇이 첫 청크로 돌아왔는지 node tools/bundle-map.mjs 로 본다",
+    "entry_js_kb": 1150,
+    "entry_js_gz_kb": 390,
     "entry_css_gz_kb": 12
   },
   "app": {

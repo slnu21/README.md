@@ -55,7 +55,10 @@
 - 덤: 표시 펜(1.1)의 "질감 자동 끄기" 기준을 같은 장치로 잴 수 있게 된다.
 - 검증 규칙은 늘 하던 대로 — 사용자 DB·프로필은 `video/capture/userdata.ps1` 로 비켜 놓고 원복.
 
-### U2 · `bridge-dogfood` — 브리지 실사용 (1주, 다른 단위와 겹쳐 진행)
+### U2 · `bridge-dogfood` — 브리지 실사용 (1주, 다른 단위와 겹쳐 진행) — ▶ 2026-10-11 연결
+
+> Store 설치본(0.10.0 · Store 서명)을 Claude Code 사용자 범위에 등록했다: `claude mcp add -s user readme-md -- readme-md mcp`
+> → `claude mcp list` 에서 Connected. 도구는 다음 세션부터 보인다. 실사용 기록은 이 날부터 1주.
 
 **Store 설치본의 `readme-md mcp` 를 Claude Code 에 연결하고, 이 저장소 작업 자체에 쓴다.** 1.0 의 헤드라인이
 실사용 노출을 한 번도 안 거친 채 나가는 것이 가장 큰 위험이다.
