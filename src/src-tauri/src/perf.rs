@@ -370,6 +370,9 @@ fn rehearse_migration_on_a_copy() {
     );
     // 기록·받은 문서함·워크스페이스는 손대지 않는다.
     assert_eq!(count(&c, "SELECT count(*) FROM doc_snapshot"), before_snap);
+    // v5 표시 펜 — 빈 표가 생기고 외래 키가 걸린다(참조된 판은 정리가 건너뛴다).
+    assert_eq!(count(&c, "SELECT count(*) FROM annotation"), 0);
+    assert_eq!(count(&c, "SELECT count(*) FROM pragma_foreign_key_list('annotation') WHERE \"table\" = 'doc_snapshot'"), 1);
     // 검색이 여전히 된다(아무 낱말이나 — 흔한 영어 낱말로).
     let m = search::build_match("the").unwrap();
     let hits = search::match_rows(&c, &m, None, 20).unwrap();

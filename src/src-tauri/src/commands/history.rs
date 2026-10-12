@@ -83,20 +83,61 @@ pub(crate) fn capture(
 }
 
 /// 문서별 상한 + 저장소 전체 상한. 둘 다 오래된 것부터 버린다.
-fn prune(conn: &Connection, path: &str) -> Result<(), String> {
+///
+/// **표시가 가리키는 판은 안 버린다**(ADR 0003 6절 — 이 설계에서 가장 중요한 한 줄). 바쁜 문서에서
+/// 바탕 판이 조용히 지워지면 표시가 영영 제자리를 못 찾는다. 참조가 0 이 되면 다시 정리 대상이다.
+/// 외래 키라서 이 조건을 빠뜨리면 DELETE 가 통째로 실패한다(테스트가 지킨다).
+pub(crate) fn prune(conn: &Connection, path: &str) -> Result<(), String> {
     conn.execute(
         "DELETE FROM doc_snapshot WHERE real_path = ?1 AND id NOT IN
-           (SELECT id FROM doc_snapshot WHERE real_path = ?1 ORDER BY taken_at DESC LIMIT ?2)",
+           (SELECT id FROM doc_snapshot WHERE real_path = ?1 ORDER BY taken_at DESC LIMIT ?2)
+           AND id NOT IN (SELECT snapshot_id FROM annotation)",
         params![path, MAX_PER_PATH],
     )
     .map_err(|e| e.to_string())?;
     conn.execute(
         "DELETE FROM doc_snapshot WHERE id NOT IN
-           (SELECT id FROM doc_snapshot ORDER BY taken_at DESC LIMIT ?1)",
+           (SELECT id FROM doc_snapshot ORDER BY taken_at DESC LIMIT ?1)
+           AND id NOT IN (SELECT snapshot_id FROM annotation)",
         params![MAX_TOTAL],
     )
     .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// 표시를 다는 순간의 **지금 판**을 고정한다(ADR 0003 6절) — 디스크에서 바로 읽는다(색인 대상이 아닌
+/// 낱개 문서도 된다). 같은 (경로, mtime) 판이 이미 있으면 그것을 쓰고, 없으면 **합치기 창을 무시하고** 뜬다
+/// (여기서 못 뜨면 표시의 바탕이 없다). 정리는 호출부가 표시를 넣은 *뒤*에 한다 — 먼저 하면 아직 참조가
+/// 없는 새 판이 정리될 수 있다.
+pub(crate) fn pin(conn: &Connection, path: &str) -> Result<(i64, String), String> {
+    let meta = std::fs::metadata(path).map_err(|e| format!("파일을 열 수 없습니다 / Cannot open the file: {e}"))?;
+    if meta.len() as usize > MAX_CONTENT_BYTES {
+        return Err("1MB 가 넘는 문서에는 표시를 달 수 없습니다 / Documents over 1 MB cannot be annotated".into());
+    }
+    let mtime = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    let existing: Option<(i64, String)> = conn
+        .query_row(
+            "SELECT id, content FROM doc_snapshot WHERE real_path = ?1 AND mtime = ?2",
+            params![path, mtime],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+    if let Some(found) = existing {
+        return Ok(found);
+    }
+    let text = std::fs::read_to_string(path).map_err(|e| format!("파일을 읽을 수 없습니다 / Cannot read the file: {e}"))?;
+    conn.execute(
+        "INSERT INTO doc_snapshot (real_path, mtime, taken_at, content) VALUES (?1, ?2, ?3, ?4)",
+        params![path, mtime, now_ms(), text],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok((conn.last_insert_rowid(), text))
 }
 
 /// 디스크의 현재 내용을 한 판 뜬다(덮어쓰기 직전에 부른다).
