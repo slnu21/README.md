@@ -35,7 +35,15 @@
 .cv-edges { z-index: 1; }
 .cv-cards { z-index: 2; }
 .cv-labels { z-index: 3; }
-.cv-knobs { z-index: 4; }
+.cv-ink { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; z-index: 4; }
+.cv-knobs { z-index: 5; }
+.canvas-view.tool-pen, .canvas-view.tool-pen .cv-node { cursor: crosshair; }
+.canvas-view.tool-eraser, .canvas-view.tool-eraser .cv-node { cursor: cell; }
+.canvas-view.tool-pen .cv-h, .canvas-view.tool-eraser .cv-h { display: none; }
+.cv-tools, .cv-penopts { display: inline-flex; gap: 2px; margin-inline-start: 6px; align-items: center; }
+.cv-tools button[aria-pressed="true"], .cv-penopts button[aria-pressed="true"]:not(.cv-dot) { border-color: var(--accent); color: var(--accent); }
+.cv-penopts .cv-dot { width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 2px solid; margin: 0 1px; }
+.cv-penopts .cv-dot[aria-pressed="true"] { outline: 2px solid var(--fg); outline-offset: 1px; }
 .cv-edges g, .cv-knobs circle { pointer-events: auto; }
 .cv-e { fill: none; stroke-width: 2; }
 .cv-hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; }

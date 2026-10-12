@@ -30,6 +30,11 @@ import { anchor, curve, edgeSides, fitView, groupMembers, LOD_K, relink, snap10,
 import { fileCandidates, pathForNode } from "../lib/canvas/paths";
 import { loadCards, vaultRoot, type CardInfo } from "../lib/canvas/cards";
 import { isReadable } from "../lib/fileTypes";
+import { addStroke, eraseAt, smoothPath, strokeBox, strokes as inkStrokes, type InkKind, type Stroke } from "../lib/canvas/ink";
+import { filterDefs } from "../lib/annot/draw";
+import { markPalette } from "../lib/annot/palette";
+import { COLORS as PEN_COLORS, type AnnotColor } from "../lib/annot/pens";
+import { themes, defaultThemeId } from "../themes";
 import "./canvas.css";
 
 const SIDES: Side[] = ["top", "right", "bottom", "left"];
@@ -41,7 +46,11 @@ type Drag =
   | { type: "move"; sx: number; sy: number; items: { m: CanvasNode; x: number; y: number }[]; moved: boolean }
   | { type: "resize"; n: CanvasNode; sx: number; sy: number; w: number; h: number }
   | { type: "link"; from: CanvasNode; side: Side }
-  | { type: "relink"; e: CanvasEdge; end: "from" | "to"; fixed: CanvasNode; side: Side };
+  | { type: "relink"; e: CanvasEdge; end: "from" | "to"; fixed: CanvasNode; side: Side }
+  | { type: "ink"; s: Stroke }
+  | { type: "erase"; n: number };
+
+type Tool = "select" | "pen" | "eraser";
 
 type Sel = { kind: "node" | "edge"; id: string } | null;
 
@@ -78,6 +87,22 @@ export function CanvasView({ path, content, onChange, onOpenFile }: Props) {
   const [labelEdit, setLabelEdit] = useState<string | null>(null);
   const [mdHtml, setMdHtml] = useState<Map<string, string>>(new Map());
   const space = useRef(false);
+  const [tool, setTool] = useState<Tool>("select");
+  const [pen, setPen] = useState<{ kind: InkKind; color: AnnotColor }>({ kind: "pencil", color: "pink" });
+  const [live, setLive] = useState<Stroke | null>(null);
+  const texture = useAppStore((s) => s.annotTexture);
+  const themeId = useAppStore((s) => s.themeId);
+  const theme = themes[themeId] ?? themes[defaultThemeId];
+  // 펜 색은 표시 펜과 같은 것(--mark-*) — 두 기능이 한 가족으로 보이게(ADR 0004 6절). 앱 DOM 에는 이 변수가 없어 여기서 심는다.
+  const inkVars = useMemo(() => {
+    const p = markPalette(theme);
+    const v: Record<string, string> = {};
+    for (const c of PEN_COLORS) {
+      v[`--mark-${c}-ink`] = p[c].ink;
+      v[`--mark-${c}-lead`] = p[c].lead;
+    }
+    return v;
+  }, [theme]);
   canvasPerf.renders++;
 
   // ── 탭 내용 ↔ 문서 ──
@@ -187,6 +212,18 @@ export function CanvasView({ path, content, onChange, onOpenFile }: Props) {
     }
     if (e.button !== 0) return;
     const [wx, wy] = world(e.clientX, e.clientY);
+    if (tool === "pen") {
+      setDrag({ type: "ink", s: { id: newCanvasId(), kind: pen.kind, color: pen.color, points: [[wx, wy]] } });
+      cap(e);
+      return;
+    }
+    if (tool === "eraser") {
+      const n = eraseAt(docRef.current, wx, wy, 10 / view.k);
+      setDrag({ type: "erase", n });
+      if (n) setRev((r) => r + 1);
+      cap(e);
+      return;
+    }
     const knob = target.closest<SVGElement>("[data-knob]");
     if (knob) {
       // 선택한 선의 끝을 옮긴다. 반대쪽 변은 지금 자리로 고정한다(relink).
@@ -244,6 +281,19 @@ export function CanvasView({ path, content, onChange, onOpenFile }: Props) {
     const [wx, wy] = world(e.clientX, e.clientY);
     if (drag.type === "pan") {
       setView((v) => ({ ...v, x: drag.x + e.clientX - drag.cx, y: drag.y + e.clientY - drag.cy }));
+    } else if (drag.type === "ink") {
+      const pts = drag.s.points;
+      const l = pts[pts.length - 1];
+      if (Math.hypot(wx - l[0], wy - l[1]) > 1.5 / view.k) {
+        pts.push([wx, wy]);
+        setLive({ ...drag.s });
+      }
+    } else if (drag.type === "erase") {
+      const n = eraseAt(docRef.current, wx, wy, 10 / view.k);
+      if (n) {
+        drag.n += n;
+        setRev((r) => r + 1);
+      }
     } else if (drag.type === "move") {
       for (const it of drag.items) {
         it.m.x = snap10(it.x + wx - drag.sx);
@@ -270,6 +320,18 @@ export function CanvasView({ path, content, onChange, onOpenFile }: Props) {
     setTemp(null);
     setSnapAt(null);
     const [wx, wy] = world(e.clientX, e.clientY);
+    if (d.type === "ink") {
+      setLive(null);
+      if (d.s.points.length > 1) {
+        addStroke(docRef.current, d.s);
+        commit();
+      }
+      return;
+    }
+    if (d.type === "erase") {
+      if (d.n) commit();
+      return;
+    }
     if (d.type === "link") {
       const tg = snapTarget(nodes, wx, wy, d.from, 28 / view.k);
       if (tg) {
@@ -347,6 +409,7 @@ export function CanvasView({ path, content, onChange, onOpenFile }: Props) {
     } else if (e.key === "Escape") {
       setSel(null);
       setPicker(false);
+      setTool("select");
     } else if (e.key === " ") {
       space.current = true;
     }
@@ -563,6 +626,31 @@ export function CanvasView({ path, content, onChange, onOpenFile }: Props) {
     );
   };
 
+  // ── 드로잉 층 — 형광펜은 곱하기(다크는 스크린)로 카드 글자를 덮지 않게, 질감 필터는 획마다 자기 상자에 ──
+  const allInk = live ? [...inkStrokes(docRef.current), live] : inkStrokes(docRef.current);
+  const dark = theme.type === "dark";
+  const inkEls = allInk.map((s) => {
+    const marker = s.kind === "marker";
+    const fid = `ink-${s.id}`;
+    const box = strokeBox(s);
+    const style: CSSProperties = marker
+      ? { stroke: `var(--mark-${s.color}-ink)`, strokeWidth: 16, strokeOpacity: dark ? 0.55 : 0.75, mixBlendMode: dark ? "screen" : "multiply" }
+      : { stroke: `var(--mark-${s.color}-lead)`, strokeWidth: 2.4 };
+    return (
+      <g key={s.id} data-ink={s.id}>
+        {texture && <defs dangerouslySetInnerHTML={{ __html: filterDefs(fid, marker, { x: box.x, y: box.y, w: box.w, h: box.h }) }} />}
+        <path
+          d={smoothPath(s.points)}
+          fill="none"
+          strokeLinecap={marker ? "butt" : "round"}
+          strokeLinejoin="round"
+          style={style}
+          filter={texture ? `url(#annot-${marker ? "hl" : "pc"}-${fid})` : undefined}
+        />
+      </g>
+    );
+  });
+
   const ordered = paintOrder(nodes);
   const groups = ordered.filter((n) => n.type === "group");
   const others = ordered.filter((n) => n.type !== "group");
@@ -609,7 +697,7 @@ export function CanvasView({ path, content, onChange, onOpenFile }: Props) {
   return (
     <div
       ref={vpRef}
-      className={`canvas-view${drag?.type === "pan" ? " panning" : ""}${drag && (drag.type === "link" || drag.type === "relink") ? " linking" : ""}`}
+      className={`canvas-view tool-${tool}${drag?.type === "pan" ? " panning" : ""}${drag && (drag.type === "link" || drag.type === "relink") ? " linking" : ""}`}
       tabIndex={0}
       aria-label={t("canvas.title")}
       onPointerDown={onPointerDown}
@@ -621,6 +709,7 @@ export function CanvasView({ path, content, onChange, onOpenFile }: Props) {
       onKeyUp={onKeyUp}
       style={
         {
+          ...inkVars,
           "--k": view.k,
           backgroundSize: `${24 * view.k}px ${24 * view.k}px`,
           backgroundPosition: `${view.x}px ${view.y}px`,
@@ -634,6 +723,9 @@ export function CanvasView({ path, content, onChange, onOpenFile }: Props) {
         </svg>
         <div className="cv-cards">{others.map(nodeEl)}</div>
         <div className="cv-labels">{labelEls}</div>
+        <svg className="cv-ink" width="1" height="1" aria-hidden="true">
+          {inkEls}
+        </svg>
         <svg className="cv-knobs" width="1" height="1">
           {knobEls}
         </svg>
@@ -649,6 +741,33 @@ export function CanvasView({ path, content, onChange, onOpenFile }: Props) {
         <button type="button" onClick={fit}>
           {t("canvas.fit")}
         </button>
+        <span className="cv-tools" role="group" aria-label={t("canvas.tools")}>
+          {(["select", "pen", "eraser"] as const).map((tl) => (
+            <button key={tl} type="button" aria-pressed={tool === tl} onClick={() => setTool(tl)}>
+              {t(`canvas.tool.${tl}`)}
+            </button>
+          ))}
+        </span>
+        {tool === "pen" && (
+          <span className="cv-penopts" role="group" aria-label={t("canvas.tool.pen")}>
+            {(["pencil", "marker"] as const).map((k) => (
+              <button key={k} type="button" aria-pressed={pen.kind === k} onClick={() => setPen((p) => ({ ...p, kind: k }))}>
+                {t(`canvas.ink.${k}`)}
+              </button>
+            ))}
+            {PEN_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className="cv-dot"
+                aria-pressed={pen.color === c}
+                aria-label={t(`annot.color.${c}`)}
+                style={{ background: `var(--mark-${c}-ink)`, borderColor: `var(--mark-${c}-lead)` }}
+                onClick={() => setPen((p) => ({ ...p, color: c }))}
+              />
+            ))}
+          </span>
+        )}
         <span className="cv-zoom">
           {Math.round(view.k * 100)}% · {lod ? t("canvas.lodOutline") : t("canvas.lodTitle")}
         </span>
