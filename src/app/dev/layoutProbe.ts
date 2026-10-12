@@ -58,6 +58,12 @@ function checkFrameFits(paneSel: string, tag: string) {
   if (f.height < 50) {
     fail(`[fit] ${tag} ${paneSel}: iframe 높이가 ${round(f.height)}px 뿐이다(레이아웃이 무너졌다).`);
   }
+  // 넘침만 보면 **덜 채우는 것**을 못 잡는다 — 리딩 분할의 오른쪽 iframe 이 기본 높이 150px 로 남아 있었는데(1.1 촬영에서
+  // 찾음: `.split.reader-split .pane-b{display:block}` 이 `.preview{display:flex}` 를 덮었다) 이 검사들은 통과했다.
+  const under = p.bottom - f.bottom;
+  if (under > 2) {
+    fail(`[fit] ${tag} ${paneSel}: iframe 이 패널 바닥까지 안 닿는다(${round(under)}px 모자람 · 높이 ${round(f.height)}px).`);
+  }
 }
 
 /** 지금 단계의 툴바가 **실제로 요구하는 폭**. 늘어나는 칸(.spacer)은 남는 폭을 통째로

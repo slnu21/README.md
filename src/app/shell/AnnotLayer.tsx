@@ -5,7 +5,7 @@
 // getClientRects 로 줄 상자를 얻는다 — 그래서 폭·줌·글꼴·테마·분할이 바뀌어도 따라간다.
 // 사람이 만지는 것(펜 트레이·툴팁·여백 ＋·메모 레일·요약 알약)은 **부모 문서**에 있다 — iframe 은
 // 스크립트 없는 샌드박스라 그 안에 상호작용 UI 를 둘 수 없고, 메모 글을 iframe 에 넣지 않는다.
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
 import { themes, defaultThemeId } from "../themes";
@@ -28,7 +28,7 @@ import {
   type AnnotStyle,
   type Meanings,
 } from "../lib/annot/pens";
-import { makeQuote } from "../lib/annot/quote";
+import { makeQuote, plainQuote } from "../lib/annot/quote";
 import { canonicalText } from "../lib/annot/relocate";
 import { resolveAll, summarize, type Resolved } from "../lib/annot/resolve";
 import { reviewSummary } from "../lib/annot/summary";
@@ -38,6 +38,18 @@ const HOVER_MS = 450;
 /** 레일 폭 + 여유. 이보다 좁으면 펼쳐도 툴팁으로(폭을 재서 정한다). */
 const RAIL_W = 300;
 const RAIL_GAP = 20;
+const RAIL_CARD_GUESS = 120; // 재기 전 첫 배치
+const RAIL_CARD_GAP = 10;
+
+/** 알약 글 — 0 인 항목은 안 쓴다("메모 2 · 바뀜 0 · 위치 잃음 0" 은 읽을 것이 셋인데 뜻은 하나다). */
+function pillText(sum: { total: number; notes: number; changed: number; gone: number }, t: (k: string, o?: Record<string, unknown>) => string): string {
+  const parts = [
+    sum.notes ? t("annot.pillNotes", { n: sum.notes }) : "",
+    sum.changed ? t("annot.pillChanged", { n: sum.changed }) : "",
+    sum.gone ? t("annot.pillGone", { n: sum.gone }) : "",
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : t("annot.pillShort", { total: sum.total });
+}
 
 
 type Tray =
@@ -95,6 +107,9 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
   const [frame, setFrame] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const [md, setMd] = useState<{ left: number; top: number; right: number } | null>(null);
   const [geomRev, setGeomRev] = useState(0);
+  // 레일 카드의 실제 높이(그린 뒤 잰다) — 메모 길이·바뀜 상자에 따라 두세 배까지 다르다.
+  const [cardH, setCardH] = useState<ReadonlyMap<string, number>>(new Map());
+  const railRef = useRef<HTMLElement | null>(null);
 
   const canon = useMemo(() => canonicalText(content), [content]);
   const resolved = useMemo(() => resolveAll(set, content), [set, content]);
@@ -456,15 +471,15 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
           <div className="annot-diff">
             <div className="was">
               <span className="tag">{t("annot.was")}</span>
-              {r.before}
+              {plainQuote(r.before)}
             </div>
             <div className="now">
               <span className="tag">{t("annot.now")}</span>
-              {r.after}
+              {plainQuote(r.after)}
             </div>
           </div>
         ) : (
-          <p className="annot-q">“{r.state === "gone" ? r.before : r.after}”</p>
+          <p className="annot-q">“{plainQuote(r.state === "gone" ? r.before : r.after)}”</p>
         )}
         {a.note && (
           <p className="annot-note">
@@ -512,10 +527,30 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
       const want = md.top + geomRef.current.get(r.ann.id)!.lines[0].y - 8;
       const top = Math.max(want, floor);
       railCards.push({ r, top });
-      floor = top + 120;
+      floor = top + (cardH.get(r.ann.id) ?? RAIL_CARD_GUESS) + RAIL_CARD_GAP;
     }
     lostCards.push(...resolved.filter((r) => r.state === "gone"));
   }
+
+  const lastCard = railCards[railCards.length - 1];
+  const lostTop = lastCard ? lastCard.top + (cardH.get(lastCard.r.ann.id) ?? RAIL_CARD_GUESS) + RAIL_CARD_GAP * 2 : 8;
+
+  // 그린 카드의 높이를 재서 다음 배치에 쓴다. 바뀐 것이 있을 때만 상태를 올린다 — 같은 값을 다시 넣으면 끝없이 그린다.
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    let changed = false;
+    const next = new Map(cardH);
+    rail.querySelectorAll<HTMLElement>("[data-annot-card]").forEach((el) => {
+      const id = el.dataset.annotCard!;
+      const h = Math.ceil(el.offsetHeight);
+      if (next.get(id) !== h) {
+        next.set(id, h);
+        changed = true;
+      }
+    });
+    if (changed) setCardH(next);
+  });
 
   const tipR = tip ? byId.get(tip.id) : undefined;
 
@@ -524,7 +559,7 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
       {sum.total > 0 && frame && (
         <div className="annot-pillbar" style={{ left: frame.left + frame.width - 16, top: frame.top + 10 }}>
           <button type="button" className="annot-pill" aria-expanded={showRail} onClick={() => setRail(!railOn)} title={railOn ? t("annot.collapse") : t("annot.expand")}>
-            {sum.notes || sum.changed || sum.gone ? t("annot.pill", { ...sum }) : t("annot.pillShort", { ...sum })} ›
+            {pillText(sum, t)} ›
           </button>
           <button type="button" className="annot-pill" aria-expanded={legend} onClick={() => setLegend((v) => !v)}>
             {t("annot.legend")}
@@ -665,14 +700,14 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
       )}
 
       {showRail && frame && md && (
-        <aside className="annot-rail" aria-label={t("annot.list")} style={{ left: frame.left + md.right + RAIL_GAP, top: frame.top, width: RAIL_W, height: frame.height }}>
+        <aside ref={railRef} className="annot-rail" aria-label={t("annot.list")} style={{ left: frame.left + md.right + RAIL_GAP, top: frame.top, width: RAIL_W, height: frame.height }}>
           {railCards.map(({ r, top }) => (
-            <div key={r.ann.id} className={`annot-card${r.ann.resolved ? " resolved" : ""}`} style={{ top }}>
+            <div key={r.ann.id} data-annot-card={r.ann.id} className={`annot-card${r.ann.resolved ? " resolved" : ""}`} style={{ top }}>
               {card(r, { inRail: true })}
             </div>
           ))}
           {lostCards.length > 0 && (
-            <div className="annot-lost" style={{ top: (railCards[railCards.length - 1]?.top ?? 0) + 140 }}>
+            <div className="annot-lost" style={{ top: lostTop }}>
               <h4>{t("annot.lost")}</h4>
               {lostCards.map((r) => (
                 <div key={r.ann.id} className="annot-card static">

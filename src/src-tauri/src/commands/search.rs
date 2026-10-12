@@ -315,8 +315,27 @@ pub(crate) fn index_folder(conn: &Connection, root: &Path) -> Result<(u32, u32),
     // **커밋을 묶는다** — 자동 커밋이면 파일 하나에 문장 서넛 = WAL fsync 서넛이다. 다만 한 덩어리로
     // 끝까지 묶으면 그동안 포그라운드 쓰기(앱 저장의 mark_seen 등)가 busy_timeout 까지 기다리므로
     // BATCH 개마다 끊는다. 중간에 실패하면 Transaction 이 drop 되며 그 묶음만 되돌린다.
+    // **묶음은 BEGIN IMMEDIATE 다**(쓰기 잠금을 처음에 잡는다 → 기다림은 busy_timeout 이 맡는다). DEFERRED 면 파일마다
+    // "읽고 → 쓰기"에서 다른 루트의 커밋 뒤 SQLITE_BUSY_SNAPSHOT 이 즉시 나고(busy_timeout 이 안 기다린다), index_file 의
+    // 실패를 건너뛰는 탓에 **그 루트의 나머지가 조용히 빠졌다** — 부팅 재색인이 루트마다 스레드를 동시에 띄우므로, 밤사이
+    // 여러 폴더가 바뀐 아침에 받은 문서함·검색이 일부 폴더를 놓쳤다(1.0 묶음 커밋에서 들어온 회귀, 테스트 two_roots…).
     const BATCH: u32 = 200;
-    let mut tx = Some(conn.unchecked_transaction().map_err(|e| e.to_string())?);
+    conn.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
+    let r = index_folder_in_batches(conn, root, &root_s, fresh_root, BATCH);
+    match r {
+        Ok(v) => {
+            conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+            Ok(v)
+        }
+        Err(e) => {
+            let _ = conn.execute_batch("ROLLBACK");
+            Err(e)
+        }
+    }
+}
+
+/// `index_folder` 의 몸통 — 호출부가 연 IMMEDIATE 트랜잭션 안에서 돈다. BATCH 개마다 커밋하고 다시 IMMEDIATE 로 연다.
+fn index_folder_in_batches(conn: &Connection, root: &Path, root_s: &str, fresh_root: bool, batch: u32) -> Result<(u32, u32), String> {
     let mut count = 0u32;
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut stack = vec![root.to_path_buf()];
@@ -345,11 +364,8 @@ pub(crate) fn index_folder(conn: &Connection, root: &Path) -> Result<(u32, u32),
                     if fresh_root {
                         let _ = crate::commands::inbox::mark_seen(conn, &ps, None);
                     }
-                    if count.is_multiple_of(BATCH) {
-                        if let Some(t) = tx.take() {
-                            t.commit().map_err(|e| e.to_string())?;
-                        }
-                        tx = Some(conn.unchecked_transaction().map_err(|e| e.to_string())?);
+                    if count.is_multiple_of(batch) {
+                        conn.execute_batch("COMMIT; BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
                     }
                 }
                 seen.insert(norm_key(&ps));
@@ -359,14 +375,11 @@ pub(crate) fn index_folder(conn: &Connection, root: &Path) -> Result<(u32, u32),
 
     // prune — walk 에서 못 본 경로(삭제됨·확장자 변경·이제 skip 대상 폴더 아래)를 인덱스에서 뺀다.
     let mut removed = 0u32;
-    for stale in indexed_under(conn, &root_s)? {
+    for stale in indexed_under(conn, root_s)? {
         if !seen.contains(&norm_key(&stale)) {
             remove_path(conn, &stale)?;
             removed += 1;
         }
-    }
-    if let Some(t) = tx.take() {
-        t.commit().map_err(|e| e.to_string())?;
     }
     Ok((count, removed))
 }
@@ -599,6 +612,46 @@ mod tests {
         remove_path(&c, &fs).unwrap();
         assert_eq!(index_rows(&c, &fs), 0);
         assert_eq!(meta_rowid(&c, &fs), None);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn two_roots_indexed_at_once_both_land_in_full() {
+        // 부팅 재색인은 루트마다 스레드 하나(프런트가 동시에 부른다). 묶음 트랜잭션이 DEFERRED 면 파일마다 "읽고 → 쓰기"에서
+        // 남의 커밋 뒤 SQLITE_BUSY_SNAPSHOT 이 나고(busy_timeout 이 안 기다린다) 그 루트의 나머지가 **조용히** 빠졌다
+        // (1.1 촬영 준비에서 데모 6루트 중 3루트가 통째로 비었다). 진짜 파일 DB 로 — 메모리 DB 는 연결을 못 나눈다.
+        let d = tmp("two-roots");
+        let db_path = d.join("t.db");
+        {
+            let mut c = crate::db::open_at(&db_path).unwrap();
+            crate::db::migrate_for_test(&mut c).unwrap();
+        }
+        let roots: Vec<std::path::PathBuf> = (0..3).map(|i| d.join(format!("root{i}"))).collect();
+        for r in &roots {
+            std::fs::create_dir_all(r).unwrap();
+            for j in 0..250 {
+                std::fs::write(r.join(format!("doc{j}.md")), format!("# 문서 {j}\n\n본문 {j} 글자 unique{j}x\n")).unwrap();
+            }
+        }
+        let handles: Vec<_> = roots
+            .iter()
+            .cloned()
+            .map(|r| {
+                let p = db_path.clone();
+                std::thread::spawn(move || {
+                    let c = crate::db::open_at(&p).unwrap();
+                    index_folder(&c, &r)
+                })
+            })
+            .collect();
+        for h in handles {
+            let r = h.join().unwrap();
+            assert!(r.is_ok(), "루트 색인이 실패했다: {r:?}");
+        }
+        let c = crate::db::open_at(&db_path).unwrap();
+        let n: i64 = c.query_row("SELECT count(*) FROM file_meta", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 750, "동시에 색인한 세 루트의 문서가 전부 들어와야 한다");
+        drop(c);
         let _ = std::fs::remove_dir_all(&d);
     }
 

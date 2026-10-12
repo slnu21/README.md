@@ -1497,9 +1497,12 @@ body {
 .split.reader .seam-main {
   display: none;
 }
-.split.reader-split .seam-reader,
-.split.reader-split .pane-b {
+.split.reader-split .seam-reader {
   display: block;
+}
+/* pane-b 는 `.preview` 다 — block 으로 켜면 flex 기둥이 풀려 iframe 이 기본 150px 로 남는다(0.7 부터). */
+.split.reader-split .pane-b {
+  display: flex;
 }
 
 /* 패널 머리띠(분할일 때만). .preview 를 flex 열로 바꿔 iframe 이 남은 높이를 채우게 한다 —
@@ -2692,7 +2695,8 @@ body {
 }
 
 /* ── 표시 펜(ADR 0003) — 부모 문서 쪽 UI. 그리기 자체는 iframe 안 SVG 층(AnnotLayer). ── */
-.annot-root { position: fixed; inset: 0; pointer-events: none; z-index: 65; }
+/* 문서 위 층이다 — 툴바 팝오버(설정·받은 문서함 = 50)보다 아래, 그래야 열린 설정 창 위에 알약이 안 뜬다. */
+.annot-root { position: fixed; inset: 0; pointer-events: none; z-index: 45; }
 .annot-root > * { pointer-events: auto; }
 .annot-pillbar { position: fixed; transform: translateX(-100%); display: flex; gap: 6px; align-items: center; }
 .annot-pill { border: 1px solid var(--border); background: var(--bg); color: color-mix(in srgb, var(--fg) 65%, var(--bg));
@@ -2726,7 +2730,7 @@ body {
 .annot-dirty { margin: 4px 8px; font-size: 12.5px; max-width: 320px; }
 .annot-card { background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px 10px; font-size: 13px;
   box-shadow: 0 2px 8px -4px rgb(0 0 0 / 20%); }
-.annot-tip { position: fixed; width: 300px; z-index: 66; box-shadow: 0 12px 32px -10px rgb(0 0 0 / 40%); }
+.annot-tip { position: fixed; width: 300px; z-index: 46; box-shadow: 0 12px 32px -10px rgb(0 0 0 / 40%); }
 .annot-rail { position: fixed; overflow: hidden; }
 .annot-rail > .annot-card { position: absolute; left: 0; right: 0; transition: top .2s ease; }
 .annot-card.resolved { opacity: .55; }

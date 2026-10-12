@@ -3,9 +3,10 @@
 제품: **README.md** · 카테고리: 생산성(Productivity) · 연령: 전체 이용가(no user-generated online content).
 스토어 등록 시 각 필드에 아래 문구를 복사해 사용. 스크린샷 4장 이상 별도 첨부(1.0 은 새 세트 8장 — `docs/deployment/screenshots/`).
 
-> **v1.0.0 제출용 문구(2026-10-11 초안 · U4).** 지금 Store 에 걸린 것은 v0.10.0 까지의 문구다(이 파일의 git 기록).
-> 1.0 제출 때 아래로 통째 교체한다. 기능 목록은 Store 상한(20개 · 각 200자) 안에서 **넷으로 묶어 16줄** —
-> 에이전트 → 워크스페이스 → 읽기 → 쓰기·기본. 칸에 머리글을 못 넣으므로 순서가 곧 묶음이다.
+> **v1.1.0 제출용 문구(2026-10-13).** 지금 Store 에 걸린 것은 v0.10.0 까지의 문구다(이 파일의 git 기록). 1.0.0 은 GitHub 에만 나갔고
+> Store 는 **0.10.0 → 1.1.0** 으로 건너뛴다(사용자 결정 2026-10-12). 제출 때 아래로 통째 교체한다. 기능 목록은 Store 상한(20개 · 각 200자)
+> 안에서 **넷으로 묶어 18줄** — 에이전트·표시 → 워크스페이스·캔버스 → 읽기 → 쓰기·기본. 칸에 머리글을 못 넣으므로 순서가 곧 묶음이다.
+> 스크린샷은 1.1 새 세트 8장(`docs/deployment/screenshots/v110-*`).
 
 ---
 
@@ -21,7 +22,9 @@ README.md는 **AI 에이전트가 쓴 문서를 사람이 읽는 자리**입니�
 
 **에이전트와 한 짝으로 움직입니다.** 에이전트를 연결하면 내 워크스페이스를 검색하고, 큰 문서는 목차를 보고 필요한 절만 골라 읽습니다. 읽기 전용이고, 내가 워크스페이스에 넣어 둔 폴더·파일만 봅니다. 내가 안 보는 사이에 누군가 만지고 간 문서는 **받은 문서함**에 모이고, 덮어쓰인 문서는 **문서 기록**에서 이전 판으로 되돌릴 수 있습니다. 에이전트를 연결하지 않아도 이 둘은 그대로 동작합니다 — 누가 고쳤든 알아채고 되돌립니다.
 
-**파일은 그대로, 배치는 내 마음대로.** 폴더를 가져와 가상 폴더로 다시 묶어도 원본 파일은 한 자리도 움직이지 않습니다. 폴더에 문서가 생기거나 지워지면 몇 초 안에 반영되고, 워크스페이스 전역 검색·명령 팔레트(Ctrl+Shift+P)·파일 퀵오픈(Ctrl+P)으로 문서가 많아도 빠르게 오갑니다.
+**읽다가 칠한 자리가 리뷰가 됩니다.** 형광펜·밑줄·물결·취소선·동그라미와 여백의 별표·물음표로 표시하고 메모를 답니다. 표시는 창 폭·확대·테마가 바뀌어도, 에이전트가 문서를 고쳐 써도 그 글자를 따라가고, 칠한 문장이 고쳐졌으면 "바뀜"으로 이전과 지금을 보여 줍니다. 펜마다 뜻(중요·확인 필요·빼도 됨…)이 있어, 연결한 에이전트는 표시를 그대로 지시로 읽습니다.
+
+**파일은 그대로, 배치는 내 마음대로.** 폴더를 가져와 가상 폴더로 다시 묶어도 원본 파일은 한 자리도 움직이지 않습니다. 폴더에 문서가 생기거나 지워지면 몇 초 안에 반영되고, 워크스페이스 전역 검색·명령 팔레트(Ctrl+Shift+P)·파일 퀵오픈(Ctrl+P)으로 문서가 많아도 빠르게 오갑니다. **캔버스**에서는 문서 카드를 넓은 판에 늘어놓고 선으로 이어 문서들의 지도를 만듭니다 — 옵시디언과 같은 형식이라 파일을 그대로 주고받고, 카드를 더블클릭하면 그 문서로 갑니다.
 
 읽기는 **실시간 미리보기**부터 **리딩 모드(두 문서 나란히)**, **프레젠테이션**까지. 수식(KaTeX)·다이어그램(Mermaid)·코드 하이라이트·각주·표·콜아웃이 그대로 그려지고, 라이트·다크·페이퍼·한지·전자잉크 테마에 내 테마까지 더할 수 있습니다. 페르시아어·아랍어처럼 오른쪽에서 왼쪽으로 쓰는 글도 문단마다 방향을 맞춥니다. 쓰기도 충실합니다 — 서식 단축키·표 도구·자동완성·이미지 붙여넣기, 다 쓴 문서는 HTML·PDF로 내보냅니다.
 
@@ -33,7 +36,9 @@ README.md는 **AI 에이전트가 쓴 문서를 사람이 읽는 자리**입니�
 - 에이전트 브리지(MCP) — Claude Code 등 AI 에이전트가 내 워크스페이스를 검색·목차·절 단위로 읽음(읽기 전용 · 넣어 둔 폴더만 · 설정에서 연결 명령 복사)
 - 받은 문서함 — 밖에서 바뀌거나 새로 생긴 문서를 알림 종에 모아 표시(앱이 꺼져 있던 동안의 변경도)
 - 문서 기록 · 되돌리기 — 덮어쓰이기 직전 판을 남겨 언제든 되돌림(되돌린 것도 다시 되돌림)
+- 표시 펜 — 형광펜·밑줄·물결·취소선·동그라미·별표와 메모 · 문서가 바뀌어도 글자를 따라감 · 바뀐 자리 알림 · 에이전트가 뜻과 함께 읽음
 - 가상 폴더 — 파일은 옮기지 않고 배치만 내 구조로(드래그) · 가져온 폴더 자동 동기화
+- 캔버스 — 문서 카드를 판에 늘어놓고 잇는 문서 지도(옵시디언 JSON Canvas 호환) · 색연필·형광펜 드로잉
 - 워크스페이스 전역 전문검색 · 전역 찾기·바꾸기(정규식) · 문서 아웃라인 · 즐겨찾기 · 최근
 - 명령 팔레트(Ctrl+Shift+P) · 파일 퀵오픈(Ctrl+P) · 단축키 도움말(F1)
 - 실시간 분할 미리보기 · 양방향 스크롤 동기화
@@ -63,7 +68,9 @@ README.md is **where people read what AI agents write**. Agents like Claude Code
 
 **It works hand in hand with your agent.** Connect one and it can search your workspace, look at a large document's outline, and read just the section it needs. It is read-only and sees only the folders and files you put in your workspace. Documents that something touched while you were away collect in the **Inbox**, and an overwritten document can be rolled back in **Document history**. Both work without any agent connected, too — whoever changed a file, you notice and you can go back.
 
-**Files stay put; the layout is yours.** Import folders and regroup them with virtual folders — the original files never move. New or deleted files in a folder show up within seconds, and workspace-wide search, the command palette (Ctrl+Shift+P) and file quick-open (Ctrl+P) keep large collections fast to move through.
+**What you mark while reading becomes the review.** Highlight, underline, wave, strike or circle text, star a paragraph in the margin, and add notes. Marks stay on their words when the window, zoom or theme changes — and even when an agent rewrites the document — and if the marked sentence was edited, the mark shows "Changed" with before and after. Every pen has a meaning (important, needs checking, can be cut…), so a connected agent reads your marks as instructions.
+
+**Files stay put; the layout is yours.** Import folders and regroup them with virtual folders — the original files never move. New or deleted files in a folder show up within seconds, and workspace-wide search, the command palette (Ctrl+Shift+P) and file quick-open (Ctrl+P) keep large collections fast to move through. On a **canvas**, lay document cards out on a large board and connect them into a map of your documents — it uses the same format as Obsidian, and double-clicking a card takes you to the document.
 
 Read with **live preview**, **Reading mode with two documents side by side**, or **full-screen presentation**. Math (KaTeX), diagrams (Mermaid), code highlighting, footnotes, tables and callouts render as written, in Light, Dark, Paper, Hanji and E-Paper themes — or one you make yourself. Right-to-left scripts such as Persian and Arabic get the right direction paragraph by paragraph. Writing is well covered too — formatting shortcuts, table tools, autocomplete and image paste — and finished documents export to HTML or PDF.
 
@@ -75,7 +82,9 @@ It starts fast and stays light. You keep all rights to what you write, for perso
 - Agent bridge (MCP) — AI agents such as Claude Code can search, outline and read sections of your workspace (read-only · only what you added · copy the connect command from Settings)
 - Inbox — documents changed or created outside the App collect under the toolbar bell, including changes made while it was closed
 - Document history · restore — the version from just before an overwrite is kept so you can go back (a restore can be undone too)
+- Marking pens — highlighter, underline, wavy, strike, circle, star and notes · marks follow the text through edits · tells you when marked text changed · agents read them with their meaning
 - Virtual folders — arrange documents your way without moving files (drag) · imported folders stay in sync
+- Canvas — lay out and connect document cards into a map (Obsidian JSON Canvas compatible) · draw with pencil and marker
 - Workspace-wide full-text search · find & replace across files (regex) · outline · favorites · recent files
 - Command palette (Ctrl+Shift+P) · file quick-open (Ctrl+P) · shortcut help (F1)
 - Live split preview · two-way scroll sync
@@ -96,6 +105,24 @@ It starts fast and stays light. You keep all rights to what you write, for perso
 ## 업데이트 내용 (What's new)
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
+
+### v1.1.0 — ko-KR
+- **표시 펜** — 읽다가 형광펜·밑줄·물결·취소선·동그라미, 여백에 별표·물음표, 메모. 창 폭·테마가 바뀌어도, 에이전트가 문서를 고쳐 써도 그 글자를 따라가고, 칠한 문장이 고쳐지면 "바뀜"으로 알려 줍니다.
+- **에이전트가 표시를 읽습니다** — 펜마다 뜻(중요·확인 필요·빼도 됨…)이 있어 표시가 곧 지시가 됩니다. 연결하지 않았다면 [리뷰 요약 복사]로 채팅창에.
+- **캔버스** — 문서 카드를 판에 늘어놓고 잇는 문서 지도. 옵시디언과 같은 형식, 카드 더블클릭으로 문서로, 색연필·형광펜 그리기.
+- **에이전트가 문서를 그 줄로 띄웁니다** · 에이전트 검색 결과에 줄 번호.
+- **큰 워크스페이스가 빨라졌습니다** — 문서 5천 개 첫 색인 132초 → 6초, 검색 10배.
+- **고친 것** — 다른 프로그램이 문서를 고치는 동안 검색에서 잠깐 빠지던 것 · 다른 문서가 앞 문서의 스크롤 위치에서 열리던 것 · BOM 이 붙은 문서의 첫 제목이 글자로 보이던 것.
+- 개인정보 처리방침에 에이전트 연결 절 — 앱은 아무것도 보내지 않습니다.
+
+### v1.1.0 — en-US
+- **Marking pens** — highlight, underline, wave, strike or circle text, star the margin, add notes. Marks follow their words through window, theme and agent edits, and tell you when the marked text changed.
+- **Your agent reads your marks** — every pen has a meaning (important, needs checking, can be cut…), so marks become instructions. No agent connected? [Copy review summary] for any chat.
+- **Canvas** — lay out and connect document cards into a map. Same format as Obsidian; double-click a card to open it; draw with pencil and marker.
+- **Agents open documents at the line** · line numbers in agent search results.
+- **Large workspaces are faster** — first index of 5,000 documents 132 s → 6 s, search about 10× faster.
+- **Fixed** — a document briefly missing from search while another program edited it · a new document opening at the previous one's scroll height · the first heading of BOM-encoded files showing as plain text.
+- Privacy Policy: agent connection section — the app sends nothing.
 
 ### v1.0.0 — ko-KR
 - **1.0 — 에이전트가 쓴 문서를, 사람이 읽는 자리.** 0.10 에서 이어 붙인 에이전트 연결·받은 문서함·문서 기록을 실제로 써 보고, 재 보고, 고친 판입니다.
@@ -328,4 +355,5 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.8.0 업데이트 제출** — `release/v0.8.0/README_0.8.0_x64.msix`(동일 실신원 · `0.8.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.8.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.8.0** 문구 — **제출 완료(2026-08-30) · 게시 완료**(2026-09-02 확인: `Get-AppxPackage SlnU.README.md` → `0.8.0.0` · `SignatureKind=Store`). 제출 직전 직전 판(v0.7.1)이 게시 완료임을 확인해 동시 제출 충돌 없음. **GitHub 릴리스·태그 `v0.8.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.8.0>. **제출은 Partner Center 웹 — 사용자 직접.**
 - [x] **v0.9.0 업데이트 제출** — `release/v0.9.0/README_0.9.0_x64.msix`(동일 실신원 · `0.9.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.9.0 을 `.msix` 안에서 꺼내 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.9.0** 문구 — **제출 완료(2026-09-06, 사용자 직접) · 인증·게시 대기**. 직전 v0.8.0 이 게시 완료(2026-09-02 확인)라 동시 제출 충돌 없음. **GitHub 릴리스·태그 `v0.9.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.9.0> · 자산 4종(NSIS·MSIX·zip·NOTICES).
 - [x] **v0.10.0 업데이트 제출 → 게시 완료(2026-09-27 확인: `Get-AppxPackage SlnU.README.md` → `0.10.0.0` · `SignatureKind=Store`)** · **GitHub 릴리스 완료(2026-09-19)** <https://github.com/slnu21/README.md/releases/tag/v0.10.0>(`main` push + 애노테이트 태그 `v0.10.0` + 자산 4종 `state=uploaded`) · **Store 제출은 사용자 직접 — 대기.** `release/v0.10.0/README_0.10.0_x64.msix`(동일 실신원 · `0.10.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.10.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.10.0** 문구 — **산출물 준비 완료(2026-09-09) → RTL 수록으로 재빌드(2026-09-19)** — NSIS 5.56MB / MSIX 6.61MB / zip 6.49MB · 재빌드 MSIX 매니페스트 재확인(동일 실신원 · `0.10.0.0` · alias `readme-md.exe` · `<Application>` 1개 · 꺼낸 exe 0.10.0) · **릴리스 exe 실구동 통과**(CDP, 사용자 DB·프로필 비켜 놓고 원복: **RTL 픽스처를 argv 로 열어 설정 창 버튼으로 자동→오→왼→왼→오→자동 — 문서 루트 dir·문단 정렬·목록 여백·표 열 순서·편집기 줄 방향·거터 위치·영속 전부 프로브와 동일** · 툴바 3단계 1684 full / 1184 icons / 934 menu — 어느 폭에서도 겹침 0·넘침 0 · [⋯] 메뉴 9항목 · 테마 창 6카드에서 한지 적용 · 1380px 에서 한국어 full / 영어 icons · 탭 우클릭에 [문서 기록] · 미리보기 렌더·에이전트 연결 패널 정상). 직전 v0.9.0 이 **게시 완료**(2026-09-09 확인: `Get-AppxPackage SlnU.README.md` → `0.9.0.0` · `SignatureKind=Store`)라 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
-- [ ] **v1.0.0 업데이트 제출** — 리스팅 문구(이 파일 머리) · 스크린샷 새 세트 8장 · 소개 영상을 **같은 제출에서 교체**. "새로운 기능" 필드 = 위 **업데이트 내용 v1.0.0**. **GitHub 릴리스 완료(2026-10-12)** <https://github.com/slnu21/README.md/releases/tag/v1.0.0> · `release/v1.0.0/README_1.0.0_x64.msix`(실신원 · `1.0.0.0` · `<Application>` 1 · alias `readme-md.exe` · runFullTrust · 꺼낸 exe 1.0.0). **제출은 스크린샷·영상 촬영(10-18 이후) 뒤 — 사용자 직접**(roadmap-1.0.md 7절).
+- [ ] **v1.1.0 업데이트 제출** — 0.10.0 → 1.1.0(1.0.0 은 Store 에 안 낸다). 리스팅 문구(이 파일 머리 · 기능 18줄) · 스크린샷 새 세트 8장(`screenshots/v110-*` ko/en) · "새로운 기능" = 위 **업데이트 내용 v1.1.0** · `release/v1.1.0/README_1.1.0_x64.msix`(실신원). 소개 영상은 이번 제출에 안 바꿈(0.6.8 영상 그대로 — 별도 갱신). **제출은 Partner Center 웹 — 사용자 직접.**
+- [x] ~~**v1.0.0 업데이트 제출**~~ — Store 제출은 건너뜀(1.1.0 으로 한 번에) — 리스팅 문구(이 파일 머리) · 스크린샷 새 세트 8장 · 소개 영상을 **같은 제출에서 교체**. "새로운 기능" 필드 = 위 **업데이트 내용 v1.0.0**. **GitHub 릴리스 완료(2026-10-12)** <https://github.com/slnu21/README.md/releases/tag/v1.0.0> · `release/v1.0.0/README_1.0.0_x64.msix`(실신원 · `1.0.0.0` · `<Application>` 1 · alias `readme-md.exe` · runFullTrust · 꺼낸 exe 1.0.0). **제출은 스크린샷·영상 촬영(10-18 이후) 뒤 — 사용자 직접**(roadmap-1.0.md 7절).
