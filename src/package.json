@@ -13,6 +13,7 @@
     "probe:layout": "node tools/layout-probe.mjs",
     "probe:rtl": "node tools/rtl-probe.mjs",
     "probe:annot": "node tools/annot-probe.mjs",
+    "probe:canvas": "node tools/canvas-probe.mjs",
     "probe:perf": "node tools/perf-probe.mjs",
     "tauri": "tauri"
   },

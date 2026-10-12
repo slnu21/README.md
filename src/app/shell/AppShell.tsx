@@ -29,7 +29,8 @@ import { FindReplace } from "./FindReplace";
 import { ShortcutHelp } from "./ShortcutHelp";
 import { editorActions, keyHint } from "../features/editor/actions";
 import { exportHtml, exportToPdf, copyHtml, type ExportParams } from "../features/export";
-import { READABLE_RE, isReadable } from "../lib/fileTypes";
+import { READABLE_RE, isCanvas, isReadable } from "../lib/fileTypes";
+import { CanvasView } from "./CanvasView";
 import { dirOf, pickDefaultDir } from "../lib/paths";
 import { createDocAt } from "../features/workspace/newDoc";
 import { bytesToBase64 } from "../lib/bytes";
@@ -1480,7 +1481,23 @@ export function AppShell() {
             </button>
           </div>
 
-          {active ? (
+          {active && isCanvas(active.path) ? (
+            // 캔버스(ADR 0004) — 편집기·미리보기 대신. 탭 내용이 곧 JSON 이라 저장·자동저장·되돌리기가 그대로 돈다.
+            <CanvasView
+              key={active.path}
+              path={active.path}
+              content={active.content}
+              onChange={(next) => updateContent(active.path, next)}
+              onOpenFile={(abs, line) => {
+                // 이미 열린 탭이면 그 탭으로(디스크를 다시 읽지 않는다 — 저장 안 한 편집도 그대로).
+                const open = useAppStore.getState().tabs.find((tb) => tb.path.toLowerCase() === abs.toLowerCase());
+                const go = open ? Promise.resolve(useAppStore.getState().openFile(open.path, open.content)) : openLinkTarget(abs, "here");
+                void go.then(() => {
+                  if (line) useAppStore.getState().revealLine(open?.path ?? abs, line);
+                });
+              }}
+            />
+          ) : active ? (
             // DOM 순서 고정: editor · seam-main · pane-a · seam-reader · pane-b.
             // 모드별로 셋씩 display:none 하면 보이는 grid 아이템이 항상 1개 또는 3개다(lib/layout.ts).
             // 이 순서 덕분에 **주 미리보기(pane-a)가 어떤 전환에서도 언마운트되지 않아** 스크롤

@@ -1,6 +1,6 @@
 # ADR 0004 — 캔버스: JSON Canvas 위의 "문서 지도"
 
-- 상태: 채택(Accepted) — 구현 전 설계
+- 상태: 채택(Accepted) — **구현 중(1.1.0 에 수록 — 사용자 결정)**: ① 형식 ✅ · ② 화면·카드 ✅([features/canvas.md](../features/canvas.md)) · 연동 · ③ 드로잉
 - 날짜: 2026-10-10
 - 시안: [mockups/canvas.html](../../mockups/canvas.html)
 - 관련: [ADR 0003 — 표시 펜](0003-annotation-pens.md)(캔버스 펜과 경계를 나눈다)

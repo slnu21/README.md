@@ -166,6 +166,12 @@ export function createMarkdown(): MarkdownIt {
     katexOptions: { output: "mathml", throwOnError: false },
   });
 
+  // 앞 BOM 을 뗀다 — 메모장·PowerShell(UTF8) 이 붙이는 BOM 이 남으면 첫 줄이 "\uFEFF# 제목" 이라 **첫 헤딩이 글자로** 보였다
+  // (브리지 outline 은 0.10 에 고쳤는데 미리보기는 그대로였다 — 캔버스 실구동에서 찾음). BOM 은 줄바꿈이 아니라 줄 번호는 그대로다.
+  md.core.ruler.before("normalize", "strip_bom", (state) => {
+    if (state.src.charCodeAt(0) === 0xfeff) state.src = state.src.slice(1);
+  });
+
   // 소스라인 스탬프(기능 8: 스크롤 동기화) — 블록 여는 토큰에 data-line(0-based 시작줄) 부착.
   // renderToken 경로로 렌더되는 요소(heading/para/list/blockquote/table/hr…)에 나타난다.
   // DOMPurify는 data-* 를 보존(lib/sanitize.ts 에서 명시 허용).
@@ -226,4 +232,12 @@ function tocFromTokens(tokens: ReturnType<MarkdownIt["parse"]>): TocItem[] {
     toc.push({ level: Number(tok.tag.slice(1)), text: tokens[i + 1]?.content ?? "", id });
   }
   return toc;
+}
+
+/**
+ * 캔버스 text 노드용 — **남이 쓴 마크다운**이고 미리보기 iframe 이 아니라 **앱 DOM** 에 그려진다(ADR 0004 9절).
+ * 그래서 원시 HTML 을 받지 않고(`html: false` — 글자로 보인다), 플러그인도 최소로. 결과는 그래도 DOMPurify 를 거친다.
+ */
+export function createTextNodeMarkdown(): MarkdownIt {
+  return new MarkdownIt({ html: false, linkify: true, typographer: true, breaks: false });
 }

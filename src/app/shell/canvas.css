@@ -1,0 +1,125 @@
+/* ── 캔버스(ADR 0004) ──
+   **world 안에는 flex 를 쓰지 않는다** — transform:scale 된 world 안에 overflow 를 가진 flex 항목이 있으면 크롬이 노드
+   묶음을 통째로 안 그린다(시안 실측 · probe:canvas). 카드 안은 블록 배치, 자르기는 카드(absolute + overflow:hidden). */
+:root {
+  /* 프리셋 1~6(옵시디언: 빨강·주황·노랑·초록·청록·보라) — 실제 색은 앱이 정한다(명세가 비워 둠). */
+  --canvas-c1: #d9534f;
+  --canvas-c2: #e07b2a;
+  --canvas-c3: #c9a227;
+  --canvas-c4: #3f9b57;
+  --canvas-c5: #2a93a8;
+  --canvas-c6: #8a5cc2;
+  --canvas-edge: color-mix(in srgb, var(--fg) 45%, var(--bg));
+}
+.canvas-view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  outline: none;
+  cursor: default;
+  background-color: color-mix(in srgb, var(--bg) 94%, var(--fg));
+  background-image: radial-gradient(color-mix(in srgb, var(--fg) 16%, transparent) 1px, transparent 1.2px);
+  touch-action: none;
+}
+.canvas-view.panning { cursor: grabbing; }
+.canvas-view.linking { cursor: crosshair; }
+.canvas-error { padding: 24px; display: block; }
+.canvas-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+/* 층마다 z-index 를 준다 — 그래야 각 층이 쌓임 맥락이 되어 **카드 연결점(.cv-h z-index:2)이 카드 층 밖으로 못 나온다**.
+   처음엔 안 줘서 연결점이 world 맥락으로 올라가 선 끝 손잡이를 덮었다 → 손잡이를 잡으면 새 선이 생겼다(probe:canvas 가 잡음,
+   시안 ADR 5절과 같은 사고). 층 순서: 그룹 → 선 → 카드 → 라벨 → 선 끝 손잡이. */
+.cv-groups, .cv-cards, .cv-labels { position: absolute; left: 0; top: 0; }
+.cv-edges, .cv-knobs { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.cv-groups { z-index: 0; }
+.cv-edges { z-index: 1; }
+.cv-cards { z-index: 2; }
+.cv-labels { z-index: 3; }
+.cv-knobs { z-index: 4; }
+.cv-edges g, .cv-knobs circle { pointer-events: auto; }
+.cv-e { fill: none; stroke-width: 2; }
+.cv-hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; }
+.cv-edges g.sel .cv-e { stroke-width: 3.5; }
+.cv-temp { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 5; }
+.cv-knob { fill: var(--bg); stroke: var(--accent); stroke-width: 2.5; cursor: grab; }
+.cv-elabel {
+  position: absolute; transform: translate(-50%, -50%); background: var(--bg); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 1px 7px; font: 12px var(--ui-font); white-space: nowrap; cursor: pointer;
+}
+.cv-node { position: absolute; box-sizing: border-box; }
+.cv-node > .cv-card {
+  position: absolute; inset: 0; overflow: hidden; background: var(--bg); color: var(--fg);
+  border: 1.5px solid var(--border); border-radius: 10px; box-shadow: 0 2px 10px -6px rgb(0 0 0 / 30%); padding: 10px 12px;
+}
+.cv-node.colored > .cv-card { border-color: var(--nc); box-shadow: inset 0 3px 0 var(--nc), 0 2px 10px -6px rgb(0 0 0 / 30%); }
+.cv-node.sel > .cv-card { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cv-node.missing > .cv-card { border-style: dashed; opacity: 0.75; }
+.cv-group { border: 1.5px dashed color-mix(in srgb, var(--fg) 25%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--fg) 3%, transparent); }
+.cv-group.colored { border-color: var(--nc); background: color-mix(in srgb, var(--nc) 7%, transparent); }
+.cv-group.sel { outline: 2px solid var(--accent); outline-offset: 3px; }
+.cv-group > .cv-glabel { position: absolute; left: 0; top: -26px; font: 600 13px var(--ui-font); color: color-mix(in srgb, var(--fg) 70%, var(--bg)); white-space: nowrap; }
+.cv-head { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 600 14px var(--ui-font); margin-bottom: 2px; }
+.cv-ico {
+  display: inline-block; font: 600 10px var(--ui-font); color: color-mix(in srgb, var(--fg) 55%, var(--bg)); border: 1px solid var(--border);
+  border-radius: 4px; padding: 0 4px; margin-inline-end: 6px; vertical-align: 1px;
+}
+.cv-badge { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-inline-start: 6px; vertical-align: 1px; }
+.cv-path { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 11px var(--ui-font); color: color-mix(in srgb, var(--fg) 50%, var(--bg)); margin-bottom: 6px; }
+.cv-outline { list-style: none; margin: 0 0 6px; padding: 0; font: 12.5px/1.5 var(--ui-font); }
+.cv-outline li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cv-outline li.h2 { padding-inline-start: 10px; }
+.cv-outline li.h3 { padding-inline-start: 20px; color: color-mix(in srgb, var(--fg) 70%, var(--bg)); }
+.cv-excerpt, .cv-url, .cv-off, .cv-missing { margin: 0; font: 12.5px/1.5 var(--ui-font); color: color-mix(in srgb, var(--fg) 75%, var(--bg)); }
+.cv-url { word-break: break-all; }
+.cv-off { margin-top: 6px; font-size: 11px; }
+.cv-textbody { font: 13.5px/1.55 var(--ui-font); }
+.cv-textbody > :first-child { margin-top: 0; }
+.cv-textbody h1, .cv-textbody h2, .cv-textbody h3 { font-size: 1.1em; margin: 0.3em 0; }
+.cv-textbody p, .cv-textbody ul, .cv-textbody ol { margin: 0.3em 0; }
+.cv-textedit {
+  position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); resize: none; border: 0; outline: none;
+  background: transparent; color: var(--fg); font: 13px/1.5 "Cascadia Code", Consolas, monospace;
+}
+/* 멀리서(72% 밑): 제목만, 확대율에 반비례해 크게 */
+.cv-far { display: none; }
+.lod0 .cv-card > :not(.cv-far):not(.cv-textedit) { display: none; }
+.lod0 .cv-far { display: block; font: 600 min(calc(15px / var(--k)), 44px) / 1.25 var(--ui-font); overflow: hidden; }
+/* 연결점·크기 손잡이 — 올렸을 때·고를 때만 */
+.cv-h {
+  position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--bg);
+  border: 2px solid var(--accent); opacity: 0; cursor: crosshair; z-index: 2;
+}
+.cv-h.top { left: 50%; top: 0; }
+.cv-h.bottom { left: 50%; top: 100%; }
+.cv-h.left { left: 0; top: 50%; }
+.cv-h.right { left: 100%; top: 50%; }
+.cv-node:hover > .cv-h, .cv-node.sel > .cv-h, .canvas-view.linking .cv-h { opacity: 1; }
+.cv-h.snap { background: var(--accent); transform: scale(1.4); }
+.cv-rz { position: absolute; right: -4px; bottom: -4px; width: 12px; height: 12px; cursor: nwse-resize; z-index: 2; }
+/* 겉 UI(world 밖 — 확대와 무관) */
+.canvas-toolbar { position: absolute; left: 12px; top: 10px; display: flex; gap: 6px; align-items: center; z-index: 5; }
+.canvas-toolbar button, .canvas-selbar button {
+  font: 12.5px var(--ui-font); border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+  border-radius: 8px; padding: 4px 10px; cursor: pointer; white-space: nowrap;
+}
+.canvas-toolbar button:hover, .canvas-selbar button:hover { border-color: var(--accent); color: var(--accent); }
+.canvas-selbar button.danger:hover { border-color: #dc2626; color: #dc2626; }
+.cv-zoom { font: 12px var(--ui-font); color: color-mix(in srgb, var(--fg) 60%, var(--bg)); margin-inline-start: 4px; white-space: nowrap; }
+.canvas-picker {
+  position: absolute; left: 12px; top: 44px; width: 340px; max-height: 50%; overflow: auto; z-index: 6; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 10px; padding: 6px; box-shadow: 0 12px 32px -10px rgb(0 0 0 / 35%);
+}
+.canvas-picker button {
+  display: block; width: 100%; text-align: start; border: 0; background: transparent; color: var(--fg); padding: 5px 8px; border-radius: 6px;
+  font: 13px var(--ui-font); cursor: pointer;
+}
+.canvas-picker button:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.canvas-picker small { display: block; font-size: 11px; color: color-mix(in srgb, var(--fg) 50%, var(--bg)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.canvas-picker p { margin: 6px 8px; font-size: 12.5px; }
+.canvas-selbar {
+  position: absolute; transform: translate(-50%, -100%); display: flex; gap: 4px; align-items: center; z-index: 5; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 10px; padding: 4px; box-shadow: 0 8px 24px -10px rgb(0 0 0 / 35%);
+}
+.canvas-selbar .cv-dot { width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--fg) 20%, transparent); }
+.canvas-selbar .cv-dot.none { background: var(--bg) linear-gradient(135deg, transparent 45%, #dc2626 45%, #dc2626 55%, transparent 55%); }
+.cv-labelin { font: 12.5px var(--ui-font); padding: 4px 8px; border: 1px solid var(--accent); border-radius: 8px; background: var(--bg); color: var(--fg); width: 140px; }

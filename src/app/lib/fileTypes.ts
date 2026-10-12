@@ -1,7 +1,13 @@
 // 파일 종류 판별(확장자 기반) — 워크스페이스 트리 아이콘/열기 가능 여부·퀵오픈·드롭에서 공용.
 // 이 앱은 마크다운 리더/에디터라 "열 수 있는" 문서는 마크다운 계열 + 일반 텍스트로 제한.
 export const MARKDOWN_RE = /\.(md|markdown|mdx)$/i;
-export const READABLE_RE = /\.(md|markdown|mdx|txt)$/i;
+export const READABLE_RE = /\.(md|markdown|mdx|txt|canvas)$/i;
+/** JSON Canvas(옵시디언 형식) — 탭에서 편집기·미리보기 대신 캔버스로 연다(ADR 0004). */
+export const CANVAS_RE = /\.canvas$/i;
+
+export function isCanvas(name: string): boolean {
+  return CANVAS_RE.test(name);
+}
 
 export function isMarkdown(name: string): boolean {
   return MARKDOWN_RE.test(name);

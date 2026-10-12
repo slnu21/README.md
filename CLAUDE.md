@@ -26,6 +26,7 @@ npm test               # 단위 테스트(vitest, node 환경 — DOM 없음)
 npm run probe:mermaid  # mermaid 렌더 실측 검사(Edge 헤드리스). `-- --shot out.png` 로 갤러리 캡처
 npm run probe:layout   # 리딩 분할 레이아웃 실측(Edge 헤드리스, 진짜 앱 셸을 마운트)
 npm run probe:perf     # 성능 예산(프로덕션 빌드 + Edge 헤드리스 · 번들·문서 열기·타자·재렌더·갤러리)
+npm run probe:canvas   # 캔버스 — 진짜 앱 셸에서 연결·끝점 옮기기·층 순서·확대 단계·정화 + 스크린샷 픽셀로 빈 렌더 회귀
 npm run probe:annot    # 표시 펜 — 진짜 앱 셸에서 골라 달고, 폭·줌·테마·RTL·문서 수정 뒤에도 그 글자에 붙는지 기하로
 node tools/perf-app.mjs  # 릴리스 exe 기동·메모리(릴리스 때 손으로 · 실사용 데이터 비켜 놓고 원복)
 # Rust 성능(5천 문서 색인·검색·브리지): cd src-tauri; cargo test --release --lib perf::perf_ -- --ignored --nocapture
