@@ -122,6 +122,8 @@ pub fn run() {
             commands::annot::annot_list,
             commands::annot::annot_update,
             commands::annot::annot_delete,
+            commands::canvas::canvas_cards,
+            commands::canvas::canvas_vault_root,
             commands::inbox::inbox_list,
             commands::inbox::inbox_mark_seen,
             commands::inbox::inbox_mark_all_seen,

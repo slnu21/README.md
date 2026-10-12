@@ -33,7 +33,7 @@ pub struct Heading {
 }
 
 /// 펜스 여닫이 판정. 여는 펜스면 (문자, 길이)를 돌려준다.
-fn fence_marker(line: &str) -> Option<(char, usize)> {
+pub(crate) fn fence_marker(line: &str) -> Option<(char, usize)> {
     let s = line.trim_start_matches(' ');
     // 들여쓰기 4칸 이상은 코드블록 본문이지 펜스가 아니다.
     if line.len() - s.len() > 3 {
@@ -71,7 +71,7 @@ fn atx(line: &str) -> Option<(u8, String)> {
 }
 
 /// frontmatter 를 건너뛴 뒤의 시작 줄 인덱스(0-based).
-fn skip_frontmatter(lines: &[&str]) -> usize {
+pub(crate) fn skip_frontmatter(lines: &[&str]) -> usize {
     if lines.first().map(|l| l.trim_end()) != Some("---") {
         return 0;
     }

@@ -1,6 +1,7 @@
 //! Tauri 커맨드 모듈.
 pub mod agent;
 pub mod annot;
+pub mod canvas;
 pub mod export;
 pub mod fs_ops;
 pub mod history;

@@ -63,3 +63,13 @@ describe("renderWithToc — 한 번 파싱", () => {
     expect(got.toc).toEqual(extractToc(createMarkdown(), doc));
   });
 });
+
+describe("BOM", () => {
+  it("앞 BOM 이 있어도 첫 헤딩은 헤딩이고 줄 번호는 그대로", () => {
+    const md = createMarkdown();
+    const html = md.render("﻿# 계획\n\n본문\n");
+    expect(html).toMatch(/<h1[^>]*data-line="0"[^>]*>계획<\/h1>/);
+    expect(html).not.toContain("﻿");
+    expect(html).toMatch(/<p data-line="2"/);
+  });
+});
