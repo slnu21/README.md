@@ -102,6 +102,14 @@ export function AppShell() {
   const activeSidebarTab = useAppStore((s) => s.activeSidebarTab);
   const setSidebarTab = useAppStore((s) => s.setSidebarTab);
   const [historyPath, setHistoryPath] = useState<string | null>(null);
+  const [historyInitial, setHistoryInitial] = useState<number | undefined>(undefined);
+  // 표시 펜의 [그 판 보기] 같은, 창 밖에서 오는 기록 열기 요청.
+  const historyRequest = useAppStore((s) => s.historyRequest);
+  useEffect(() => {
+    if (!historyRequest) return;
+    setHistoryInitial(historyRequest.snapshotId);
+    setHistoryPath(historyRequest.path);
+  }, [historyRequest?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
   const setInbox = useAppStore((s) => s.setInbox);
   const openFile = useAppStore((s) => s.openFile);
   const setActive = useAppStore((s) => s.setActive);
@@ -534,6 +542,7 @@ export function AppShell() {
     add("new-doc", t("menu.newFile"), () => void onNewDoc());
     add("open-file", t("menu.openFile"), () => void onOpenFile());
     if (activePath) add("doc-history", t("history.title"), () => setHistoryPath(activePath));
+    if (activePath) add("annot-list", t("annot.list"), () => useAppStore.getState().setAnnotRail(!useAppStore.getState().annotRail));
     add("open-folder", t("menu.openFolder"), () => void onOpenFolder());
     add("resync", t("ws.resyncAll"), () => void useAppStore.getState().resyncWorkspace());
     add("find-replace", t("find.title"), () => setFindOpen(true));
@@ -1578,7 +1587,16 @@ export function AppShell() {
         </footer>
       </div>
       {/* 셸 밖(fragment 최상위) — position:fixed 라 프레젠테이션 오버레이 위에도 뜬다. */}
-      {historyPath && <HistoryModal path={historyPath} onClose={() => setHistoryPath(null)} />}
+      {historyPath && (
+        <HistoryModal
+          path={historyPath}
+          initialId={historyInitial}
+          onClose={() => {
+            setHistoryPath(null);
+            setHistoryInitial(undefined);
+          }}
+        />
+      )}
       <Toast />
     </>
   );

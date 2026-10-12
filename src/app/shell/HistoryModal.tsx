@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { historyList, historyGet, historyRestore, type HistoryEntry } from "../lib/tauri";
 import { useAppStore } from "../store";
 
-export function HistoryModal({ path, onClose }: { path: string; onClose: () => void }) {
+export function HistoryModal({ path, onClose, initialId }: { path: string; onClose: () => void; initialId?: number }) {
   const { t, i18n } = useTranslation();
   const showNotice = useAppStore((s) => s.showNotice);
   const openFile = useAppStore((s) => s.openFile);
@@ -24,7 +24,8 @@ export function HistoryModal({ path, onClose }: { path: string; onClose: () => v
       .then((rows) => {
         if (!alive) return;
         setEntries(rows);
-        if (rows.length > 0) setSelected(rows[0].id);
+        // 표시의 [그 판 보기]는 그 판을 골라 연다 — 목록에 없으면(정리됐다면) 최신 판.
+        if (rows.length > 0) setSelected(initialId != null && rows.some((r) => r.id === initialId) ? initialId : rows[0].id);
       })
       .catch(() => alive && setEntries([]));
     return () => {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { canonicalText, lineAt, Relocator } from "./relocate";
+
+const NL = "\n";
 
 /** 옛 글에서 `needle` 을 칠하고 새 글로 옮긴다. */
 function mark(oldText: string, newText: string, needle: string) {
@@ -78,6 +82,19 @@ describe("Relocator — 에이전트식 수정", () => {
     expect(r.state).toBe("gone");
     expect(r.start).toBe(r.end);
     expect(n.slice(r.start).startsWith("## 3")).toBe(true);
+  });
+
+  it("문단을 끼우고 바로 아래 문단을 고쳐도 — 고친 문단을 따라간다(빈 줄이 짝을 잘못 맺던 것)", () => {
+    // 줄 diff 가 두 문단 사이 빈 줄을 맞추면서 옛 문단을 *끼운* 문단과 짝지었다 — probe:annot 에서 찾음.
+    // 짧은 문단으로는 재현이 안 된다(Myers 가 다른 길을 고른다) — probe:annot 의 픽스처·수정을 그대로 쓴다.
+    const o = readFileSync(fileURLToPath(new URL("../../../../docs/samples/annot-review.md", import.meta.url).href), "utf8");
+    const n = o
+      .replace("## 무엇을 했나" + NL, "## 무엇을 했나" + NL + NL + "(에이전트가 덧붙임) 이 절은 10-12 에 다시 썼다." + NL)
+      .replace("근거가 부족하다", "근거가 충분하다")
+      .replace("- 지워진 파일은 walk 하며 본 경로 목록과 대조해 색인에서 뺀다." + NL, "");
+    expect(mark(o, n, "근거가 부족하다")).toMatchObject({ state: "changed", after: "근거가 충분하다" });
+    expect(mark(o, n, "부팅 때마다 색인 전체를")).toMatchObject({ state: "moved", after: "부팅 때마다 색인 전체를" });
+    expect(mark(o, n, "성능 문서")).toMatchObject({ state: "moved", after: "성능 문서" });
   });
 
   it("목록 항목 하나가 지워지면 다른 항목 표시는 옮겨짐", () => {

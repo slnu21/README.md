@@ -173,6 +173,8 @@ export function createMarkdown(): MarkdownIt {
     for (const token of state.tokens) {
       if (token.map && token.nesting >= 0 && token.type !== "inline") {
         token.attrSet("data-line", String(token.map[0]));
+        // 끝 줄(배타) — 표시 펜이 블록의 소스 범위를 안다(app/lib/annot/blocks.ts).
+        token.attrSet("data-line-end", String(token.map[1]));
       }
     }
   });
