@@ -97,6 +97,27 @@ CREATE TABLE file_meta (          -- 증분 재인덱싱 판단(FTS는 mtime/siz
 (rowid 로 다시는 닿을 수 없어 검색에 영영 남는다). 짝이 없는 메타(`fts_rowid IS NULL`)는 mtime 이 같아도 다시
 색인한다. 측정·근거: [performance.md](performance.md).
 
+### `annotation` (schema v5) — 표시 펜
+
+[ADR 0003](decisions/0003-annotation-pens.md). 위치는 좌표가 아니라 **스냅샷 원문의 글자 범위**다.
+
+| 컬럼 | 타입 | 뜻 |
+|---|---|---|
+| `id` | TEXT PK | 프런트가 만든 uuid(영숫자·`-`, 64자 이하) |
+| `real_path` | TEXT | 문서 경로(색인 대상이 아니어도 된다) |
+| `snapshot_id` | INTEGER **FK → doc_snapshot** | 표시의 판 — 다는 순간 고정한 지금 판 |
+| `kind` · `style` · `color` | TEXT | 열거값만(range: highlight·underline·wavy·strike·circle / point: star·question·exclaim·check / block: bar · 색 다섯) |
+| `src_start` · `src_end` | INTEGER | 그 판의 글자 범위 — **UTF-16 단위 · BOM 없음 · LF**(미리보기·편집기가 보는 글과 같은 기준) |
+| `quote` · `prefix` · `suffix` | TEXT | 렌더 인용(TextQuote) — 넣을 때 `quote` 가 범위의 글과 같아야 한다(경합 방지) |
+| `note` · `resolved` | TEXT? · INTEGER | 메모 · [해결됨] |
+
+- **고정**(`history::pin`): 같은 (경로, mtime) 판이 있으면 그것, 없으면 디스크에서 읽어 **합치기 창을 무시하고** 뜬다.
+  고정 · 검사 · 넣기 · 정리가 한 트랜잭션이다(검사가 실패하면 고정한 판도 없다).
+- **참조된 판은 정리(문서당 30 · 전체 2,000)에서 뺀다** — 바쁜 문서에서 바탕 판이 조용히 지워지면 표시가 영영 제자리를
+  못 찾는다. 참조가 0 이 되면 다시 정리 대상. **외래 키라서 참조를 모르는 옛 판(1.0)의 정리는 지우는 대신 실패한다**
+  (옛 판은 기록 실패를 조용히 넘긴다 — 판이 몇 개 더 남을 뿐이다). 판올림 리허설: 실사용 DB 사본 v3 → v5 18 ms.
+- 지금 판으로 옮기는 것은 저장하지 않는다 — 열 때마다 프런트가 diff 로 옮긴다(`app/lib/annot`).
+
 ## 갱신 규칙
 - **가져오기**: `ws_import_folder` 로 imported_folder 루트 노드 추가 → 프런트가 `search_index_folder` 로 백그라운드 인덱싱(별도 연결).
 - **파일 감시(notify)**: imported 루트를 재귀 감시. 외부 변경 시 `file_index`/`file_meta` 증분 갱신(md/markdown/mdx/txt, ≤2MB), `index-updated` + `file-changed` emit. `file_meta.mtime/size` 동일하면 skip.

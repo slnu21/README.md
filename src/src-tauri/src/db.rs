@@ -101,6 +101,32 @@ const MIGRATIONS: &[&str] = &[
       WHERE rowid NOT IN (SELECT fts_rowid FROM file_meta WHERE fts_rowid IS NOT NULL);
     CREATE UNIQUE INDEX idx_file_meta_fts ON file_meta(fts_rowid);
     "#,
+    // v5 — 표시 펜(ADR 0003). 위치는 좌표가 아니라 **스냅샷 원문의 글자 범위**(UTF-16 단위 ·
+    // BOM 없음 · LF 기준 — 미리보기·편집기가 보는 글과 같은 기준)다. 바탕 판은 doc_snapshot 을 그대로 쓴다.
+    // **참조는 외래 키다** — 참조된 판은 정리(history.rs prune)가 건너뛰고, 그걸 모르는 옛 판(1.0)이
+    // 정리하려 들면 지우는 대신 실패한다(옛 판의 기록 실패는 조용히 무시된다 — 바탕 판이 조용히 사라지는
+    // 쪽보다 낫다). 더하기만 하는 판올림이다(data-model.md 규칙).
+    r#"
+    CREATE TABLE annotation (
+      id          TEXT PRIMARY KEY,
+      real_path   TEXT NOT NULL,
+      snapshot_id INTEGER NOT NULL REFERENCES doc_snapshot(id),
+      kind        TEXT NOT NULL CHECK (kind IN ('range','point','block')),
+      style       TEXT NOT NULL,
+      color       TEXT NOT NULL,
+      src_start   INTEGER NOT NULL,
+      src_end     INTEGER NOT NULL,
+      quote       TEXT NOT NULL,
+      prefix      TEXT NOT NULL,
+      suffix      TEXT NOT NULL,
+      note        TEXT,
+      resolved    INTEGER NOT NULL DEFAULT 0,
+      created_at  INTEGER NOT NULL,
+      updated_at  INTEGER NOT NULL
+    );
+    CREATE INDEX idx_annotation_path ON annotation(real_path);
+    CREATE INDEX idx_annotation_snapshot ON annotation(snapshot_id);
+    "#,
 ];
 
 fn db_path(app: &AppHandle) -> Result<PathBuf, String> {
