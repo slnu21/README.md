@@ -1,3 +1,4 @@
+mod annot_relocate;
 mod app_paths;
 mod assets;
 mod commands;

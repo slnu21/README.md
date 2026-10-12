@@ -10,6 +10,10 @@ import { readStack, BASE_READER_PX, bundledWoff2For } from "../../lib/fonts";
 import { dirOf, inlineImages } from "../../lib/previewImages";
 import { bytesToBase64 } from "../../lib/bytes";
 import type { TextDirection } from "../../lib/bidi";
+import { annotBackend } from "../../lib/annot/api";
+import { canonicalText } from "../../lib/annot/relocate";
+import { resolveAll, type Resolved } from "../../lib/annot/resolve";
+import { EXPORT_MARK_CSS, wrapMarks, type ExportTexts } from "../../lib/annot/exportMarks";
 
 export interface ExportParams {
   content: string;
@@ -18,6 +22,18 @@ export interface ExportParams {
   fontRead: string;
   previewZoom: number;
   textDirection: TextDirection; // 화면과 같은 방향으로 내보낸다
+  /** 표시·메모 담기(기본 꺼짐 — 남에게 보내는 문서에 내 메모가 실수로 섞이면 안 된다, ADR 0003 9절). */
+  annot?: { marks: boolean; notes: boolean; texts: ExportTexts };
+}
+
+/** 이 문서의 표시를 지금 내용 기준으로(내보낼 때 한 번). 꺼져 있거나 실패하면 빈 목록. */
+export async function loadExportMarks(p: ExportParams): Promise<Resolved[]> {
+  if (!p.annot || (!p.annot.marks && !p.annot.notes)) return [];
+  try {
+    return resolveAll(await annotBackend().list(p.path), p.content);
+  } catch {
+    return [];
+  }
 }
 
 // 같은 오리진 자산을 base64로. CSP connect-src 'self' 내에서 fetch 가능(woff2는 앱 번들).
@@ -46,7 +62,12 @@ async function embedFontCss(readFontId: string): Promise<string> {
 export async function buildExportHtml(p: ExportParams, extraCss = ""): Promise<string> {
   const { createMarkdown } = await loadMarkdown();
   const md = createMarkdown();
-  const rendered = sanitizeHtml(md.render(p.content));
+  let rendered = sanitizeHtml(md.render(p.content));
+  const marks = await loadExportMarks(p);
+  if (p.annot && marks.length) {
+    rendered = wrapMarks(rendered, canonicalText(p.content), marks, { marks: p.annot.marks, notes: p.annot.notes }, p.annot.texts);
+    extraCss = EXPORT_MARK_CSS + extraCss;
+  }
   const withImages = await inlineImages(rendered, dirOf(p.path));
   const withMermaid = await renderMermaid(withImages, p.themeId);
   const fontFaceCss = await embedFontCss(p.fontRead);

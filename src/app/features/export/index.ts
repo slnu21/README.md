@@ -29,6 +29,8 @@ export async function exportHtml(params: ExportParams, baseName: string): Promis
 
 /** PDF로 내보내기(인쇄 대화상자 → 'PDF로 저장'). */
 export async function exportToPdf(params: ExportParams): Promise<void> {
+  // 표시는 HTML 과 같은 CSS 표시다. ADR 은 화면의 SVG 를 굽자고 했지만, 인쇄 문서는 숨김 iframe(0×0)이고 쪽 폭은
+  // 인쇄 대화상자에서 정해진다(A4/Letter) — 미리 잰 좌표가 인쇄 배치와 맞는다는 보장이 없다. 질감보다 자리가 먼저다.
   const html = await buildExportHtml(params, PRINT_CSS);
   printHtmlToPdf(html);
 }

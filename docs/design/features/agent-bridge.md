@@ -62,6 +62,7 @@ Application 이 그대로 단다** — 새 `<Application>` 을 만들면 시작 
 | `outline` | `path` | `{path, lines, headings[] = {level, text, line}}` | 큰 문서를 통째로 안 읽고 고르게 한다 |
 | `read_section` | `path` · `heading?` · `fromLine?` · `toLine?` | `{path, fromLine, toLine, totalLines, truncated, text}` | 섹션 단위 읽기 = 토큰 절약 |
 | `list_workspace` | 없음 | `{tree[]}` — `{id, kind, name, path?, children[], childrenFromDisk?}` | **가상 배치**는 디스크에 없다 |
+| `list_annotations` | `path` | `{path, annotations[]}` — `{kind, style, meaning, color, state, quote, was?, line?, note, resolved, version_mtime}` | 사람의 **주의가 어디 머물렀는지**는 디스크에 없다(1.1 · [표시 펜](annotations.md)) |
 | `place_doc` ⚑ | `path` · `folder?` | `{id, name, created}` | 파일을 **안 옮기고** 참조만 더한다 |
 | `open_in_app` ⚑ | `path` · `beside?` · `line?` | `{opened, beside, line}` | 사람의 **화면**에 띄운다(그 줄로) |
 
@@ -73,6 +74,10 @@ Application 이 그대로 단다** — 새 `<Application>` 을 만들면 시작 
 - **앵커 `id` 는 주지 않는다.** 미리보기 아웃라인은 markdown-it + anchor 플러그인이 만든 진짜 id 를
   쓰는데(`app/lib/markdown.ts` `extractToc`), Rust 쪽은 소스를 직접 읽는 근사 파서다. 비슷하게 만든
   슬러그는 언젠가 진짜 앵커와 어긋나 *조용히 틀린* 링크가 된다.
+- `list_annotations` 의 상태(`same`·`moved`·`changed`·`gone`)와 `line` 은 **지금 파일에 대해 다시 구한다** — 프런트 `app/lib/annot` 의 diff 를
+  Rust 로 옮긴 `annot_relocate.rs` 가 **같은 벡터 파일**(`relocate.vectors.json`)을 돈다(판정이 두 벌이면 한쪽만 샌다). `meaning` 은 사용자가
+  범례에서 바꾼 뜻(`settings.annotMeanings`), 없으면 기본 뜻 ko/en. 표가 없는 DB(1.0 이하 앱)면 빈 목록 — 브리지는 판올림을 안 한다.
+  읽기 도구라 스코프는 다른 읽기 도구와 같다. 표시를 [해결됨]으로 닫는 쓰기 도구는 없다(연다면 제어 도구처럼 기본 꺼짐).
 - `list_workspace` 는 **가져온 폴더의 하위를 안 준다**(DB 에 없다 — 렌더마다 디스크에서 파생한다).
   그래서 그 노드에 `childrenFromDisk: true` 를 달아 "빈 폴더"로 오해하지 않게 한다.
 

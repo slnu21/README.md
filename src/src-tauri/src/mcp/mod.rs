@@ -209,7 +209,7 @@ mod tests {
         // 목록은 DB 와 무관해야 한다 — 앱을 한 번도 안 켠 사용자도 연결은 성공해야 붙었는지 안다.
         let req = r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#;
         let v: Value = serde_json::from_str(&respond(&no_db(), req).unwrap()).unwrap();
-        assert_eq!(v["result"]["tools"].as_array().unwrap().len(), 6);
+        assert_eq!(v["result"]["tools"].as_array().unwrap().len(), 7);
     }
 
     #[test]

@@ -12,7 +12,8 @@ import { themes, defaultThemeId } from "../themes";
 import { settingsGetAll, settingsSet } from "../lib/tauri";
 import { annotBackend, newAnnotId, type AnnotationPatch, type AnnotationSet } from "../lib/annot/api";
 import { DocIndex } from "../lib/annot/dom";
-import { drawMark, layerInner, type LineBox } from "../lib/annot/draw";
+import { drawMark } from "../lib/annot/draw";
+import { paintMarks, type Geom } from "../lib/annot/paint";
 import { markPalette } from "../lib/annot/palette";
 import {
   BLOCK_STYLES,
@@ -30,6 +31,7 @@ import {
 import { makeQuote } from "../lib/annot/quote";
 import { canonicalText } from "../lib/annot/relocate";
 import { resolveAll, summarize, type Resolved } from "../lib/annot/resolve";
+import { reviewSummary } from "../lib/annot/summary";
 
 /** 툴팁이 뜨기까지 머무르는 시간(ADR 7절). */
 const HOVER_MS = 450;
@@ -37,10 +39,6 @@ const HOVER_MS = 450;
 const RAIL_W = 300;
 const RAIL_GAP = 20;
 
-interface Geom {
-  lines: LineBox[];
-  mx?: number;
-}
 
 type Tray =
   | { mode: "range"; x: number; y: number; start: number; end: number }
@@ -58,8 +56,15 @@ interface Props {
 
 /** 마지막 그리기 시간 — `probe:annot` 이 질감 켬/끔 비용을 잰다(앱 동작에는 안 쓴다). */
 export const annotPerf = { lastDrawMs: 0, draws: 0 };
+/** 마지막으로 만든 리뷰 요약 — 헤드리스 프로브는 클립보드를 못 읽는다. */
+export const lastSummary = { text: "" };
 
 let meaningsCache: Meanings | null = null;
+
+/** 지금 아는 펜의 뜻(사용자가 바꾼 것만) — 내보내기·요약 복사가 화면 범례와 같은 말을 쓰게. */
+export function currentMeanings(): Meanings {
+  return meaningsCache ?? {};
+}
 async function loadMeanings(): Promise<Meanings> {
   if (meaningsCache) return meaningsCache;
   try {
@@ -148,65 +153,11 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
     const mdEl = doc?.querySelector<HTMLElement>(".md");
     if (!doc || !mdEl) return;
     const t0 = performance.now();
-    const idx = new DocIndex(doc, canon);
-    indexRef.current = idx;
-    const mr = mdEl.getBoundingClientRect();
-    const base = { left: mr.left + mdEl.clientLeft, top: mr.top + mdEl.clientTop };
-    const cs = doc.defaultView?.getComputedStyle(mdEl);
-    const padL = cs ? parseFloat(cs.paddingLeft) || 0 : 0;
-    const geoms = new Map<string, Geom>();
-    const under: string[] = [];
-    const over: string[] = [];
-    const slots = new Map<number, number>();
-    for (const r of resolved) {
-      if (r.state === "gone") continue;
-      const a = r.ann;
-      let g: Geom | null = null;
-      if (a.kind === "range") {
-        const lines = idx.rangeRects(r.start, r.end, base);
-        if (lines.length) g = { lines };
-      } else {
-        const b = idx.leaves(r.start, Math.max(r.start + 1, r.end))[0] ?? null;
-        if (b) {
-          const { first, box } = idx.blockBox(b, base);
-          if (a.kind === "block") g = { lines: [box], mx: padL - 14 };
-          else {
-            const key = Math.round(first.y);
-            const k = slots.get(key) ?? 0;
-            slots.set(key, k + 1);
-            g = { lines: [first], mx: padL - 26 - k * 22 };
-          }
-        }
-      }
-      if (!g) continue;
-      geoms.set(a.id, g);
-      const d = drawMark({ id: a.id, style: a.style, color: a.color, lines: g.lines, mx: g.mx, badge: r.badge }, texture);
-      if (d.under) under.push(d.under);
-      if (d.over) over.push(d.over);
-    }
+    const { geoms, index } = paintMarks(doc, canon, resolved, texture);
+    indexRef.current = index;
     geomRef.current = geoms;
     annotPerf.lastDrawMs = performance.now() - t0;
     annotPerf.draws++;
-    const W = mdEl.clientWidth;
-    const H = mdEl.clientHeight;
-    for (const [cls, parts, isUnder] of [
-      ["annot-under", under, true],
-      ["annot-over", over, false],
-    ] as const) {
-      let svg = mdEl.querySelector<SVGSVGElement>(`:scope > svg.${cls}`);
-      if (!svg) {
-        svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.setAttribute("class", `annot-layer ${cls}`);
-        svg.setAttribute("aria-hidden", "true");
-        if (isUnder) mdEl.insertBefore(svg, mdEl.firstChild);
-        else mdEl.appendChild(svg);
-      }
-      svg.setAttribute("width", String(W));
-      svg.setAttribute("height", String(H));
-      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-      // 앱이 만든 정적 마크업(숫자·열거값·var())만 — 문서 글·메모는 안 들어간다.
-      svg.innerHTML = layerInner(parts);
-    }
     measure();
     setGeomRev((n) => n + 1);
   }, [canon, resolved, texture, measure]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -444,6 +395,24 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
     }
   }
 
+  // [리뷰 요약 복사] — 브리지 없이도 같은 리뷰 고리(칠한 문장 + 뜻 + 메모 → 채팅창).
+  async function copySummary() {
+    const md = reviewSummary(path, resolved, {
+      title: (p) => t("annot.summaryTitle", { name: p.split(/[\/]/).pop() ?? p }),
+      meaning: meaningOf,
+      state: (s) => t(`annot.state.${s}`),
+      line: (n) => t("annot.lineN", { n }),
+      goneNote: t("annot.goneNote"),
+    });
+    try {
+      await navigator.clipboard.writeText(md);
+      useAppStore.getState().showNotice(t("annot.copied"));
+    } catch (err) {
+      fail(err);
+    }
+    lastSummary.text = md;
+  }
+
   async function saveMeaning(style: AnnotStyle, text: string) {
     const next = { ...meanings, [style]: text.trim() || undefined };
     if (!text.trim()) delete next[style];
@@ -559,6 +528,9 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
           </button>
           <button type="button" className="annot-pill" aria-expanded={legend} onClick={() => setLegend((v) => !v)}>
             {t("annot.legend")}
+          </button>
+          <button type="button" className="annot-pill" onClick={() => void copySummary()} title={t("annot.copySummary")}>
+            {t("annot.copySummary")}
           </button>
           {railOn && !railFits && <span className="annot-narrow">{t("annot.narrow")}</span>}
         </div>

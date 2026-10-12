@@ -36,7 +36,7 @@ claude mcp add --scope user readme-md -- readme-md mcp
 
 - `readme-md` 는 Store 설치본이 등록하는 **짧은 실행 이름**(앱 실행 별칭)이다. GitHub 설치본처럼 별칭이 없으면 실행 파일 전체 경로를 쓴다.
 - **앱의 설정 > [에이전트 연결]** 이 지금 설치에 맞는 명령·JSON 을 그대로 복사해 주고, 마지막 연결 시각도 보여 준다.
-- 에이전트가 할 수 있는 것: 검색(`search_docs`) · 목차(`outline`) · 절 단위 읽기(`read_section`) · 워크스페이스 배치 보기(`list_workspace`).
+- 에이전트가 할 수 있는 것: 검색(`search_docs`) · 목차(`outline`) · 절 단위 읽기(`read_section`) · 워크스페이스 배치 보기(`list_workspace`) · 내가 읽으며 남긴 표시·메모와 그 뜻(`list_annotations`).
   **문서를 고치거나 지우는 도구는 없다**(에이전트는 이미 파일로 그렇게 할 수 있다).
 - **볼 수 있는 범위는 워크스페이스에 넣은 폴더·파일뿐**이다. 문서를 워크스페이스에 배치하거나 앱 창에 여는 제어 도구는 **기본으로 꺼져 있고** 설정에서 켤 때만 동작한다.
 - 연결은 같은 PC 안의 표준 입출력(stdio)뿐이고 앱은 네트워크 포트를 열지 않는다. 다만 **연결한 에이전트가 읽어 간 내용은 그 에이전트가 처리한다**(많은 에이전트가 온라인 서비스로 보낸다) — [방침 4절](docs/legal/privacy.md).
@@ -74,7 +74,7 @@ When `claude mcp list` shows `readme-md: readme-md mcp - ✔ Connected`, you're 
 
 - `readme-md` is the **short command name** (app execution alias) registered by the Store install. Installs without the alias, such as the GitHub installer, use the full path to the executable instead.
 - **Settings > [Agent bridge]** in the App copies the exact command and JSON for your install, and shows when an agent last connected.
-- What an agent can do: search (`search_docs`) · table of contents (`outline`) · read one section (`read_section`) · see the workspace layout (`list_workspace`).
+- What an agent can do: search (`search_docs`) · table of contents (`outline`) · read one section (`read_section`) · see the workspace layout (`list_workspace`) · read the marks and notes you left while reading, with what each pen means (`list_annotations`).
   **There are no tools to edit or delete documents** (an agent can already do that through files).
 - **It can only see folders and files you put in your workspace.** Control tools that place a document in the workspace or open it in the App window are **off by default** and work only after you enable them in Settings.
 - The connection is standard input/output (stdio) on the same PC; the App opens no network port. However, **what a connected agent reads is handled by that agent** (many send it to their online service) — see [Privacy Policy, section 4](docs/legal/privacy.md).
