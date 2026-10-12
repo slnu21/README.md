@@ -307,6 +307,7 @@ async function run(): Promise<ProbeResult> {
     if (star && marks().some((g) => g.getAttribute("data-id") === star.id)) fail("[수정 뒤] 지워진 목록 항목의 별표가 아직 그려져 있다.");
     lines.push(`  ${"[수정 뒤]".padEnd(22)} 바뀜 1 · 사라짐 1 · 나머지 ${survivors.length - 1}개 옮겨짐`);
     const pill = q(".annot-pill")?.textContent ?? "";
+    if (/(^|\D)0(\D|$)/.test(pill)) fail(`[수정 뒤] 요약 알약에 0 인 항목이 있다: "${pill}".`);
     if (!/1\b.*1\b/.test(pill) || !/바뀜 1|Changed 1/.test(pill) || !/잃음 1|Lost 1/.test(pill)) fail(`[수정 뒤] 요약 알약이 "${pill}" 다(바뀜 1 · 위치 잃음 1 기대).`);
 
     // 툴팁 — 바뀐 표시에 머무르면 이전 → 지금
@@ -320,12 +321,42 @@ async function run(): Promise<ProbeResult> {
       else lines.push(`  ${"[툴팁]".padEnd(22)} 450ms 뒤 이전 → 지금`);
     }
 
+    // 같은 문단의 두 표시에 긴 메모 — 레일에서 세 카드가 한 자리를 노린다(겹침 검사가 공허하지 않게).
+    for (const style of ["underline", "wavy"]) {
+      const tg = targets.find((x) => x.style === style);
+      const g = tg && marks().find((m) => m.getAttribute("data-id") === tg.id);
+      if (!g) continue;
+      const b = g.getBoundingClientRect();
+      doc()!.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0, clientX: b.left + Math.min(6, b.width / 2), clientY: b.top + b.height / 2 }));
+      await settle();
+      const input = q<HTMLInputElement>(".annot-tray .annot-memo");
+      if (!input) {
+        fail(`[레일] ${style} 표시를 눌렀는데 트레이가 안 떴다.`);
+        continue;
+      }
+      typeInto(input, "이 문장은 근거가 어디서 왔는지 다시 봐야 한다 — 측정을 한 번만 했다면 숫자를 이렇게 단정해서 쓰면 안 된다. 다음 판에서 같은 묶음으로 두 번 더 재고 표에 범위를 적자.");
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      await waitFor(() => !q(".annot-tray"), "긴 메모 저장", 60);
+    }
+    await settle();
+
     // 레일 — 넓으면 펼치고, 좁으면 툴팁으로 돌아간다
     st().setAnnotRail(true);
     await settle();
     await settle();
     const cards = document.querySelectorAll(".annot-rail .annot-card").length;
-    if (cards < 2) fail(`[레일] 펼쳤는데 카드가 ${cards}장이다(메모 1 + 바뀜(같은 것) + 사라짐 1 → 2 이상).`);
+    if (cards < 4) fail(`[레일] 펼쳤는데 카드가 ${cards}장이다(메모 3(하나는 바뀜) + 사라짐 1 → 4 이상).`);
+    // 카드끼리 겹치지 않는다 — 배치가 카드 높이를 120px 로 어림해 긴 메모·바뀜 상자가 다음 카드 밑으로 깔렸다(1.1 촬영에서 봄).
+    {
+      await sleep(400); // 카드 top 은 0.2초 전이로 움직인다 — 도착한 뒤 잰다
+      const rs = Array.from(document.querySelectorAll<HTMLElement>(".annot-rail .annot-card")).map((el) => el.getBoundingClientRect());
+      let over = 0;
+      for (let i = 0; i < rs.length; i++)
+        for (let j = i + 1; j < rs.length; j++)
+          if (rs[i].bottom > rs[j].top + 1 && rs[j].bottom > rs[i].top + 1) over++;
+      if (over) fail(`[레일] 카드 ${rs.length}장 중 ${over}쌍이 겹친다.`);
+      else lines.push(`  ${"[레일 겹침]".padEnd(22)} 카드 ${rs.length}장 겹침 0`);
+    }
     const app = q<HTMLElement>(".app");
     if (app) {
       app.style.width = "900px";

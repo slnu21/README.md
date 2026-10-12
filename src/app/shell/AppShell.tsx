@@ -991,7 +991,7 @@ export function AppShell() {
         .then((snap) => alive && setInbox(snap.items, snap.total))
         .catch(() => {});
     };
-    pull(); // 부팅 1회 — 앱이 꺼져 있는 동안 바뀐 것이 여기서 잡힌다
+    pull(); // 부팅 1회 — 직전 실행까지의 상태
     void onIndexUpdated(() => {
       setIndexNonce((n) => n + 1);
       pull();
@@ -999,9 +999,21 @@ export function AppShell() {
       if (alive) unlisten = un;
       else un();
     });
+    // **부팅 재색인이 끝날 때도 다시 당긴다.** 앱이 꺼져 있는 동안 바뀐 것은 부팅 재색인(index-done)이 잡는데, 부팅 1회
+    // pull 은 그보다 먼저 돌고 재색인은 index-updated 를 안 쏜다 — 그래서 "밤새 에이전트가 고친 문서"가 **다음 재시작에야**
+    // 종에 떴다(받은 문서함의 바로 그 장면 · 1.1 촬영 준비에서 찾음).
+    let unlistenDone: (() => void) | undefined;
+    void onIndexDone(() => {
+      setIndexNonce((n) => n + 1);
+      pull();
+    }).then((un) => {
+      if (alive) unlistenDone = un;
+      else un();
+    });
     return () => {
       alive = false;
       if (unlisten) unlisten();
+      if (unlistenDone) unlistenDone();
     };
   }, [isDemo, setInbox]);
 

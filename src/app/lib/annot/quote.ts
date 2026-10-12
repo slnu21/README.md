@@ -48,3 +48,23 @@ function commonSuffix(a: string, b: string): number {
   while (n < a.length && n < b.length && a[a.length - 1 - n] === b[b.length - 1 - n]) n++;
   return n;
 }
+
+/**
+ * 카드에 보일 글 — 소스 범위의 원문은 마크다운이라 `**`·`[글](url)`·`` ` `` 가 그대로 찍힌다(1.1 촬영에서 봄).
+ * 사람이 보는 자리만 고른다: 리뷰 요약·`list_annotations` 는 원문 그대로 둔다(에이전트는 소스를 고친다).
+ * 완전한 렌더가 아니라 흔한 인라인 표식만 걷는다 — 못 걷은 기호가 남는 것이 글자를 지우는 것보다 낫다.
+ */
+export function plainQuote(md: string): string {
+  return md
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\[[^\]]*\]/g, "$1")
+    .replace(/^[ \t]{0,3}(?:#{1,6}[ \t]+|>[ \t]?|[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|\d+[.)][ \t]+)/gm, "")
+    .replace(/(\*\*|__)(?=\S)(.+?)(?<=\S)\1/g, "$2")
+    .replace(/(~~)(?=\S)(.+?)(?<=\S)\1/g, "$2")
+    .replace(/(^|[^\w*])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![\w*])/g, "$1$2")
+    .replace(/(^|[^\w_])_(?=\S)([^_\n]+?)(?<=\S)_(?![\w_])/g, "$1$2")
+    .replace(/`+([^`]+?)`+/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}

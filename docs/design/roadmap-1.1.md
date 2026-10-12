@@ -69,7 +69,7 @@ ADR 의 "가장 어려운 곳"을 먼저 닫는다. 전부 순수 함수 + vites
 - MCP `list_annotations(path)` — `meaning`·`state`·`line` · 스코프는 `scope.rs` 공유 · 금지 이름 테스트 유지.
 - [리뷰 요약 복사] — 칠한 문장 + 뜻 + 메모를 마크다운 목록으로.
 
-### R · `release-v110` — 1.1.0 출하 (2 세션)
+### R · `release-v110` — 1.1.0 출하 (2 세션) — 배포 준비 ✅ 10-13 (04) · 촬영이 결함 다섯을 찾아 고침 · 영상은 이번 제출에서 안 바꿈 · push·태그·릴리스·Store 제출 대기(확인 게이트)
 
 - 버전 1.0.0 → 1.1.0 · CHANGELOG/릴노트(1.0 의 고친 것도 Store 사용자에겐 처음이라 What's new 에 함께) · NOTICES diff.
 - **촬영** — 스크린샷 8장 재선정(펜 한 장 이상) · 영상 비트 · 임시 식별자 `com.readme.shoot`.
