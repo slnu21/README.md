@@ -12,7 +12,8 @@ import { themes } from "../themes";
 import { memoryBackend, setAnnotBackend, annotBackend } from "../lib/annot/api";
 import { markPalette } from "../lib/annot/palette";
 import { domRange } from "../lib/annot/dom";
-import { annotPerf } from "../shell/AnnotLayer";
+import { annotPerf, lastSummary } from "../shell/AnnotLayer";
+import { buildExportHtml } from "../features/export/html";
 
 interface ProbeResult {
   ok: boolean;
@@ -161,7 +162,8 @@ async function redrawn(change: () => void, what: string) {
 
 async function run(): Promise<ProbeResult> {
   await waitFor(() => !!q(".split"), "앱 마운트");
-  const fixture = await (await fetch("/probe-fixture")).text();
+  // 앱의 readFile 처럼 줄끝을 LF 로 — git(autocrlf)이 픽스처를 CRLF 로 바꿔 두면 아래 수정(replace)이 조용히 안 먹는다.
+  const fixture = (await (await fetch("/probe-fixture")).text()).replace(/\r\n?/g, "\n");
   // 메모리 저장소 — "디스크"는 열린 탭의 내용이다(앱 저장 경로 대신).
   setAnnotBackend(memoryBackend((p) => st().tabs.find((t) => t.path === p)?.content));
   st().setTextDirection("auto");
@@ -354,12 +356,42 @@ async function run(): Promise<ProbeResult> {
     await sleep(700);
   }
 
+  // ── 공유: 리뷰 요약 · HTML 내보내기(표시·메모 포함) ──
+  {
+    const btn = Array.from(document.querySelectorAll<HTMLButtonElement>(".annot-pill")).find((b) => /요약|summary/i.test(b.textContent ?? ""));
+    btn?.click();
+    await sleep(200);
+    const md = lastSummary.text;
+    if (!btn || !md.includes("충분하다") || !md.includes("출처가 어디지?") || !/\((line )?\d+/.test(md)) fail(`[요약] 리뷰 요약이 이상하다: ${md.slice(0, 160)}`);
+    else lines.push(`  ${"[요약]".padEnd(22)} ${md.trim().split(String.fromCharCode(10)).length}줄 — 바뀜·메모·줄 번호 포함`);
+    const tab = st().tabs.find((t) => t.path === PATH)!;
+    const params = { content: tab.content, path: PATH, themeId: "paper", fontRead: "default", previewZoom: 1, textDirection: "auto" as const };
+    const texts = { notesTitle: "메모", changedNote: "원래 문장이 수정됨", meaning: (x: string) => x };
+    const plain = await buildExportHtml(params);
+    if (new DOMParser().parseFromString(plain, "text/html").querySelector(".annot-x, .annot-notes")) fail("[내보내기] 기본(꺼짐)인데 표시가 들어갔다.");
+    const html = await buildExportHtml({ ...params, annot: { marks: true, notes: true, texts } });
+    const d = new DOMParser().parseFromString(html, "text/html");
+    const spans = d.querySelectorAll(".annot-x");
+    const hl = Array.from(d.querySelectorAll(".annot-highlight")).map((x) => x.textContent).join("");
+    const notes = d.querySelector(".annot-notes");
+    if (hl !== "근거가 충분하다" && !hl.includes("근거가 충분하다")) fail(`[내보내기] 형광펜이 감싼 글이 "${hl}" 다.`);
+    if (!notes || !notes.textContent?.includes("출처가 어디지?") || !notes.textContent.includes("원래 문장이 수정됨")) fail("[내보내기] 메모 절이 없거나 바뀜 안내가 없다.");
+    if (d.querySelector(".annot-x script, .annot-notes script")) fail("[내보내기] 스크립트가 섞였다.");
+    // 감싸기만 했지 글은 그대로 — 메모 끔 판의 본문 글이 표시 없는 판과 같아야 한다.
+    const text = (h: string) => new DOMParser().parseFromString(h, "text/html").querySelector(".md")?.textContent ?? "";
+    const marksOnlyHtml = await buildExportHtml({ ...params, annot: { marks: true, notes: false, texts } });
+    if (text(marksOnlyHtml) !== text(plain)) fail("[내보내기] 표시를 감쌌더니 본문 글이 달라졌다.");
+    if (new DOMParser().parseFromString(marksOnlyHtml, "text/html").querySelector(".annot-notes")) fail("[내보내기] 메모 끔인데 메모 절이 들어갔다.");
+    lines.push(`  ${"[내보내기]".padEnd(22)} 기본 꺼짐 · 표시 span ${spans.length}개 · 메모 절 ${notes?.querySelectorAll("li").length ?? 0}건`);
+  }
+
   // ── 그리기 비용: 표시 60개 · 질감 켬/끔 ──
   {
     const be = annotBackend();
     const text = st().tabs.find((t) => t.path === PATH)!.content;
     const words = Array.from(text.matchAll(/[가-힣]{2,}/g)).slice(0, 60);
     for (const [i, m] of words.entries()) {
+      if (text.slice(m.index!, m.index! + m[0].length) !== m[0]) fail(`[비용] 낱말 위치 불일치 ${i}`);
       await be.add({ id: `perf-${i}`, path: PATH, kind: "range", style: i % 2 ? "underline" : "highlight", color: "yellow", srcStart: m.index!, srcEnd: m.index! + m[0].length, quote: m[0], prefix: "", suffix: "", note: null });
     }
     // 다시 불러오기 = 다른 문서로 갔다가 돌아오기
@@ -431,7 +463,8 @@ async function run(): Promise<ProbeResult> {
 
 async function shot() {
   await waitFor(() => !!q(".split"), "앱 마운트");
-  const fixture = await (await fetch("/probe-fixture")).text();
+  // 앱의 readFile 처럼 줄끝을 LF 로 — git(autocrlf)이 픽스처를 CRLF 로 바꿔 두면 아래 수정(replace)이 조용히 안 먹는다.
+  const fixture = (await (await fetch("/probe-fixture")).text()).replace(/\r\n?/g, "\n");
   setAnnotBackend(memoryBackend((p) => st().tabs.find((t) => t.path === p)?.content));
   st().setTheme("paper");
   st().openFile(PATH, fixture);
@@ -462,6 +495,6 @@ else
     .catch((e: unknown) =>
       fetch("/probe-result", {
         method: "POST",
-        body: JSON.stringify({ ok: false, failures: [`[harness] 프로브 자체가 던졌다: ${e instanceof Error ? e.stack : String(e)}`], lines }),
+        body: JSON.stringify({ ok: false, failures: [...failures, `[harness] 프로브 자체가 던졌다: ${e instanceof Error ? e.stack : String(e)}`], lines }),
       }),
     );

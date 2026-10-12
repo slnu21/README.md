@@ -112,6 +112,15 @@ pub fn catalog() -> Value {
             "name": "list_workspace",
             "description": "Return the workspace tree: virtual folders the user arranged by hand, file references, and imported folder roots. This layout exists only inside README.md and is not visible on disk. Children of an imported folder are NOT listed here; search under its path instead.",
             "inputSchema": { "type": "object", "properties": {} }
+        },
+        {
+            "name": "list_annotations",
+            "description": "List the marks the user left on a document while reading it in README.md: highlights, underlines, wavy lines, strike-throughs, circles, margin stars/question marks, and notes. Each mark has a `meaning` set by the user (e.g. wavy = needs checking, strike = can be cut) — treat marks as review instructions. `state` tells whether the marked text is unchanged, moved, changed since it was marked (`was` holds the old text), or gone; `line` is 1-based in the current file, ready for read_section. Resolved marks are included with resolved=true.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "path": { "type": "string", "description": "Absolute path of a document inside the workspace." } },
+                "required": ["path"]
+            }
         }
     ])
 }
@@ -123,6 +132,7 @@ pub fn call(conn: &Connection, name: &str, args: &Value) -> Result<Value, String
         "outline" => outline_tool(&scope, args),
         "read_section" => read_section(&scope, args),
         "list_workspace" => list_workspace(conn),
+        "list_annotations" => list_annotations(conn, &scope, args),
         "place_doc" | "open_in_app" if !control_enabled(conn) => Err(format!(
             "{name} 은(는) 꺼져 있습니다 — README.md 설정 > 에이전트 연결에서 [문서 배치·열기 허용]을 켜 주세요 / {name} is off — turn on [Allow placing and opening documents] in README.md Settings > Agent bridge"
         )),
@@ -192,6 +202,90 @@ fn search_docs(conn: &Connection, scope: &Scope, args: &Value) -> Result<Value, 
         return Ok(json!({ "hits": hits, "hint": no_hits_hint(conn, scope, root) }));
     }
     Ok(json!({ "hits": hits }))
+}
+
+/// 펜의 기본 뜻(사용자가 안 바꿨을 때) — 앱 범례와 같은 말, ko/en 두 벌(에이전트가 사용자 언어로 옮긴다).
+fn default_meaning(style: &str) -> &'static str {
+    match style {
+        "highlight" => "중요 / Important",
+        "underline" => "기억할 것 / Remember",
+        "wavy" => "확인 필요 / Needs checking",
+        "strike" => "빼도 됨 / Can be cut",
+        "circle" => "용어 확인 / Check the term",
+        "star" => "핵심 / Key point",
+        "question" => "질문 / Question",
+        "exclaim" => "주의 / Caution",
+        "check" => "확인함 / Verified",
+        "bar" => "이 단락 전체 / This whole paragraph",
+        _ => "",
+    }
+}
+
+/// 표시 목록(ADR 0003 8절). **이 앱만 아는 것**이다 — 사람의 주의가 어디 머물렀는지는 디스크 어디에도 없다.
+/// 상태·줄은 `annot_relocate`(프런트 `app/lib/annot` 와 같은 벡터를 도는 이식)로 지금 파일에 대해 다시 구한다.
+/// 표가 없는 DB(1.0 이하 앱이 쓰는 DB)면 빈 목록 — 브리지는 판올림을 안 한다.
+fn list_annotations(conn: &Connection, scope: &Scope, args: &Value) -> Result<Value, String> {
+    let (path, current) = read_doc(scope, args)?;
+    let has_table: bool = conn
+        .query_row("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'annotation'", [], |r| r.get::<_, i64>(0))
+        .map(|n| n > 0)
+        .unwrap_or(false);
+    if !has_table {
+        return Ok(json!({ "path": path, "annotations": [] }));
+    }
+    let custom: serde_json::Map<String, Value> = conn
+        .query_row("SELECT value FROM settings WHERE key = 'annotMeanings'", [], |r| r.get::<_, String>(0))
+        .ok()
+        .and_then(|v| serde_json::from_str::<Value>(&v).ok())
+        .and_then(|v| v.as_object().cloned())
+        .unwrap_or_default();
+    let mut stmt = conn
+        .prepare(
+            "SELECT a.kind, a.style, a.color, a.src_start, a.src_end, a.note, a.resolved, s.content, s.mtime, a.snapshot_id
+             FROM annotation a JOIN doc_snapshot s ON s.id = a.snapshot_id
+             WHERE a.real_path = ?1 ORDER BY a.snapshot_id, a.src_start",
+        )
+        .map_err(|e| e.to_string())?;
+    type Row = (String, String, String, i64, i64, Option<String>, i64, String, i64, i64);
+    let rows: Vec<Row> = stmt
+        .query_map(params![path], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::with_capacity(rows.len());
+    let mut rel: Option<(i64, crate::annot_relocate::Relocator)> = None;
+    for (kind, style, color, s, e, note, resolved, snap, mtime, snap_id) in rows {
+        if rel.as_ref().is_none_or(|(id, _)| *id != snap_id) {
+            rel = Some((snap_id, crate::annot_relocate::Relocator::new(&outline::normalize(&snap), &current)));
+        }
+        let r = rel.as_ref().unwrap().1.relocate(s.max(0) as usize, e.max(0) as usize);
+        let meaning = custom
+            .get(&style)
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+            .unwrap_or_else(|| default_meaning(&style).to_string());
+        let mut item = json!({
+            "kind": kind,
+            "style": style,
+            "meaning": meaning,
+            "color": color,
+            "state": r.state.as_str(),
+            "quote": if r.state == crate::annot_relocate::State::Gone { r.before.clone() } else { r.after.clone() },
+            "note": note,
+            "resolved": resolved != 0,
+            "version_mtime": mtime,
+        });
+        if r.state != crate::annot_relocate::State::Gone {
+            item["line"] = json!(crate::annot_relocate::line_at_u16(&current, r.start) + 1);
+        }
+        if r.state == crate::annot_relocate::State::Changed {
+            item["was"] = json!(r.before);
+        }
+        out.push(item);
+    }
+    Ok(json!({ "path": path, "annotations": out }))
 }
 
 /// 스니펫이 가리키는 첫 맞은 자리의 줄 번호(1부터). 스니펫 글은 원문을 그대로 자른 것이라 앞 문맥 +
@@ -493,7 +587,8 @@ mod tests {
                 "read_section",
                 "place_doc",
                 "open_in_app",
-                "list_workspace"
+                "list_workspace",
+                "list_annotations"
             ]
         );
         let text = cat.to_string();
@@ -562,6 +657,76 @@ mod tests {
         assert_eq!(hits(Some("C:/repo/docs/blog/")).unwrap().len(), 1);
         assert_eq!(hits(None).unwrap().len(), 1);
         assert!(hits(Some(r"C:\elsewhere")).unwrap_err().contains("place_doc"), "스코프와 안 겹치는 범위는 여전히 거부");
+    }
+
+    #[test]
+    fn list_annotations_reports_meaning_state_and_line() {
+        let dir = std::env::temp_dir().join(format!("mcp-annot-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let doc = dir.join("r.md");
+        let v1 = "# 보고\r\n\r\n근거가 부족하다.\r\n\r\n이 문장은 지워질 것.\r\n\r\n결론.\r\n";
+        std::fs::write(&doc, v1).unwrap();
+        let p = doc.to_string_lossy().into_owned();
+        let mut c = Connection::open_in_memory().unwrap();
+        c.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        crate::db::migrate_for_test(&mut c).unwrap();
+        insert_node(&c, "r1", &None, "imported_folder", "d", &Some(dir.to_string_lossy().into_owned())).unwrap();
+        let canon = v1.replace("\r\n", "\n");
+        let mk = |id: &str, needle: &str, style: &str, note: Option<&str>| {
+            let b = canon.find(needle).unwrap();
+            let s = canon[..b].encode_utf16().count() as i64;
+            crate::commands::annot::add(
+                &c,
+                &crate::commands::annot::NewAnnotation {
+                    id: id.into(),
+                    path: p.clone(),
+                    kind: "range".into(),
+                    style: style.into(),
+                    color: "yellow".into(),
+                    src_start: s,
+                    src_end: s + needle.encode_utf16().count() as i64,
+                    quote: needle.into(),
+                    prefix: String::new(),
+                    suffix: String::new(),
+                    note: note.map(str::to_string),
+                },
+            )
+            .unwrap();
+        };
+        mk("a", "근거가 부족하다", "wavy", Some("출처?"));
+        mk("b", "이 문장은 지워질 것", "strike", None);
+        mk("c", "결론", "highlight", None);
+        c.execute("INSERT INTO settings (key, value) VALUES ('annotMeanings', '{\"highlight\":\"꼭 읽을 것\"}')", []).unwrap();
+        // 에이전트가 고쳐 쓴다(LF 로).
+        std::fs::write(&doc, "# 보고\n\n근거가 충분하다.\n\n결론.\n").unwrap();
+
+        let scope = Scope::load(&c).unwrap();
+        let v = list_annotations(&c, &scope, &json!({ "path": p })).unwrap();
+        let a = v["annotations"].as_array().unwrap();
+        assert_eq!(a.len(), 3);
+        let by = |style: &str| a.iter().find(|x| x["style"] == style).unwrap().clone();
+        let wavy = by("wavy");
+        assert_eq!(wavy["state"], "changed");
+        assert_eq!(wavy["quote"], "근거가 충분하다");
+        assert_eq!(wavy["was"], "근거가 부족하다");
+        assert_eq!(wavy["line"], 3);
+        assert_eq!(wavy["note"], "출처?");
+        assert_eq!(wavy["meaning"], "확인 필요 / Needs checking");
+        let strike = by("strike");
+        assert_eq!(strike["state"], "gone");
+        assert!(strike.get("line").is_none(), "사라진 표시는 줄이 없다");
+        let hl = by("highlight");
+        assert_eq!((hl["state"].as_str(), hl["line"].as_i64(), hl["meaning"].as_str()), (Some("moved"), Some(5), Some("꼭 읽을 것")));
+
+        // 스코프 밖은 거부 — 다른 읽기 도구와 같은 판정.
+        assert!(list_annotations(&c, &scope, &json!({ "path": r"C:\elsewhere\x.md" })).unwrap_err().contains("place_doc"));
+        // 표가 없는 DB(1.0 이하 앱이 쓰는 DB) — 빈 목록.
+        let mut old = Connection::open_in_memory().unwrap();
+        crate::db::migrate_to_for_test(&mut old, 4).unwrap();
+        insert_node(&old, "r1", &None, "imported_folder", "d", &Some(dir.to_string_lossy().into_owned())).unwrap();
+        let v = list_annotations(&old, &Scope::load(&old).unwrap(), &json!({ "path": p })).unwrap();
+        assert_eq!(v["annotations"], json!([]));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

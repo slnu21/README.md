@@ -23,6 +23,7 @@
 - **워크스페이스 배치** — 사용자가 가져온 폴더와 직접 만든 가상 폴더의 구성.
 - **검색 색인** — 워크스페이스에 가져온 폴더 안 문서의 **본문 사본**. 전역 검색을 위해 로컬 SQLite 에 둡니다.
 - **문서 기록** — 문서가 바뀌거나 지워지기 직전의 **본문 사본**(되돌리기용). 문서마다·전체 개수에 상한이 있고 오래된 것부터 지워집니다.
+- **표시·메모** — 리딩 화면에서 단 형광펜·밑줄·점 표시와 메모. 표시를 단 순간의 **본문 사본** 한 벌을 함께 두며(표시의 자리를 기억하는 바탕), 표시가 남아 있는 동안 그 사본은 위의 상한으로 지워지지 않습니다. 원본 문서 파일은 바꾸지 않습니다.
 - **받은 문서함** — 각 문서를 사용자가 마지막으로 본 시점(파일 수정 시각).
 - **에이전트 연결 기록** — 아래 4절의 연결을 마지막으로 쓴 시각, 제어 도구를 켰는지 여부.
 - **사용자 테마 파일** — 사용자가 만들거나 넣은 테마·스타일 파일.
@@ -37,7 +38,7 @@
 
 - **연결하지 않으면 아무것도 동작하지 않습니다.** 이 기능은 사용자가 자신의 에이전트 프로그램에 연결 명령을 직접 등록했을 때만, 그 프로그램이 실행합니다.
 - **본 앱은 네트워크를 쓰지 않습니다.** 연결은 같은 기기 안의 두 프로그램 사이 표준 입출력(stdio)으로만 이루어지며, 네트워크 포트를 열지 않습니다.
-- **에이전트가 읽는 범위** — 사용자가 워크스페이스에 넣은 폴더·파일 안의 문서만 검색하고 읽을 수 있습니다. 문서를 고치거나 지우는 기능은 제공하지 않습니다. 문서를 워크스페이스에 배치하거나 앱에서 여는 제어 기능은 **기본으로 꺼져 있으며**, 설정에서 사용자가 켤 때만 동작합니다.
+- **에이전트가 읽는 범위** — 사용자가 워크스페이스에 넣은 폴더·파일 안의 문서만 검색하고 읽을 수 있습니다. 그 문서에 사용자가 단 **표시·메모**도 읽을 수 있습니다(에이전트에게 검토를 맡기는 용도). 문서를 고치거나 지우는 기능은 제공하지 않습니다. 문서를 워크스페이스에 배치하거나 앱에서 여는 제어 기능은 **기본으로 꺼져 있으며**, 설정에서 사용자가 켤 때만 동작합니다.
 - **에이전트가 받은 내용의 처리** — 연결된 에이전트가 읽어 간 문서 내용은 **그 에이전트 프로그램이 처리**합니다. 많은 AI 에이전트는 받은 내용을 자신의 온라인 서비스로 보냅니다. 그 처리는 본 앱이 아니라 **해당 에이전트 제공자의 개인정보 처리방침**을 따르므로, 연결 전에 확인하시기 바랍니다.
 - 연결은 언제든 에이전트 프로그램의 설정에서 등록을 지우면 끊깁니다.
 
@@ -71,6 +72,7 @@ The documents you open or edit stay **on your device**; the App does not send th
 - **Workspace layout** — the folders you imported and the virtual folders you arranged.
 - **Search index** — a **copy of the text** of documents inside folders you imported into the workspace, kept in local SQLite for full-text search.
 - **Document history** — a **copy of a document's text** taken just before it changes or is deleted, so you can roll back. It is capped per document and in total; the oldest copies are removed first.
+- **Marks and notes** — highlights, underlines, margin marks and notes you add while reading. A **copy of the document's text** at the moment you marked it is kept with them (it is what the marks are anchored to) and is not removed by the caps above while marks still use it. The original document file is never changed.
 - **Inbox** — when you last viewed each document (the file's modification time).
 - **Agent connection record** — when the connection in section 4 was last used, and whether control tools are enabled.
 - **Your theme files** — theme and style files you create or add.
@@ -85,7 +87,7 @@ The App lets you **connect an AI agent program** such as Claude Code yourself, i
 
 - **Nothing runs unless you connect it.** The feature only runs when you register the connection command in your own agent program, and that program starts it.
 - **The App uses no network.** The connection is standard input/output (stdio) between two programs on the same device; no network port is opened.
-- **What the agent can read** — only documents inside the folders and files you put in your workspace. The App provides no way to edit or delete documents. Control tools that place a document in the workspace or open it in the App are **off by default** and work only after you enable them in Settings.
+- **What the agent can read** — only documents inside the folders and files you put in your workspace, including the **marks and notes** you left on them (so you can hand a review to your agent). The App provides no way to edit or delete documents. Control tools that place a document in the workspace or open it in the App are **off by default** and work only after you enable them in Settings.
 - **How the agent handles what it reads** — document content read by a connected agent is **processed by that agent program**. Many AI agents send what they receive to their own online service. That processing is governed by **the agent provider's privacy policy**, not by the App — please review it before connecting.
 - You can disconnect at any time by removing the registration from your agent program's settings.
 

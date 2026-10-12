@@ -36,6 +36,11 @@ import { bytesToBase64 } from "../lib/bytes";
 import { showFullNameOnClip } from "../lib/hoverName";
 import type { OpenHow } from "../lib/links";
 import { Toast } from "./Toast";
+import { currentMeanings } from "./AnnotLayer";
+import { annotBackend } from "../lib/annot/api";
+import { resolveAll } from "../lib/annot/resolve";
+import { reviewSummary } from "../lib/annot/summary";
+import type { AnnotStyle } from "../lib/annot/pens";
 import type { TocItem } from "../lib/markdown";
 
 // 테마 목록은 레지스트리에서 파생한다(내장 먼저, 사용자 테마는 뒤) — themes.jsonc 가
@@ -543,6 +548,7 @@ export function AppShell() {
     add("open-file", t("menu.openFile"), () => void onOpenFile());
     if (activePath) add("doc-history", t("history.title"), () => setHistoryPath(activePath));
     if (activePath) add("annot-list", t("annot.list"), () => useAppStore.getState().setAnnotRail(!useAppStore.getState().annotRail));
+    if (active) add("annot-summary", t("annot.copySummary"), () => void copyReviewSummary(active.path, active.content));
     add("open-folder", t("menu.openFolder"), () => void onOpenFolder());
     add("resync", t("ws.resyncAll"), () => void useAppStore.getState().resyncWorkspace());
     add("find-replace", t("find.title"), () => setFindOpen(true));
@@ -638,8 +644,43 @@ export function AppShell() {
 
   // 내보내기 파라미터(현재 테마·읽기 폰트·미리보기 줌 반영 → 미리보기와 동일하게 렌더).
   function exportParamsOf(tab: { path: string; content: string }): ExportParams {
-    const textDirection = useAppStore.getState().textDirection;
-    return { content: tab.content, path: tab.path, themeId, fontRead, previewZoom, textDirection };
+    const { textDirection, exportMarks, exportNotes } = useAppStore.getState();
+    const annot = {
+      marks: exportMarks,
+      notes: exportNotes,
+      texts: {
+        notesTitle: t("annot.notesTitle"),
+        changedNote: t("annot.changedNote"),
+        meaning: (s: AnnotStyle) => annotMeaning(s),
+      },
+    };
+    return { content: tab.content, path: tab.path, themeId, fontRead, previewZoom, textDirection, annot };
+  }
+
+  /** 펜의 뜻 — 사용자가 바꾼 것(설정) 또는 기본(i18n). 내보내기·요약 복사가 화면 범례와 같은 말을 쓴다. */
+  function annotMeaning(s: AnnotStyle): string {
+    return currentMeanings()[s] ?? t(`annot.meaning.${s}`);
+  }
+
+  async function copyReviewSummary(path: string, content: string) {
+    try {
+      const rs = resolveAll(await annotBackend().list(path), content);
+      if (!rs.length) {
+        useAppStore.getState().showNotice(t("annot.nothing"));
+        return;
+      }
+      const md = reviewSummary(path, rs, {
+        title: (p) => t("annot.summaryTitle", { name: p.split(/[\/]/).pop() ?? p }),
+        meaning: annotMeaning,
+        state: (s) => t(`annot.state.${s}`),
+        line: (n) => t("annot.lineN", { n }),
+        goneNote: t("annot.goneNote"),
+      });
+      await navigator.clipboard.writeText(md);
+      useAppStore.getState().showNotice(t("annot.copied"));
+    } catch (e) {
+      useAppStore.getState().showNotice(t("annot.failed", { detail: String(e) }), "error");
+    }
   }
 
   // 미저장 탭 일괄 저장(창 닫기 가드용).
@@ -1306,6 +1347,16 @@ export function AppShell() {
                   );
                 },
               },
+              // 표시·메모 담기 — 기본 꺼짐, 마지막 선택 기억(ADR 0003 9절). 누르면 켬/끔만 바꾼다.
+              {
+                label: `${useAppStore.getState().exportMarks ? "☑" : "☐"} ${t("annot.exportMarks")}`,
+                onClick: () => useAppStore.getState().setExportMarks(!useAppStore.getState().exportMarks),
+              },
+              {
+                label: `${useAppStore.getState().exportNotes ? "☑" : "☐"} ${t("annot.exportNotes")}`,
+                onClick: () => useAppStore.getState().setExportNotes(!useAppStore.getState().exportNotes),
+              },
+              { label: t("annot.copySummary"), onClick: () => void copyReviewSummary(active.path, active.content) },
             ]}
           />
         )}

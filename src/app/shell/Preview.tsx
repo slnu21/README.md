@@ -23,13 +23,10 @@ import { dirOf } from "../lib/paths";
 import type { OpenHow } from "../lib/links";
 import { annotateLinkTitles, handleLinkClick } from "../lib/previewLinks";
 import { AnnotLayer } from "./AnnotLayer";
+import { ANNOT_DOC_CSS } from "../lib/annot/paint";
 
-/** 표시 펜 층(AnnotLayer)이 .md 안에 넣는 SVG 둘의 자리. .md 가 쌓임 맥락이 되어야 글자 *밑* 층
- *  (z-index:-1)이 카드 배경 위·글자 아래에 온다. 미리보기 전용이다 — 내보내기는 따로 정한다(V4). */
-const ANNOT_CSS =
-  ".md{position:relative;z-index:0}" +
-  ".annot-layer{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}" +
-  ".annot-under{z-index:-1}.annot-over{z-index:1}";
+/** 표시 펜 층 자리(lib/annot/paint.ts). 미리보기 전용 — 내보내기는 따로 정한다. */
+const ANNOT_CSS = ANNOT_DOC_CSS;
 
 // 미리보기 스크롤 위치 → 상단에 보이는 소스 줄(0-based). scrollToLine의 역보간.
 function topSourceLine(doc: Document): number | null {

@@ -87,7 +87,7 @@ describe("Relocator — 에이전트식 수정", () => {
   it("문단을 끼우고 바로 아래 문단을 고쳐도 — 고친 문단을 따라간다(빈 줄이 짝을 잘못 맺던 것)", () => {
     // 줄 diff 가 두 문단 사이 빈 줄을 맞추면서 옛 문단을 *끼운* 문단과 짝지었다 — probe:annot 에서 찾음.
     // 짧은 문단으로는 재현이 안 된다(Myers 가 다른 길을 고른다) — probe:annot 의 픽스처·수정을 그대로 쓴다.
-    const o = readFileSync(fileURLToPath(new URL("../../../../docs/samples/annot-review.md", import.meta.url).href), "utf8");
+    const o = readFileSync(fileURLToPath(new URL("../../../../docs/samples/annot-review.md", import.meta.url).href), "utf8").replace(/\r\n?/g, NL); // git autocrlf 가 CRLF 로 바꿔 둘 수 있다 — 그러면 아래 replace 가 조용히 안 먹어 테스트가 공허해진다;
     const n = o
       .replace("## 무엇을 했나" + NL, "## 무엇을 했나" + NL + NL + "(에이전트가 덧붙임) 이 절은 10-12 에 다시 썼다." + NL)
       .replace("근거가 부족하다", "근거가 충분하다")

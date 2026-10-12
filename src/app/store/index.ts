@@ -198,6 +198,9 @@ interface AppState {
   annotTexture: boolean;
   /** 메모 레일 펼침 — 기본 접힘(머무르면 툴팁). 폭이 모자라면 펼쳐도 툴팁으로 돌아간다. */
   annotRail: boolean;
+  /** 내보내기에 표시·메모 담기 — 기본 꺼짐, 마지막 선택 기억(ADR 0003 9절). */
+  exportMarks: boolean;
+  exportNotes: boolean;
   syncScroll: boolean;
   outlinePinned: boolean;
   outlineOpacity: number;
@@ -248,6 +251,8 @@ interface AppState {
   setTextDirection: (d: TextDirection) => void;
   setAnnotTexture: (on: boolean) => void;
   setAnnotRail: (on: boolean) => void;
+  setExportMarks: (on: boolean) => void;
+  setExportNotes: (on: boolean) => void;
   requestHistory: (path: string, snapshotId?: number) => void;
   setSyncScroll: (on: boolean) => void;
   setOutlinePinned: (on: boolean) => void;
@@ -332,6 +337,8 @@ export const useAppStore = create<AppState>()(
       textDirection: "auto",
       annotTexture: true,
       annotRail: false,
+      exportMarks: false,
+      exportNotes: false,
       syncScroll: true,
       outlinePinned: false,
       outlineOpacity: 0.92,
@@ -374,6 +381,8 @@ export const useAppStore = create<AppState>()(
       setTextDirection: (d) => set({ textDirection: d }),
       setAnnotTexture: (on) => set({ annotTexture: on }),
       setAnnotRail: (on) => set({ annotRail: on }),
+      setExportMarks: (on) => set({ exportMarks: on }),
+      setExportNotes: (on) => set({ exportNotes: on }),
       requestHistory: (path, snapshotId) =>
         set((s) => ({ historyRequest: { path, snapshotId, seq: (s.historyRequest?.seq ?? 0) + 1 } })),
       setSyncScroll: (on) => set({ syncScroll: on }),
@@ -679,6 +688,8 @@ export const useAppStore = create<AppState>()(
         textDirection: s.textDirection,
         annotTexture: s.annotTexture,
         annotRail: s.annotRail,
+        exportMarks: s.exportMarks,
+        exportNotes: s.exportNotes,
         syncScroll: s.syncScroll,
         outlinePinned: s.outlinePinned,
         outlineOpacity: s.outlineOpacity,
