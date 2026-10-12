@@ -370,6 +370,16 @@ pub(crate) fn match_rows(
     like: Option<&str>,
     limit: i64,
 ) -> Result<Vec<(String, String)>, String> {
+    Ok(match_rows_with_rowid(conn, match_expr, like, limit)?.into_iter().map(|(_, p, s)| (p, s)).collect())
+}
+
+/// `match_rows` + 색인 행 rowid — 브리지가 맞은 줄 번호를 구하려고 그 행의 내용을 rowid 로 다시 읽는다.
+pub(crate) fn match_rows_with_rowid(
+    conn: &Connection,
+    match_expr: &str,
+    like: Option<&str>,
+    limit: i64,
+) -> Result<Vec<(i64, String, String)>, String> {
     // **`ORDER BY rank` 이지 `ORDER BY bm25(file_index)` 가 아니다.** 순서는 같다(rank 의 기본값이
     // bm25). 그런데 bm25() 로 정렬하면 SQLite 가 정렬하므로 맞은 행 *전부*의 snippet() 을 먼저
     // 만들고(문서를 다시 토큰화한다) 나서 LIMIT 으로 자른다. rank 는 FTS5 가 안에서 정렬·LIMIT 해
@@ -377,7 +387,7 @@ pub(crate) fn match_rows(
     // (docs/design/performance.md). 두 단계 질의(rowid IN …)는 바깥 MATCH 를 rowid 마다 다시 돌려 더 느렸다.
     let mut stmt = conn
         .prepare(
-            "SELECT real_path, snippet(file_index, 1, char(2), char(3), '…', 12) AS snip
+            "SELECT rowid, real_path, snippet(file_index, 1, char(2), char(3), '…', 12) AS snip
              FROM file_index
              WHERE file_index MATCH ?1 AND (?2 IS NULL OR real_path LIKE ?2)
              ORDER BY rank LIMIT ?3",
@@ -385,7 +395,7 @@ pub(crate) fn match_rows(
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map(params![match_expr, like, limit], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))
         })
         .map_err(|e| e.to_string())?;
     let mut out = Vec::new();
