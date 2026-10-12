@@ -232,6 +232,58 @@ async function run(): Promise<ProbeResult> {
     if (doc.nodes.some((n) => n.id === "l-spec") || doc.edges.some((e) => e.toNode === "l-spec" || e.fromNode === "l-spec")) fail("[delete] 노드나 붙은 선이 남았다.");
   }
 
+  // ── 드로잉: 펜으로 긋고(색연필·형광펜), 지우개로 지운다 — x-readme-ink 에 저장 ──
+  {
+    const toolBtn = (label: RegExp) => Array.from(document.querySelectorAll<HTMLButtonElement>(".cv-tools button")).find((b) => label.test(b.textContent ?? ""));
+    toolBtn(/펜|Pen/)?.click();
+    await settle();
+    const vp = q(".canvas-view")!.getBoundingClientRect();
+    const y0 = vp.top + vp.height * 0.85;
+    const draw = async (x0: number, x1: number, y: number) => {
+      const view = q(".canvas-view")!;
+      pointer("pointerdown", x0, y, view);
+      for (let i = 1; i <= 8; i++) {
+        pointer("pointermove", x0 + ((x1 - x0) * i) / 8, y + Math.sin(i) * 6, view);
+        await settle();
+      }
+      pointer("pointerup", x1, y, view);
+      await settle();
+      await settle();
+    };
+    type Ink = { strokes: { kind: string; points: number[][] }[] };
+    const inkOf = () => ((saved() as Record<string, unknown>)["x-readme-ink"] as Ink | undefined)?.strokes ?? [];
+    const base = inkOf().length; // 픽스처에 든 획(파일에서 읽어 그린 것)
+    if (base !== 2 || document.querySelectorAll("svg.cv-ink path").length !== 2) fail(`[ink] 픽스처의 획 2개를 파일에서 읽어 그리지 않았다(${base}).`);
+    await draw(vp.left + 80, vp.left + 320, y0);
+    const marker = Array.from(document.querySelectorAll<HTMLButtonElement>(".cv-penopts button")).find((b) => /형광펜|Marker/.test(b.textContent ?? ""));
+    marker?.click();
+    await settle();
+    await draw(vp.left + 80, vp.left + 320, y0 - 60);
+    const drawn = inkOf().slice(base);
+    const kinds = drawn.map((x) => x.kind).join(",");
+    if (drawn.length !== 2 || kinds !== "pencil,marker" || drawn.some((x) => x.points.length < 4)) fail(`[ink] 그은 두 획이 저장되지 않았다: ${JSON.stringify(drawn).slice(0, 160)}`);
+    const paths = document.querySelectorAll("svg.cv-ink path").length;
+    if (paths !== base + 2) fail(`[ink] 그려진 획이 ${paths}개다.`);
+    // 지우개로 첫 획(색연필)을 가로지른다
+    toolBtn(/지우개|Eraser/)?.click();
+    await settle();
+    const view = q(".canvas-view")!;
+    const x = vp.left + 200;
+    pointer("pointerdown", x, y0 - 30, view);
+    for (let i = 1; i <= 6; i++) {
+      pointer("pointermove", x, y0 - 30 + i * 8, view);
+      await settle();
+    }
+    pointer("pointerup", x, y0 + 18, view);
+    await settle();
+    const after = inkOf().slice(base).map((x) => x.kind).join(",");
+    if (after !== "marker" || inkOf().length !== base + 1) fail(`[ink] 지우개가 새 색연필 획만 지우지 않았다: ${after} (전체 ${inkOf().length})`);
+    else lines.push(`  ${"[ink]".padEnd(22)} 색연필·형광펜 두 획 저장(x-readme-ink) · 지우개로 색연필만 지움`);
+    view.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await settle();
+    if (!toolBtn(/선택|Select/)?.getAttribute("aria-pressed")?.includes("true")) fail("[ink] Esc 로 선택 도구로 돌아오지 않았다.");
+  }
+
   // ── 워크스페이스 트리에서 끌어 놓기 → 그 자리에 file 노드(참조 — 이동이 아니다) ──
   {
     const row = Array.from(document.querySelectorAll<HTMLElement>(".tree .node[data-path]")).find((r) => /\.md$/i.test(r.dataset.path ?? ""));

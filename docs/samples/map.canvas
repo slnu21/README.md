@@ -11,5 +11,9 @@
 		{"id":"e-1","fromNode":"f-report","fromSide":"right","toNode":"f-rtl","toSide":"left","toEnd":"arrow","label":"참고"},
 		{"id":"e-2","fromNode":"f-report","toNode":"t-note","x-future":"keep me"}
 	],
-	"metadata":{"version":"1.0-1.0"}
+	"metadata":{"version":"1.0-1.0"},
+	"x-readme-ink":{"version":1,"strokes":[
+		{"id":"ink-loop","kind":"pencil","color":"pink","points":[[-20,-20],[200,-40],[420,-20],[440,150],[420,320],[200,340],[-20,320],[-40,150],[-20,-30]]},
+		{"id":"ink-mark","kind":"marker","color":"yellow","points":[[500,290],[620,286],[760,292],[880,288]]}
+	]}
 }
