@@ -58,7 +58,7 @@ Application 이 그대로 단다** — 새 `<Application>` 을 만들면 시작 
 
 | 도구 | 인자 | 돌려주는 것 | 이 앱만 아는 이유 |
 |---|---|---|---|
-| `search_docs` | `query` · `root?` · `limit?`(기본 20, 최대 50) | `hits[] = {path, name, snippet}` | FTS5 색인 — grep 이 못 하는 bm25 랭킹 |
+| `search_docs` | `query` · `root?` · `limit?`(기본 20, 최대 50) | `hits[] = {path, name, snippet, line}` · 0건이면 `hint` | FTS5 색인 — grep 이 못 하는 bm25 랭킹 |
 | `outline` | `path` | `{path, lines, headings[] = {level, text, line}}` | 큰 문서를 통째로 안 읽고 고르게 한다 |
 | `read_section` | `path` · `heading?` · `fromLine?` · `toLine?` | `{path, fromLine, toLine, totalLines, truncated, text}` | 섹션 단위 읽기 = 토큰 절약 |
 | `list_workspace` | 없음 | `{tree[]}` — `{id, kind, name, path?, children[], childrenFromDisk?}` | **가상 배치**는 디스크에 없다 |
@@ -92,6 +92,12 @@ ATX(`#`)만 본다. **펜스 코드블록 안과 YAML frontmatter 안은 건너�
 전역 검색은 머신 전체 색인을 조회하므로(`search.rs`) 스코프를 안 걸면 사용자의 무관한 문서까지
 샌다. 경로 비교는 `search.rs` 의 `under_root`/`rel_under` 를 그대로 쓴다 — 구분자·ASCII 대소문자를
 무시하고, **형제 접두어**(`C:\a` 가 `C:\ab` 를 잡는 것)를 막는다.
+
+`search_docs` 의 `line` 은 **첫 맞은 자리의 줄 번호**(1부터 — `outline`·`read_section` 과 같은 기준)다. 에이전트가 문서를
+통째로 읽지 않고 `read_section(fromLine)` 으로 바로 간다(1.1 · 실사용 기록). FTS5 스니펫이 원문을 그대로 자른 글이라
+"앞 문맥 + 첫 하이라이트"를 색인 내용에서 찾아 센다 — 내용은 rowid 로 읽는다(경로로 찾으면 UNINDEXED 전체 스캔).
+0건이면 `hint` 가 **범위 안 문서 수**를 말한다("낱말이 틀렸다"와 "범위가 비었다"를 가르게 — 없으면 에이전트는 같은
+질의를 되풀이하거나 grep 으로 돌아간다). 비용은 맞은 행마다 rowid 조회 한 번 — 브리지 검색 중앙값 11.6 → 12.1 ms.
 
 `search_docs` 의 `root` 는 **스코프를 품는 상위 폴더여도 된다**(`Scope::overlaps`) — 에이전트는 "이 저장소 docs 에서
 찾아"를 저장소 폴더로 묻는데, 사용자가 넣은 것이 그 아래 한 폴더뿐이면 예전에는 통째로 거부됐다(실사용 기록

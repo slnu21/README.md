@@ -10,7 +10,7 @@
 //! 에이전트가 사용자 언어로 다시 말해 주지만, 옮기지 않고 그대로 보여 주는 클라이언트도 있다
 //! (2026-10-11 실사용 기록 — 한국어 한 벌이면 영어 사용자에게 그대로 보인다).
 
-use crate::commands::search::{build_match, match_rows, rel_under, under_root};
+use crate::commands::search::{build_match, match_rows_with_rowid, rel_under, under_root};
 use crate::commands::workspace::{insert_node, load_nodes, Node};
 use crate::scope::Scope;
 use crate::mcp::outline;
@@ -49,7 +49,7 @@ pub fn catalog() -> Value {
     json!([
         {
             "name": "search_docs",
-            "description": "Full-text search across the README.md workspace, ranked by relevance (SQLite FTS5). Prefer this over grep: it is pre-indexed, ranked, and already scoped to the folders the user added to their workspace.",
+            "description": "Full-text search across the README.md workspace, ranked by relevance (SQLite FTS5). Prefer this over grep: it is pre-indexed, ranked, and already scoped to the folders the user added to their workspace. Each hit carries `line`, the 1-based line of its first match — pass it to read_section as fromLine instead of reading the whole file. With no hits, `hint` says how many documents were searched.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -154,7 +154,7 @@ fn search_docs(conn: &Connection, scope: &Scope, args: &Value) -> Result<Value, 
     let limit = usize_arg(args, "limit").unwrap_or(20).clamp(1, 50);
 
     let Some(match_expr) = build_match(query) else {
-        return Ok(json!({ "hits": [] }));
+        return Ok(json!({ "hits": [], "hint": no_hits_hint(conn, scope, root) }));
     };
     // LIKE 는 거친 필터일 뿐이고(형제 접두어를 잡는다) 최종 판정은 스코프가 한다.
     // 걸러 낼 것을 감안해 넉넉히 가져온 뒤 자른다.
@@ -162,26 +162,78 @@ fn search_docs(conn: &Connection, scope: &Scope, args: &Value) -> Result<Value, 
     // 그대로 LIKE 에 넣으면 `C:\repo\…` 행이 하나도 안 걸려 스코프 판정까지 가 보지도 못하고 0건이었다
     // (2026-10-11 실구동에서 찾음 · under_root 는 구분자를 무시하므로 뒤 판정은 원래 맞았다).
     let like = root.map(|r| format!("{}%", r.trim_end_matches(['/', '\\']).replace('/', std::path::MAIN_SEPARATOR_STR)));
-    let rows = match_rows(conn, &match_expr, like.as_deref(), (limit * 5).min(300) as i64)?;
+    let rows = match_rows_with_rowid(conn, &match_expr, like.as_deref(), (limit * 5).min(300) as i64)?;
 
     let hits: Vec<Value> = rows
         .into_iter()
         // root 는 스코프를 품는 상위 폴더일 수도 있다(Scope::overlaps) — 그래서 둘 다 본다.
-        .filter(|(path, _)| scope.allows(path) && root.is_none_or(|r| under_root(path, r)))
+        .filter(|(_, path, _)| scope.allows(path) && root.is_none_or(|r| under_root(path, r)))
         .take(limit)
-        .map(|(path, snippet)| {
+        .map(|(rowid, path, snippet)| {
             let name = Path::new(&path)
                 .file_name()
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_else(|| path.clone());
-            json!({
+            let mut hit = json!({
                 "path": path,
                 "name": name,
                 "snippet": clean_snippet(&snippet),
-            })
+            });
+            // 맞은 줄 — 에이전트가 문서를 통째로 읽지 않고 바로 read_section(fromLine) 으로 간다(실사용 1.1 후보).
+            let content: Option<String> =
+                conn.query_row("SELECT content FROM file_index WHERE rowid = ?1", [rowid], |r| r.get(0)).ok();
+            if let Some(line) = content.and_then(|c| hit_line(&c, &snippet)) {
+                hit["line"] = json!(line);
+            }
+            hit
         })
         .collect();
+    if hits.is_empty() {
+        return Ok(json!({ "hits": hits, "hint": no_hits_hint(conn, scope, root) }));
+    }
     Ok(json!({ "hits": hits }))
+}
+
+/// 스니펫이 가리키는 첫 맞은 자리의 줄 번호(1부터). 스니펫 글은 원문을 그대로 자른 것이라 앞 문맥 +
+/// 첫 하이라이트까지를 원문에서 찾으면 그 자리다. 앞 문맥이 안 맞으면(드묾) 하이라이트 낱말만으로 찾는다.
+fn hit_line(content: &str, snippet: &str) -> Option<usize> {
+    let open = snippet.find(SENTINELS[0])?;
+    let close = snippet[open..].find(SENTINELS[1])? + open;
+    let lead = snippet[..open].trim_start_matches('…');
+    let term = &snippet[open + SENTINELS[0].len_utf8()..close];
+    if term.is_empty() {
+        return None;
+    }
+    let with_lead = format!("{lead}{term}");
+    let at = match content.find(&with_lead) {
+        Some(i) => i + lead.len(),
+        None => content.find(term)?,
+    };
+    Some(content[..at].matches('\n').count() + 1)
+}
+
+/// 0건일 때 다음 수 — "없다"만 들은 에이전트는 같은 질의를 되풀이하거나 grep 으로 돌아간다(실사용 1.1 후보).
+/// 범위 안에 문서가 몇 개인지 알려 주면 "낱말이 틀렸다"와 "범위가 비었다"를 가를 수 있다.
+fn no_hits_hint(conn: &Connection, scope: &Scope, root: Option<&str>) -> String {
+    let docs = conn
+        .prepare("SELECT real_path FROM file_meta")
+        .and_then(|mut st| {
+            let rows = st.query_map([], |r| r.get::<_, String>(0))?;
+            Ok(rows
+                .filter_map(Result::ok)
+                .filter(|p| scope.allows(p) && root.is_none_or(|r| under_root(p, r)))
+                .count())
+        })
+        .unwrap_or(0);
+    if docs == 0 {
+        return "이 범위에는 색인된 문서가 없습니다 — root 를 빼거나, 사용자에게 README.md 를 한 번 열어 색인해 달라고 하세요 / \
+                No indexed documents in this range — drop root, or ask the user to open README.md once so it can index"
+            .into();
+    }
+    format!(
+        "문서 {docs}개에서 찾았지만 맞는 곳이 없습니다 — 낱말을 줄이거나 바꿔 보세요(낱말은 모두 들어 있어야 하고 마지막 낱말만 \
+         앞부분 일치) / No match in {docs} documents — try fewer or different words (all words must appear; only the last one is a prefix)"
+    )
 }
 
 /// 스코프 밖 경로 오류. **다음 행동을 함께 준다** — "밖이다"만 들은 에이전트는 거기서 멈추거나
@@ -510,6 +562,53 @@ mod tests {
         assert_eq!(hits(Some("C:/repo/docs/blog/")).unwrap().len(), 1);
         assert_eq!(hits(None).unwrap().len(), 1);
         assert!(hits(Some(r"C:\elsewhere")).unwrap_err().contains("place_doc"), "스코프와 안 겹치는 범위는 여전히 거부");
+    }
+
+    #[test]
+    fn hit_line_finds_the_first_highlight() {
+        let content = "# 제목\r\n\r\n설치는 나중에.\r\n\r\n## 설치\r\n앱을 설치 한다\r\n";
+        // FTS5 스니펫은 원문을 자른 것 — 앞 문맥이 있으면 같은 낱말이 앞에 또 있어도 그 자리다.
+        assert_eq!(hit_line(content, "…## 설치\r\n앱을 \u{2}설치\u{3} 한다"), Some(6));
+        assert_eq!(hit_line(content, "\u{2}설치\u{3}는 나중에"), Some(3));
+        // 앞 문맥이 원문과 안 맞으면 낱말로만.
+        assert_eq!(hit_line(content, "…엉뚱한 \u{2}설치\u{3}"), Some(3));
+        assert_eq!(hit_line(content, "하이라이트 없음"), None);
+        assert_eq!(hit_line(content, "\u{2}없는말\u{3}"), None);
+    }
+
+    #[test]
+    fn hits_carry_a_line_and_zero_hits_carry_a_hint() {
+        let mut c = Connection::open_in_memory().unwrap();
+        crate::db::migrate_for_test(&mut c).unwrap();
+        insert_node(&c, "r1", &None, "imported_folder", "w", &Some(r"C:\w".into())).unwrap();
+        let docs = [
+            (r"C:\w\a.md", "# 보고\n\n첫 문단.\n\n## 근거\n\nP95 지연은 91ms 다.\n"),
+            (r"C:\w\b.md", "다른 문서\n"),
+            (r"C:\other\c.md", "지연 지연\n"),
+        ];
+        for (i, (p, body)) in docs.iter().enumerate() {
+            let rowid = i as i64 + 1;
+            c.execute("INSERT INTO file_index (rowid, real_path, content) VALUES (?1, ?2, ?3)", params![rowid, p, body]).unwrap();
+            c.execute(
+                "INSERT INTO file_meta (real_path, mtime, size, indexed_at, fts_rowid) VALUES (?1, 0, 0, 0, ?2)",
+                params![p, rowid],
+            )
+            .unwrap();
+        }
+        let scope = Scope::load(&c).unwrap();
+        let v = search_docs(&c, &scope, &json!({ "query": "지연" })).unwrap();
+        let hits = v["hits"].as_array().unwrap();
+        assert_eq!(hits.len(), 1, "스코프 밖 c.md 는 안 나온다");
+        assert_eq!(hits[0]["line"], json!(7));
+        assert!(v.get("hint").is_none());
+
+        let v = search_docs(&c, &scope, &json!({ "query": "없는낱말" })).unwrap();
+        assert!(v["hits"].as_array().unwrap().is_empty());
+        let hint = v["hint"].as_str().unwrap();
+        assert!(hint.contains("문서 2개") && hint.contains("2 documents"), "스코프 안 문서만 센다: {hint}");
+
+        let v = search_docs(&c, &scope, &json!({ "query": "보고", "root": r"C:\w\sub" })).unwrap();
+        assert!(v["hint"].as_str().unwrap().contains("No indexed documents"));
     }
 
     #[test]
