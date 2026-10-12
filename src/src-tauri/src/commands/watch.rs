@@ -11,16 +11,14 @@ use tauri::{AppHandle, Emitter, Manager, State};
 #[derive(Default)]
 pub struct WatchState(pub Mutex<Option<RecommendedWatcher>>);
 
-const INDEX_EXTS: [&str; 4] = ["md", "markdown", "mdx", "txt"];
 /// 트리(`fs_ops::read_dir_tree`)·인덱스(`search::index_folder`)가 애초에 무시하는 디렉터리.
 /// 저 둘과 같은 목록이어야 한다(각자 자기 파일에 사본을 둔다 — 공용 모듈은 아직 만들지 않았다).
 const SKIP_DIRS: [&str; 6] = ["node_modules", ".git", "target", "dist", ".vs", ".idea"];
 
+/// 색인 대상 판정은 `search.rs` 하나만 쓴다 — 여기 사본이 있었는데 `.canvas` 를 색인에 넣을 때 이쪽만 빠져서,
+/// 밖에서 고친 캔버스가 다시 색인되지 않았다(받은 문서함·기록·검색이 다 낡음 — 캔버스 실구동에서 찾음).
 fn is_indexable(p: &Path) -> bool {
-    p.extension()
-        .and_then(|e| e.to_str())
-        .map(|e| INDEX_EXTS.contains(&e.to_lowercase().as_str()))
-        .unwrap_or(false)
+    crate::commands::search::is_indexable(p)
 }
 
 /// 트리 재파생이 필요한(= 구조가 바뀐) 이벤트인가.

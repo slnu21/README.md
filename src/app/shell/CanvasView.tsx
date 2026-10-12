@@ -376,6 +376,26 @@ export function CanvasView({ path, content, onChange, onOpenFile }: Props) {
     setSel({ kind: "node", id: nn.id });
     setPicker(false);
   }
+  // 워크스페이스 트리에서 끌어 놓기 → 그 자리에 file 노드(WorkspaceTree 가 보내는 이벤트).
+  const addFileAt = useRef<(abs: string, cx: number, cy: number) => void>(() => {});
+  addFileAt.current = (abs, cx, cy) => {
+    const [wx, wy] = world(cx, cy);
+    const nn: CanvasNode = { id: newCanvasId(), type: "file", file: pathForNode(abs, path, vault), x: snap10(wx - 200), y: snap10(wy - 40), width: 400, height: 280 };
+    docRef.current.nodes.push(nn);
+    commit();
+    setSel({ kind: "node", id: nn.id });
+  };
+  useEffect(() => {
+    const el = vpRef.current;
+    if (!el) return;
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ path: string; x: number; y: number }>).detail;
+      if (d?.path && d.path !== path) addFileAt.current(d.path, d.x, d.y);
+    };
+    el.addEventListener("canvas-drop-file", on);
+    return () => el.removeEventListener("canvas-drop-file", on);
+  }, [path]);
+
   function fit() {
     const r = vpRef.current!.getBoundingClientRect();
     setView(fitView(nodes, r.width, r.height));

@@ -190,8 +190,12 @@ fn search_docs(conn: &Connection, scope: &Scope, args: &Value) -> Result<Value, 
                 "snippet": clean_snippet(&snippet),
             });
             // 맞은 줄 — 에이전트가 문서를 통째로 읽지 않고 바로 read_section(fromLine) 으로 간다(실사용 1.1 후보).
-            let content: Option<String> =
-                conn.query_row("SELECT content FROM file_index WHERE rowid = ?1", [rowid], |r| r.get(0)).ok();
+            // 캔버스는 색인 내용이 뽑아낸 글이라 줄 번호가 파일과 맞지 않는다 — 안 준다.
+            let content: Option<String> = if crate::commands::search::is_canvas(&path) {
+                None
+            } else {
+                conn.query_row("SELECT content FROM file_index WHERE rowid = ?1", [rowid], |r| r.get(0)).ok()
+            };
             if let Some(line) = content.and_then(|c| hit_line(&c, &snippet)) {
                 hit["line"] = json!(line);
             }
@@ -420,8 +424,9 @@ fn read_section(scope: &Scope, args: &Value) -> Result<Value, String> {
 fn existing_doc(args: &Value) -> Result<String, String> {
     let path = str_arg(args, "path").ok_or("path 인자가 필요합니다 / path is required")?;
     let p = Path::new(path);
-    if !is_readable(p) {
-        return Err(format!("읽을 수 있는 문서가 아닙니다 / Not a readable document (.md/.markdown/.mdx/.txt): {path}"));
+    // 캔버스(.canvas)도 열고 들일 수 있다 — 에이전트가 남긴 "지도"를 사람 화면에 띄우는 것이 권장 사용법이다(ADR 0004 8절).
+    if !is_readable(p) && !crate::commands::search::is_canvas(path) {
+        return Err(format!("읽을 수 있는 문서가 아닙니다 / Not a readable document (.md/.markdown/.mdx/.txt/.canvas): {path}"));
     }
     if !p.is_file() {
         return Err(format!("그런 파일이 없습니다 / No such file: {path}"));

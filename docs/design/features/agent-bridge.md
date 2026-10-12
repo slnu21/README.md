@@ -64,7 +64,7 @@ Application 이 그대로 단다** — 새 `<Application>` 을 만들면 시작 
 | `list_workspace` | 없음 | `{tree[]}` — `{id, kind, name, path?, children[], childrenFromDisk?}` | **가상 배치**는 디스크에 없다 |
 | `list_annotations` | `path` | `{path, annotations[]}` — `{kind, style, meaning, color, state, quote, was?, line?, note, resolved, version_mtime}` | 사람의 **주의가 어디 머물렀는지**는 디스크에 없다(1.1 · [표시 펜](annotations.md)) |
 | `place_doc` ⚑ | `path` · `folder?` | `{id, name, created}` | 파일을 **안 옮기고** 참조만 더한다 |
-| `open_in_app` ⚑ | `path` · `beside?` · `line?` | `{opened, beside, line}` | 사람의 **화면**에 띄운다(그 줄로) |
+| `open_in_app` ⚑ | `path` · `beside?` · `line?` | `{opened, beside, line}` | 사람의 **화면**에 띄운다(그 줄로) · `.canvas` 도(문서 지도) |
 
 ⚑ = **제어 도구**. 기본은 꺼짐이고, 설정의 [에이전트 연결]에서 켜야 동작한다.
 

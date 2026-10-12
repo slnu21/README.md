@@ -354,9 +354,11 @@ export function WorkspaceTree() {
       containerRef.current?.setPointerCapture(d.pointerId); // 드래그 확정 시점에만 캡처
     }
     if (d.movable) setDrop(computeDrop(e.clientX, e.clientY, d.item)); // 이동 불가 항목은 드롭 대상 미표시
-    setGhost({ x: e.clientX, y: e.clientY, label: d.label, kind: d.item.kind, forbidden: !d.movable });
+    // 캔버스 위면 "참조 추가"라 어떤 파일이든 된다(이동이 아니다 — 가져온 폴더 안 파일도).
+    const overCanvas = !!d.item.path && isReadable(d.item.path) && !!document.elementFromPoint(e.clientX, e.clientY)?.closest(".canvas-view");
+    setGhost({ x: e.clientX, y: e.clientY, label: d.label, kind: d.item.kind, forbidden: !d.movable && !overCanvas });
   }
-  function onPointerUp() {
+  function onPointerUp(e: React.PointerEvent) {
     const d = dragRef.current;
     dragRef.current = null;
     const t = drop;
@@ -365,6 +367,12 @@ export function WorkspaceTree() {
     setGhost(null);
     if (!d || !d.moved) return;
     justDragged.current = true; // 뒤이어 오는 click(열기/토글) 억제
+    // 캔버스에 놓으면 file 노드(ADR 0004 7절) — 캔버스가 받아 그 자리에 카드를 만든다.
+    const canvasEl = document.elementFromPoint(e.clientX, e.clientY)?.closest(".canvas-view");
+    if (canvasEl && d.item.path && isReadable(d.item.path)) {
+      canvasEl.dispatchEvent(new CustomEvent("canvas-drop-file", { detail: { path: d.item.path, x: e.clientX, y: e.clientY } }));
+      return;
+    }
     if (d.movable && t) void executeDrop(d.item, t); // 이동 가능 항목만 실제 이동
   }
 

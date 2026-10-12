@@ -427,6 +427,17 @@ export function AppShell() {
 
   // 새 문서(전역) — 저장 위치를 먼저 묻고 빈 파일을 만든 뒤 탭으로 연다. 워크스페이스 폴더를
   // 우클릭하는 쪽(WorkspaceTree)이 더 빠른 길이고, 이건 열린 폴더가 없을 때도 되는 보편 경로다.
+  /** 새 캔버스(.canvas, ADR 0004) — 빈 파일로 만든다(빈 글 = 빈 캔버스). 저장 대화상자·이미 있음 처리는 새 문서와 같다. */
+  async function onNewCanvas() {
+    const st = useAppStore.getState();
+    const dir = pickDefaultDir(st.activePath, st.recent);
+    const base = `${t("canvas.nameDefault")}.canvas`;
+    const path = await saveFile(dir ? `${dir}/${base}` : base, [{ name: "Canvas", extensions: ["canvas"] }]);
+    if (!path) return;
+    const r = await createDocAt(path);
+    if (!r.ok) useAppStore.getState().showNotice(t("dialog.nameErrIo", { detail: r.detail ?? r.reason }), "error");
+  }
+
   async function onNewDoc() {
     const st = useAppStore.getState();
     const dir = pickDefaultDir(st.activePath, st.recent);
@@ -546,6 +557,7 @@ export function AppShell() {
       if (enabled) cmds.push({ id, label, run });
     };
     add("new-doc", t("menu.newFile"), () => void onNewDoc());
+    add("new-canvas", t("canvas.new"), () => void onNewCanvas());
     add("open-file", t("menu.openFile"), () => void onOpenFile());
     if (activePath) add("doc-history", t("history.title"), () => setHistoryPath(activePath));
     if (activePath) add("annot-list", t("annot.list"), () => useAppStore.getState().setAnnotRail(!useAppStore.getState().annotRail));
