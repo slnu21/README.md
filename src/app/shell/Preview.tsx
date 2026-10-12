@@ -22,6 +22,14 @@ import { inlineImages } from "../lib/previewImages";
 import { dirOf } from "../lib/paths";
 import type { OpenHow } from "../lib/links";
 import { annotateLinkTitles, handleLinkClick } from "../lib/previewLinks";
+import { AnnotLayer } from "./AnnotLayer";
+
+/** 표시 펜 층(AnnotLayer)이 .md 안에 넣는 SVG 둘의 자리. .md 가 쌓임 맥락이 되어야 글자 *밑* 층
+ *  (z-index:-1)이 카드 배경 위·글자 아래에 온다. 미리보기 전용이다 — 내보내기는 따로 정한다(V4). */
+const ANNOT_CSS =
+  ".md{position:relative;z-index:0}" +
+  ".annot-layer{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}" +
+  ".annot-under{z-index:-1}.annot-over{z-index:1}";
 
 // 미리보기 스크롤 위치 → 상단에 보이는 소스 줄(0-based). scrollToLine의 역보간.
 function topSourceLine(doc: Document): number | null {
@@ -121,6 +129,13 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   onOpenPathRef.current = onOpenPath;
   const [bodyHtml, setBodyHtml] = useState("");
   const [lightbox, setLightbox] = useState<string | null>(null); // 확대할 이미지 src(라이트박스)
+  const [loadSeq, setLoadSeq] = useState(0); // iframe 문서가 바뀔 때마다 — 표시 펜 층이 다시 붙는다
+  // **지금 iframe 에 그려진 글**(편집 중인 버퍼가 아니라). 표시 펜은 이 글로 위치를 계산해야 DOM 과 맞는다 —
+  // 버퍼로 계산하면 새 렌더가 오기 전(디바운스·워커) 옛 DOM 위에 새 글의 위치를 그려 표시가 튄다(probe:annot).
+  const [loadedContent, setLoadedContent] = useState("");
+  const reqContentRef = useRef<{ id: number; content: string }>({ id: 0, content: "" });
+  const bodyContentRef = useRef("");
+  const srcContentRef = useRef("");
   // 읽기 글꼴/줌(기능 3·5) — iframe은 격리돼 있어 buildDoc에 직접 주입한다.
   // 사용자 테마 파일을 다시 불러오면 themeId 는 그대로고 **내용만** 바뀜다 → 재빌드 신호는 이것이다.
   const themeRev = useAppStore((s) => s.themeRev);
@@ -135,6 +150,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
   // 미리보기 전용 추가 CSS(내보내기엔 미적용): 이미지 확대 커서 + 리딩 폭(본문 최대 폭).
   const widthPx = readingWidth === "narrow" ? "680px" : readingWidth === "wide" ? "none" : "860px";
   const previewExtra =
+    ANNOT_CSS +
     "img{cursor:zoom-in}" +
     (widthPx === "none" ? "" : `.md{max-width:${widthPx};margin-left:auto;margin-right:auto}`);
   // 세 buildDoc 호출(데모 2 + 정규 1)이 같은 옵션을 쓰도록 한 곳에 모은다.
@@ -174,10 +190,12 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
       const { id, html, toc } = e.data as { id: number; html: string; toc: TocItem[] };
       if (id !== reqId.current) return; // 오래된 응답 무시
       onTocRef.current?.(toc);
+      const source = reqContentRef.current.id === id ? reqContentRef.current.content : "";
       const clean = sanitizeHtml(html);
       void inlineImages(clean, dirOf(pathRef.current)).then((withImg) => {
         if (id !== reqId.current) return; // 인라인(비동기) 후 최신 요청만 반영
         bodyPathRef.current = pathRef.current;
+        bodyContentRef.current = source;
         setBodyHtml(withImg);
       });
     };
@@ -198,6 +216,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
         const md = createMarkdown();
         onTocRef.current?.(extractToc(md, content));
         const body = await inlineImages(sanitizeHtml(md.render(content)), dirOf(pathRef.current));
+        srcContentRef.current = content;
         if (iframe) iframe.srcdoc = buildDoc(body, themeId, font, docOpts);
       } catch (err) {
         if (iframe)
@@ -218,7 +237,10 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     const worker = workerRef.current;
     if (!worker) return;
     const id = ++reqId.current;
-    const timer = window.setTimeout(() => worker.postMessage({ id, source: content }), previewDelay);
+    const timer = window.setTimeout(() => {
+      reqContentRef.current = { id, content };
+      worker.postMessage({ id, source: content });
+    }, previewDelay);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content, path, isDemo, previewDelay]);
@@ -242,6 +264,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
         top: iframe.contentDocument ? topSourceLine(iframe.contentDocument) : null,
       });
       srcPathRef.current = bodyPathRef.current;
+      srcContentRef.current = bodyContentRef.current;
       inFlightRef.current = true;
       iframe.srcdoc = buildDoc(finalBody, themeId, font, docOpts);
     })();
@@ -292,6 +315,8 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
     const doc = iframeRef.current?.contentDocument;
     const win = iframeRef.current?.contentWindow;
     if (!doc) return;
+    setLoadedContent(srcContentRef.current);
+    setLoadSeq((n) => n + 1);
     // 리로드로 0이 된 스크롤을 직전 위치(소스 줄)로 복원. 아래 scroll 리스너 부착 전에 해서
     // 프로그램적 스크롤이 역동기화(onSourceLine) 에코를 유발하지 않도록 한다.
     loadedPathRef.current = srcPathRef.current;
@@ -349,6 +374,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
         title="preview"
         onLoad={onIframeLoad}
       />
+      <AnnotLayer iframeRef={iframeRef} path={path} content={loadedContent} loadSeq={loadSeq} themeId={themeId} />
       {lightbox && (
         <div className="lightbox" role="dialog" aria-label="image" onClick={() => setLightbox(null)}>
           <img src={lightbox} alt="" />

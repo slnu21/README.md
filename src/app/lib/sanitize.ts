@@ -22,6 +22,8 @@ const CONFIG = {
     "checked", "disabled", "type",
     // 스크롤 동기화 소스라인(기능 8). DOMPurify 기본이 data-* 를 허용하지만 명시적으로 보존.
     "data-line",
+    // 표시 펜 — 블록의 소스 끝 줄(배타).
+    "data-line-end",
   ],
 };
 

@@ -8,6 +8,7 @@ import { CARD_SHADOW, PROSE_DEFAULT_CSS, PROSE_VAR, TEXTURE_CSS } from "../theme
 import { isHex6 } from "./color";
 import { FONT_FACE_CSS, BASE_READER_PX } from "./fonts";
 import { docDirection, type TextDirection } from "./bidi";
+import { markVarsCss } from "./annot/palette";
 
 /** 다이어그램 전용 글꼴. mermaid 기본 스택("trebuchet ms",verdana,arial,sans-serif)에는 **한글
  *  글리프가 없어** 한글이 전부 문서별 폴백으로 해결됐다 → 측정 문서와 표시 문서가 서로 다른 face를
@@ -194,6 +195,8 @@ export function themeVarsCss(theme: Theme): string {
   // 되지만, 명시하면 테마마다 값이 있다는 것이 직렬화문자열에서 바로 보인다.
   out.push(`--paper-texture:${TEXTURE_CSS[theme.texture ?? "none"] ?? TEXTURE_CSS.none};`);
   out.push(`--prose-card-shadow:${CARD_SHADOW[theme.elevation ?? "soft"] ?? CARD_SHADOW.soft};`);
+  // 표시 펜 색(--mark-*) — 5토큰에서 계산한 hex(대비 하한을 지키도록 고친 값, lib/annot/palette.ts).
+  out.push(markVarsCss(theme));
   return out.join("");
 }
 

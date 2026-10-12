@@ -18,8 +18,8 @@ describe("잎 블록 dir=\"auto\"", () => {
 
   it("기존 속성(id·data-line)을 밀어내지 않는다", () => {
     const html = render("# Title\n\ntext");
-    expect(html).toMatch(/<h1 id="title" tabindex="-1" data-line="0" dir="auto">/);
-    expect(html).toMatch(/<p data-line="2" dir="auto">/);
+    expect(html).toMatch(/<h1 id="title" tabindex="-1" data-line="0" data-line-end="1" dir="auto">/);
+    expect(html).toMatch(/<p data-line="2" data-line-end="3" dir="auto">/);
   });
 
   it("표 셀(th·td)·정의 목록(dt·dd)도 잎이다", () => {

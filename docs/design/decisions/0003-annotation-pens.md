@@ -1,6 +1,6 @@
 # ADR 0003 — 표시 펜: 스냅샷에 고정한 글자 앵커 위에 그린다
 
-- 상태: 채택(Accepted) — 구현 전 설계
+- 상태: 채택(Accepted) — **구현 중(1.1)**: ② 앵커 코어 ✅ · ③ 저장(v5) ✅ · ④ 화면 ✅([features/annotations.md](../features/annotations.md)) · ⑤ 공유
 - 날짜: 2026-10-10
 - 시안: [mockups/annotation-pens.html](../../mockups/annotation-pens.html)
 

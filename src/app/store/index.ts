@@ -194,6 +194,10 @@ interface AppState {
    *  자동이 문서 안 혼용까지 문단 단위로 처리하므로 강제는 예외적 탈출구이고, 예외를 문서마다
    *  기억할 만큼 자주 쓰이지 않는다. */
   textDirection: TextDirection;
+  /** 표시 펜 질감(SVG 필터) — 기본 켜짐. 끈 모드도 같은 도형에서 필터만 뺀다(ADR 0003 4절). */
+  annotTexture: boolean;
+  /** 메모 레일 펼침 — 기본 접힘(머무르면 툴팁). 폭이 모자라면 펼쳐도 툴팁으로 돌아간다. */
+  annotRail: boolean;
   syncScroll: boolean;
   outlinePinned: boolean;
   outlineOpacity: number;
@@ -214,6 +218,8 @@ interface AppState {
    *  seq 는 같은 자리를 다시 요청해도 다시 움직이도록 매번 새로 준다. 문서가 아직 안 열렸어도
    *  들고 있다가, 그 문서를 그리는 미리보기·편집기가 자기 차례에 처리한다(lib/reveal.ts). */
   reveal: Reveal | null;
+  /** 문서 기록 창 열기 요청(표시의 [그 판 보기] 등 — 창 자체는 AppShell 이 띄운다). seq 로 같은 요청을 다시 받는다. */
+  historyRequest: { path: string; snapshotId?: number; seq: number } | null;
 
   roots: TreeNode[]; // 워크스페이스 트리(그래프+디스크 파생)
   resyncBusy: number; // 진행 중인 재색인 수(0보다 크면 새로고침 버튼이 회전) — 비영속
@@ -240,6 +246,9 @@ interface AppState {
   setDiagramWidth: (w: "fit" | "natural") => void;
   setPreviewDelay: (ms: number) => void;
   setTextDirection: (d: TextDirection) => void;
+  setAnnotTexture: (on: boolean) => void;
+  setAnnotRail: (on: boolean) => void;
+  requestHistory: (path: string, snapshotId?: number) => void;
   setSyncScroll: (on: boolean) => void;
   setOutlinePinned: (on: boolean) => void;
   setOutlineOpacity: (v: number) => void;
@@ -321,6 +330,8 @@ export const useAppStore = create<AppState>()(
       diagramWidth: "fit",
       previewDelay: 500,
       textDirection: "auto",
+      annotTexture: true,
+      annotRail: false,
       syncScroll: true,
       outlinePinned: false,
       outlineOpacity: 0.92,
@@ -334,6 +345,7 @@ export const useAppStore = create<AppState>()(
       readerRatio: 0.5,
       notice: null,
       reveal: null,
+      historyRequest: null,
 
       roots: [],
       resyncBusy: 0,
@@ -360,6 +372,10 @@ export const useAppStore = create<AppState>()(
       setDiagramWidth: (w) => set({ diagramWidth: w }),
       setPreviewDelay: (ms) => set({ previewDelay: ms }),
       setTextDirection: (d) => set({ textDirection: d }),
+      setAnnotTexture: (on) => set({ annotTexture: on }),
+      setAnnotRail: (on) => set({ annotRail: on }),
+      requestHistory: (path, snapshotId) =>
+        set((s) => ({ historyRequest: { path, snapshotId, seq: (s.historyRequest?.seq ?? 0) + 1 } })),
       setSyncScroll: (on) => set({ syncScroll: on }),
       setOutlinePinned: (on) => set({ outlinePinned: on }),
       setOutlineOpacity: (v) => set({ outlineOpacity: clamp(v, 0.3, 1) }),
@@ -661,6 +677,8 @@ export const useAppStore = create<AppState>()(
         diagramWidth: s.diagramWidth,
         previewDelay: s.previewDelay,
         textDirection: s.textDirection,
+        annotTexture: s.annotTexture,
+        annotRail: s.annotRail,
         syncScroll: s.syncScroll,
         outlinePinned: s.outlinePinned,
         outlineOpacity: s.outlineOpacity,

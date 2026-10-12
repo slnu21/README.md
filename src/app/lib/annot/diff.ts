@@ -156,6 +156,16 @@ export function textSegments(oldText: string, newText: string): Segment[] {
   const oStart = starts(oldLines);
   const nStart = starts(newLines);
   const runs = diffSeq(oldLines, newLines);
+  // 바뀐 덩어리 사이에 낀 **빈 줄뿐인 eq** 는 덩어리로 합친다(낱말 diff 의 공백 규칙과 같은 이유). 문단을
+  // 끼우고 바로 아래 문단을 고치면, 줄 diff 가 그 사이 빈 줄을 맞추면서 옛 문단을 *끼운* 문단과 짝짓고
+  // 고친 문단은 통째로 새로 넣은 것으로 본다 — 칠한 자리가 엉뚱한 문단으로 갔다(probe:annot 에서 찾음).
+  for (let i = 1; i < runs.length - 1; i++) {
+    const r = runs[i];
+    if (r.kind === "eq" && runs[i - 1].kind !== "eq" && runs[i + 1].kind !== "eq" && oldLines.slice(r.a0, r.a1).every((l) => !l.trim())) {
+      runs.splice(i + 1, 0, { kind: "ins", a0: r.a1, a1: r.a1, b0: r.b0, b1: r.b1 });
+      runs[i] = { kind: "del", a0: r.a0, a1: r.a1, b0: r.b0, b1: r.b0 };
+    }
+  }
 
   const out: Segment[] = [];
   let i = 0;
@@ -188,7 +198,69 @@ function starts(lines: string[]): number[] {
   return s;
 }
 
+/** 짝지을 만큼 닮았나 — 공백을 뺀 낱말의 LCS 비율. 빈 줄끼리는 1. */
+function similarity(a: string, b: string): number {
+  const ta = tokenize(a).filter((t) => t.trim());
+  const tb = tokenize(b).filter((t) => t.trim());
+  if (!ta.length && !tb.length) return 1;
+  if (!ta.length || !tb.length) return 0;
+  let lcs = 0;
+  for (const r of diffSeq(ta, tb, Object.is, 400)) if (r.kind === "eq") lcs += r.a1 - r.a0;
+  return (2 * lcs) / (ta.length + tb.length);
+}
+
+const PAIR_MIN = 0.5;
+const PAIR_CELLS = 400;
+
+/**
+ * 바뀐 덩어리(줄 여럿 ↔ 줄 여럿). **닮은 줄끼리 먼저 짝짓고**(유사도 합이 최대인 순서 보존 정렬) 짝 안에서만
+ * 낱말 diff 를 한다. 덩어리를 통째로 낱말 diff 하면 같은 길이의 다른 짝(`. ⏎` 이 첫 문장 끝에도 지운 문장 끝에도
+ * 맞는다)을 골라, 지운 문장의 표시가 옆의 고친 문장으로 "바뀜" 처리됐다(summary.test 에서 찾음).
+ */
 function hunk(out: Segment[], oldText: string, newText: string, o0: number, o1: number, n0: number, n1: number) {
+  const ol = splitLines(oldText.slice(o0, o1));
+  const nl = splitLines(newText.slice(n0, n1));
+  if (ol.length <= 1 || nl.length === 0 || ol.length * nl.length > PAIR_CELLS) {
+    tokenHunk(out, oldText, newText, o0, o1, n0, n1);
+    return;
+  }
+  const I = ol.length;
+  const J = nl.length;
+  const sim = ol.map((a) => nl.map((b) => similarity(a, b)));
+  // best[i][j] = ol[0..i) · nl[0..j) 의 최대 유사도 합
+  const best = Array.from({ length: I + 1 }, () => new Float64Array(J + 1));
+  for (let i = 1; i <= I; i++)
+    for (let j = 1; j <= J; j++) {
+      const pair = sim[i - 1][j - 1] >= PAIR_MIN ? best[i - 1][j - 1] + sim[i - 1][j - 1] : -1;
+      best[i][j] = Math.max(best[i - 1][j], best[i][j - 1], pair);
+    }
+  const pairs: [number, number][] = [];
+  for (let i = I, j = J; i > 0 && j > 0; ) {
+    if (sim[i - 1][j - 1] >= PAIR_MIN && best[i][j] === best[i - 1][j - 1] + sim[i - 1][j - 1]) {
+      pairs.push([i - 1, j - 1]);
+      i--;
+      j--;
+    } else if (best[i][j] === best[i - 1][j]) i--;
+    else j--;
+  }
+  pairs.reverse();
+  const os = starts(ol).map((p) => p + o0);
+  const ns = starts(nl).map((p) => p + n0);
+  let pi = 0;
+  let pj = 0;
+  const gap = (i: number, j: number) => {
+    if (os[pi] !== os[i] || ns[pj] !== ns[j]) tokenHunk(out, oldText, newText, os[pi], os[i], ns[pj], ns[j]);
+  };
+  for (const [i, j] of pairs) {
+    gap(i, j);
+    tokenHunk(out, oldText, newText, os[i], os[i + 1], ns[j], ns[j + 1]);
+    pi = i + 1;
+    pj = j + 1;
+  }
+  gap(I, J);
+}
+
+function tokenHunk(out: Segment[], oldText: string, newText: string, o0: number, o1: number, n0: number, n1: number) {
   const ot = tokenize(oldText.slice(o0, o1));
   const nt = tokenize(newText.slice(n0, n1));
   const os = starts(ot).map((p) => p + o0);
@@ -197,9 +269,20 @@ function hunk(out: Segment[], oldText: string, newText: string, o0: number, o1: 
   // 다시 쓴 문장에서는 공백·구두점이 우연히 맞는다 — 바뀐 것 사이에 낀 그런 eq 는 바뀐 것으로 본다.
   // 안 그러면 "근거가 부족하다 — …" → "세 번 다시 …" 에서 칠한 범위가 "세 번" 으로 줄어든다.
   const noise = (r: Run) => r.kind === "eq" && ot.slice(r.a0, r.a1).every((t) => !/[\p{L}\p{N}]/u.test(t));
+  // 양쪽이 **둘 다 바꾸기**(지움+넣음)일 때만 — 한쪽이 순수 삭제면 합치지 않는다. 합치면 지운 문장이 옆의 고친
+  // 글로 "바뀜" 처리된다(고친 문단 바로 아래 문단을 지운 경우 — summary.test 에서 찾음).
+  const group = (i: number, dir: -1 | 1) => {
+    let del = false;
+    let ins = false;
+    for (let k = i + dir; k >= 0 && k < runs.length && runs[k].kind !== "eq"; k += dir) {
+      if (runs[k].kind === "del") del = true;
+      else ins = true;
+    }
+    return del && ins;
+  };
   for (let i = 0; i < runs.length; i++) {
     const r = runs[i];
-    const between = i > 0 && i < runs.length - 1 && runs[i - 1].kind !== "eq" && runs[i + 1].kind !== "eq";
+    const between = i > 0 && i < runs.length - 1 && runs[i - 1].kind !== "eq" && runs[i + 1].kind !== "eq" && group(i, -1) && group(i, 1);
     addSeg(out, r.kind === "eq" && !(between && noise(r)), os[r.a0], os[r.a1], ns[r.b0], ns[r.b1]);
   }
 }

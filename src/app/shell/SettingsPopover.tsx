@@ -30,6 +30,8 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
   const setPreviewDelay = useAppStore((s) => s.setPreviewDelay);
   const textDirection = useAppStore((s) => s.textDirection);
   const setTextDirection = useAppStore((s) => s.setTextDirection);
+  const annotTexture = useAppStore((s) => s.annotTexture);
+  const setAnnotTexture = useAppStore((s) => s.setAnnotTexture);
   const autosave = useAppStore((s) => s.autosave);
   const setAutosave = useAppStore((s) => s.setAutosave);
   const setFontRead = useAppStore((s) => s.setFontRead);
@@ -176,6 +178,17 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
                   title={t(d === "auto" ? "settings.dirAutoHint" : d === "rtl" ? "settings.dirRtlHint" : "settings.dirLtrHint")}
                 >
                   {t(d === "auto" ? "settings.dirAuto" : d === "rtl" ? "settings.dirRtl" : "settings.dirLtr")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="set-row">
+            <span>{t("annot.texture")}</span>
+            <div className="seg width" role="group" aria-label={t("annot.texture")}>
+              {([true, false] as const).map((on) => (
+                <button key={String(on)} type="button" aria-pressed={annotTexture === on} onClick={() => setAnnotTexture(on)}>
+                  {t(on ? "annot.textureOn" : "annot.textureOff")}
                 </button>
               ))}
             </div>
