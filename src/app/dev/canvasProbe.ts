@@ -232,6 +232,32 @@ async function run(): Promise<ProbeResult> {
     if (doc.nodes.some((n) => n.id === "l-spec") || doc.edges.some((e) => e.toNode === "l-spec" || e.fromNode === "l-spec")) fail("[delete] 노드나 붙은 선이 남았다.");
   }
 
+  // ── 워크스페이스 트리에서 끌어 놓기 → 그 자리에 file 노드(참조 — 이동이 아니다) ──
+  {
+    const row = Array.from(document.querySelectorAll<HTMLElement>(".tree .node[data-path]")).find((r) => /\.md$/i.test(r.dataset.path ?? ""));
+    if (!row) fail("[tree→canvas] 트리에 md 행이 없다(데모 시드).");
+    else {
+      const before = saved().nodes.length;
+      const tree = row.closest<HTMLElement>(".tree") ?? row.parentElement!;
+      const [rx, ry] = center(row);
+      const vp = q(".canvas-view")!.getBoundingClientRect();
+      const tx = vp.left + vp.width * 0.6;
+      const ty = vp.top + vp.height * 0.7;
+      row.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: rx, clientY: ry, button: 0, buttons: 1, pointerId: 7 }));
+      for (let i = 1; i <= 6; i++) {
+        tree.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: rx + ((tx - rx) * i) / 6, clientY: ry + ((ty - ry) * i) / 6, buttons: 1, pointerId: 7 }));
+        await settle();
+      }
+      tree.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: tx, clientY: ty, pointerId: 7 }));
+      await settle();
+      await settle();
+      const doc = saved();
+      const nn = doc.nodes.slice(before).find((n) => n.type === "file");
+      if (doc.nodes.length !== before + 1 || !nn) fail(`[tree→canvas] 트리 항목을 놓았는데 file 노드가 안 생겼다(${before} → ${doc.nodes.length}).`);
+      else lines.push(`  ${"[tree→canvas]".padEnd(22)} ${row.dataset.path!.split(/[\\/]/).pop()} → file 노드 "${nn.file}"`);
+    }
+  }
+
   // ── 더블클릭으로 문서 열기 ──
   {
     const r = nodeEl("f-report")!.getBoundingClientRect();

@@ -6,7 +6,34 @@ use serde::Serialize;
 use std::path::Path;
 use tauri::{AppHandle, Emitter, State};
 
-const INDEX_EXTS: [&str; 4] = ["md", "markdown", "mdx", "txt"];
+const INDEX_EXTS: [&str; 5] = ["md", "markdown", "mdx", "txt", "canvas"];
+
+/// JSON Canvas 인가(ADR 0004). 캔버스는 **JSON 그대로가 아니라 사람이 쓴 글만** 색인한다 — 키(`nodes`·`width`)와 숫자가
+/// 색인에 들어가면 흔한 낱말 검색마다 모든 캔버스가 걸린다.
+pub(crate) fn is_canvas(path: &str) -> bool {
+    Path::new(path).extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("canvas"))
+}
+
+/// 캔버스에서 색인할 글 — text 노드의 글 · 그룹 라벨 · 선 라벨 · file 노드 경로 · link 주소(한 줄씩).
+/// JSON 이 아니면 원문 그대로(최소한 찾아지기는 하게).
+pub(crate) fn canvas_text(raw: &str) -> String {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(raw.trim_start_matches('\u{feff}')) else {
+        return raw.to_string();
+    };
+    let mut out: Vec<String> = Vec::new();
+    for key in ["nodes", "edges"] {
+        for n in v.get(key).and_then(|x| x.as_array()).into_iter().flatten() {
+            for f in ["text", "label", "file", "url"] {
+                if let Some(s) = n.get(f).and_then(|x| x.as_str()) {
+                    if !s.trim().is_empty() {
+                        out.push(s.to_string());
+                    }
+                }
+            }
+        }
+    }
+    out.join("\n")
+}
 const MAX_INDEX_SIZE: i64 = 2 * 1024 * 1024;
 const SKIP_DIRS: [&str; 6] = ["node_modules", ".git", "target", "dist", ".vs", ".idea"];
 
@@ -25,7 +52,7 @@ fn basename(path: &str) -> String {
         .unwrap_or_else(|| path.to_string())
 }
 
-fn is_indexable(p: &Path) -> bool {
+pub(crate) fn is_indexable(p: &Path) -> bool {
     p.extension()
         .and_then(|e| e.to_str())
         .map(|e| INDEX_EXTS.contains(&e.to_lowercase().as_str()))
@@ -178,7 +205,8 @@ fn remove_path_unguarded(conn: &Connection, path: &str) -> Result<(), String> {
     // 문서가 사라진다 — 색인이 들고 있던 마지막 내용을 여기서 한 판 떠 둔다. 지워진 문서야말로
     // 되돌리고 싶은 것이고, 색인이 비워지면 우리에게 남는 사본이 없다(commands/history.rs).
     // 실패는 무시 — 기록 하나 때문에 색인 정리를 실패시킬 이유가 없다.
-    if let Some((last_mtime, last_text)) = last_indexed(conn, path) {
+    // 캔버스의 색인 내용은 뽑아낸 글이라 기록으로 쓸 수 없다 — 원문 판은 색인할 때 이미 떠 두었다.
+    if let Some((last_mtime, last_text)) = last_indexed(conn, path).filter(|_| !is_canvas(path)) {
         let _ = crate::commands::history::capture(conn, path, &last_text, last_mtime);
     }
     if let Some(rowid) = fts_rowid_of(conn, path)? {
@@ -240,9 +268,15 @@ fn index_file_unguarded(conn: &Connection, path: &str) -> Result<bool, String> {
     };
     // **덮기 직전이 마지막 기회다.** 남이 쓴 변경은 우리가 가로챌 수 없으므로, 색인이 들고
     // 있던 옛 내용이 새 내용으로 덮이기 전에 한 판 떠 둔다(commands/history.rs).
-    if let Some((last_mtime, last_text)) = last_indexed(conn, path) {
+    // **캔버스는 다르다** — 색인에는 뽑아낸 글만 있어 그것으로 되돌리면 JSON 이 망가진다. 그래서 캔버스는 색인할 때마다
+    // **지금 원문(JSON)** 을 한 판 뜬다 — 다음에 바뀌면 그 판이 곧 "바뀌기 전"이다(합치기 창은 그대로).
+    let canvas = is_canvas(path);
+    if canvas {
+        let _ = crate::commands::history::capture(conn, path, &content, mtime);
+    } else if let Some((last_mtime, last_text)) = last_indexed(conn, path) {
         let _ = crate::commands::history::capture(conn, path, &last_text, last_mtime);
     }
+    let content = if canvas { canvas_text(&content) } else { content };
     if let Some(rowid) = prev.and_then(|p| p.2) {
         conn.execute("DELETE FROM file_index WHERE rowid = ?1", params![rowid])
             .map_err(|e| e.to_string())?;
@@ -565,6 +599,45 @@ mod tests {
         remove_path(&c, &fs).unwrap();
         assert_eq!(index_rows(&c, &fs), 0);
         assert_eq!(meta_rowid(&c, &fs), None);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_canvas_indexes_only_its_words_and_its_history_holds_the_json() {
+        let c = db();
+        let d = tmp("canvas");
+        let f = d.join("map.canvas");
+        let fs = f.to_string_lossy().into_owned();
+        let v1 = r#"{"nodes":[{"id":"a","type":"text","text":"해시를 같이 본다","x":0,"y":0,"width":10,"height":10},{"id":"b","type":"file","file":"notes/plan.md","x":0,"y":0,"width":10,"height":10}],"edges":[{"id":"e","fromNode":"a","toNode":"b","label":"근거"}]}"#;
+        std::fs::write(&f, v1).unwrap();
+        assert!(index_file(&c, &fs).unwrap());
+        assert_eq!(match_rows(&c, "해시를*", None, 10).unwrap().len(), 1, "text 노드 글");
+        assert_eq!(match_rows(&c, "근거*", None, 10).unwrap().len(), 1, "선 라벨");
+        assert_eq!(match_rows(&c, "plan*", None, 10).unwrap().len(), 1, "file 노드 경로");
+        assert!(match_rows(&c, "nodes", None, 10).unwrap().is_empty(), "JSON 키는 색인에 없다");
+        assert!(match_rows(&c, "width", None, 10).unwrap().is_empty());
+
+        // 에이전트가 고쳐 쓴다 → 기록의 판은 **JSON**(되돌리면 캔버스가 그대로 열린다)
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&f, v1.replace("해시를 같이 본다", "크기를 같이 본다")).unwrap();
+        c.execute("UPDATE doc_snapshot SET taken_at = taken_at - 3600000", []).unwrap(); // 합치기 창 밖으로
+        assert!(index_file(&c, &fs).unwrap());
+        let snaps: Vec<String> = c
+            .prepare("SELECT content FROM doc_snapshot WHERE real_path = ?1 ORDER BY id")
+            .unwrap()
+            .query_map(params![fs], |r| r.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(snaps.len(), 2);
+        assert_eq!(snaps[0], v1, "바뀌기 전 판 = 원문 JSON");
+        assert!(serde_json::from_str::<serde_json::Value>(&snaps[1]).is_ok());
+        // 지워져도 뽑아낸 글로 판을 뜨지 않는다(되돌리면 JSON 이 망가진다)
+        std::fs::remove_file(&f).unwrap();
+        index_file(&c, &fs).unwrap();
+        let n: i64 = c.query_row("SELECT count(*) FROM doc_snapshot WHERE real_path = ?1", params![fs], |r| r.get(0)).unwrap();
+        assert_eq!(n, 2);
+        assert_eq!(canvas_text("not json"), "not json");
         let _ = std::fs::remove_dir_all(&d);
     }
 
