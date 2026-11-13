@@ -7,6 +7,7 @@ import { persist } from "zustand/middleware";
 import { defaultThemeId } from "../themes";
 import * as panes from "./panes";
 import type { TextDirection } from "../lib/bidi";
+import { parseAnnotMode, type AnnotMode } from "../lib/annot/mode";
 import {
   readFile,
   readDirTree,
@@ -194,6 +195,8 @@ interface AppState {
    *  자동이 문서 안 혼용까지 문단 단위로 처리하므로 강제는 예외적 탈출구이고, 예외를 문서마다
    *  기억할 만큼 자주 쓰이지 않는다. */
   textDirection: TextDirection;
+  /** 표시 펜 사용 — on(드래그하면 펜) / view(단 표시만 보이고 새로 달지 않음) / off(전부 숨김). lib/annot/mode.ts */
+  annotMode: AnnotMode;
   /** 표시 펜 질감(SVG 필터) — 기본 켜짐. 끈 모드도 같은 도형에서 필터만 뺀다(ADR 0003 4절). */
   annotTexture: boolean;
   /** 메모 레일 펼침 — 기본 접힘(머무르면 툴팁). 폭이 모자라면 펼쳐도 툴팁으로 돌아간다. */
@@ -249,6 +252,7 @@ interface AppState {
   setDiagramWidth: (w: "fit" | "natural") => void;
   setPreviewDelay: (ms: number) => void;
   setTextDirection: (d: TextDirection) => void;
+  setAnnotMode: (m: AnnotMode) => void;
   setAnnotTexture: (on: boolean) => void;
   setAnnotRail: (on: boolean) => void;
   setExportMarks: (on: boolean) => void;
@@ -335,6 +339,7 @@ export const useAppStore = create<AppState>()(
       diagramWidth: "fit",
       previewDelay: 500,
       textDirection: "auto",
+      annotMode: "on",
       annotTexture: true,
       annotRail: false,
       exportMarks: false,
@@ -379,6 +384,7 @@ export const useAppStore = create<AppState>()(
       setDiagramWidth: (w) => set({ diagramWidth: w }),
       setPreviewDelay: (ms) => set({ previewDelay: ms }),
       setTextDirection: (d) => set({ textDirection: d }),
+      setAnnotMode: (m) => set({ annotMode: parseAnnotMode(m) }),
       setAnnotTexture: (on) => set({ annotTexture: on }),
       setAnnotRail: (on) => set({ annotRail: on }),
       setExportMarks: (on) => set({ exportMarks: on }),
@@ -686,6 +692,7 @@ export const useAppStore = create<AppState>()(
         diagramWidth: s.diagramWidth,
         previewDelay: s.previewDelay,
         textDirection: s.textDirection,
+        annotMode: s.annotMode,
         annotTexture: s.annotTexture,
         annotRail: s.annotRail,
         exportMarks: s.exportMarks,

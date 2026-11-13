@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
+import { ANNOT_MODES } from "../lib/annot/mode";
 import { readFonts, monoFonts, uiFonts } from "../lib/fonts";
 import { Icon } from "./Icon";
 import { AgentBridgePanel } from "./AgentBridgePanel";
@@ -30,6 +31,8 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
   const setPreviewDelay = useAppStore((s) => s.setPreviewDelay);
   const textDirection = useAppStore((s) => s.textDirection);
   const setTextDirection = useAppStore((s) => s.setTextDirection);
+  const annotMode = useAppStore((s) => s.annotMode);
+  const setAnnotMode = useAppStore((s) => s.setAnnotMode);
   const annotTexture = useAppStore((s) => s.annotTexture);
   const setAnnotTexture = useAppStore((s) => s.setAnnotTexture);
   const autosave = useAppStore((s) => s.autosave);
@@ -178,6 +181,17 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
                   title={t(d === "auto" ? "settings.dirAutoHint" : d === "rtl" ? "settings.dirRtlHint" : "settings.dirLtrHint")}
                 >
                   {t(d === "auto" ? "settings.dirAuto" : d === "rtl" ? "settings.dirRtl" : "settings.dirLtr")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="set-row">
+            <span>{t("annot.mode")}</span>
+            <div className="seg width" role="group" aria-label={t("annot.mode")}>
+              {ANNOT_MODES.map((m) => (
+                <button key={m} type="button" aria-pressed={annotMode === m} title={t(`annot.modeHint.${m}`)} onClick={() => setAnnotMode(m)}>
+                  {t(`annot.modeName.${m}`)}
                 </button>
               ))}
             </div>
