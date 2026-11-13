@@ -171,6 +171,7 @@ async function run(): Promise<ProbeResult> {
   st().setReadingWidth("normal");
   st().setAnnotRail(false);
   st().setAnnotTexture(true);
+  st().setAnnotMode("on");
   st().openFile(PATH, fixture);
   st().setReaderMode(true);
   const ready = await waitFor(() => st().activePath === PATH && !!doc()?.querySelector(".md h1"), "픽스처가 미리보기에 뜨는 것");
@@ -370,7 +371,72 @@ async function run(): Promise<ProbeResult> {
       await sleep(150);
     }
     lines.push(`  ${"[레일]".padEnd(22)} 1600px 카드 ${cards}장 · 900px 툴팁으로`);
+
+    // 레일이 들어갈 폭인데 "좁다"고 하던 것(실사용 신고) — 리딩 폭 [넓게]는 카드가 창 전체라 언제나 실패했고,
+    // [보통](860)도 1,200px 남짓을 요구했다. 이제 카드를 좁혀 자리를 만든다. 레일과 카드가 안 겹쳐야 한다.
+    const railBeside = (tag: string) => {
+      const rail = q<HTMLElement>(".annot-rail");
+      const f = document.querySelector<HTMLIFrameElement>(".preview-frame");
+      const mdEl = doc()?.querySelector<HTMLElement>(".md");
+      if (!rail || !f || !mdEl) {
+        fail(`[레일 ${tag}] 레일이 안 펼쳐졌다(${q(".annot-narrow") ? "좁다는 안내" : "안내도 없음"}).`);
+        return;
+      }
+      const mdRight = f.getBoundingClientRect().left + mdEl.getBoundingClientRect().right;
+      const rr = rail.getBoundingClientRect();
+      const fr = f.getBoundingClientRect();
+      if (rr.left < mdRight) fail(`[레일 ${tag}] 레일(${rr.left.toFixed(0)})이 카드 오른쪽(${mdRight.toFixed(0)})을 덮는다.`);
+      if (rr.right > fr.right + 0.5) fail(`[레일 ${tag}] 레일이 미리보기 밖으로 ${(rr.right - fr.right).toFixed(0)}px 넘친다.`);
+      if (mdEl.offsetWidth < 480) fail(`[레일 ${tag}] 카드가 ${mdEl.offsetWidth}px 로 너무 좁아졌다.`);
+      return mdEl.offsetWidth;
+    };
+    await redrawn(() => st().setReadingWidth("wide"), "리딩 폭 넓게");
+    await sleep(200);
+    await settle();
+    const wideW = railBeside("넓게");
+    if (app) {
+      app.style.width = "1150px";
+      window.dispatchEvent(new Event("resize"));
+      await redrawn(() => st().setReadingWidth("normal"), "리딩 폭 보통");
+      await sleep(200);
+      await settle();
+      const midW = railBeside("1150px");
+      lines.push(`  ${"[레일 자리]".padEnd(22)} 넓게 카드 ${wideW}px · 1150px 보통 카드 ${midW}px — 레일과 안 겹침`);
+      app.style.width = "";
+      window.dispatchEvent(new Event("resize"));
+      await sleep(150);
+    }
     st().setAnnotRail(false);
+  }
+
+  // ── 사용 모드(설정) — 드래그할 때마다 트레이가 뜨는 것이 거슬린다는 신고 ──
+  {
+    const before = marks().length;
+    // 앞의 [수정 뒤]가 문장을 바꿔 놓았다 — 지금 문서의 첫 문단에서 고른다.
+    const needle = (doc()?.querySelector(".md p")?.textContent ?? "").trim().slice(0, 8);
+    st().setAnnotMode("view");
+    await settle();
+    if (await select("p", needle)) fail("[모드 보기만] 글을 골랐는데 펜 트레이가 떴다.");
+    if (marks().length !== before) fail(`[모드 보기만] 표시가 ${before} → ${marks().length}개 — 단 표시는 그대로 보여야 한다.`);
+    if (!q(".annot-pill")) fail("[모드 보기만] 요약 알약이 사라졌다.");
+    if (q(".annot-plus")) fail("[모드 보기만] 여백 ＋ 가 남아 있다.");
+    doc()?.getSelection()?.removeAllRanges();
+    st().setAnnotMode("off");
+    await settle();
+    await settle();
+    if (marks().length) fail(`[모드 끄기] 표시 ${marks().length}개가 그대로 그려져 있다.`);
+    if (q(".annot-pill")) fail("[모드 끄기] 요약 알약이 남아 있다.");
+    if (await select("p", needle)) fail("[모드 끄기] 글을 골랐는데 펜 트레이가 떴다.");
+    doc()?.getSelection()?.removeAllRanges();
+    st().setAnnotMode("on");
+    await settle();
+    await settle();
+    if (!(await select("p", needle))) fail("[모드 켜기] 다시 켰는데 글을 골라도 트레이가 안 뜬다(앞의 '안 뜸' 검사가 공허했을 수 있다).");
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    doc()?.getSelection()?.removeAllRanges();
+    await settle();
+    if (marks().length !== before) fail(`[모드 켜기] 다시 켰는데 표시가 ${marks().length}/${before}개다(지우면 안 된다).`);
+    lines.push(`  ${"[사용 모드]".padEnd(22)} 보기만 = 트레이 없음·표시 ${before}개 유지 · 끄기 = 표시 0 · 다시 켜면 ${marks().length}개`);
   }
 
   // ── 저장 안 한 편집이 있으면 막는다 ──

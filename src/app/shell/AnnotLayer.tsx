@@ -32,6 +32,8 @@ import { makeQuote, plainQuote } from "../lib/annot/quote";
 import { canonicalText } from "../lib/annot/relocate";
 import { resolveAll, summarize, type Resolved } from "../lib/annot/resolve";
 import { reviewSummary } from "../lib/annot/summary";
+import { canCreate, parseAnnotMode, showsMarks } from "../lib/annot/mode";
+import { railFit } from "../lib/annot/railFit";
 
 /** 툴팁이 뜨기까지 머무르는 시간(ADR 7절). */
 const HOVER_MS = 450;
@@ -40,6 +42,8 @@ const RAIL_W = 300;
 const RAIL_GAP = 20;
 const RAIL_CARD_GUESS = 120; // 재기 전 첫 배치
 const RAIL_CARD_GAP = 10;
+/** 레일을 놓으려고 본문 카드를 이보다 좁게는 안 줄인다 — 그 밑이면 툴팁으로(lib/annot/railFit.ts). */
+const RAIL_MIN_CARD = 480;
 
 /** 알약 글 — 0 인 항목은 안 쓴다("메모 2 · 바뀜 0 · 위치 잃음 0" 은 읽을 것이 셋인데 뜻은 하나다). */
 function pillText(sum: { total: number; notes: number; changed: number; gone: number }, t: (k: string, o?: Record<string, unknown>) => string): string {
@@ -90,6 +94,9 @@ async function loadMeanings(): Promise<Meanings> {
 
 export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props) {
   const { t, i18n } = useTranslation();
+  const mode = parseAnnotMode(useAppStore((s) => s.annotMode));
+  const show = showsMarks(mode);
+  const creating = canCreate(mode);
   const texture = useAppStore((s) => s.annotTexture);
   const railOn = useAppStore((s) => s.annotRail);
   const setRail = useAppStore((s) => s.setAnnotRail);
@@ -117,8 +124,8 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
   const geomRef = useRef(new Map<string, Geom>());
   const indexRef = useRef<DocIndex | null>(null);
   // 리스너는 iframe 문서가 바뀔 때만 단다 — 최신 값은 ref 로 읽는다.
-  const live = useRef({ resolved, canon, dirty, tray });
-  live.current = { resolved, canon, dirty, tray };
+  const live = useRef({ resolved, canon, dirty, tray, show, creating });
+  live.current = { resolved, canon, dirty, tray, show, creating };
   const hoverTimer = useRef(0);
   const leaveTimer = useRef(0);
 
@@ -168,18 +175,26 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
     const mdEl = doc?.querySelector<HTMLElement>(".md");
     if (!doc || !mdEl) return;
     const t0 = performance.now();
-    const { geoms, index } = paintMarks(doc, canon, resolved, texture);
+    // 끄기 = 빈 목록으로 다시 그린다(이미 그린 층을 지우려면 그려야 한다 — iframe 은 다시 안 불러온다).
+    const { geoms, index } = paintMarks(doc, canon, show ? resolved : [], texture);
     indexRef.current = index;
     geomRef.current = geoms;
     annotPerf.lastDrawMs = performance.now() - t0;
     annotPerf.draws++;
     measure();
     setGeomRev((n) => n + 1);
-  }, [canon, resolved, texture, measure]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canon, resolved, texture, show, measure]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     draw();
   }, [draw, loadSeq]);
+
+  // 모드를 바꾸면 떠 있던 트레이·＋·툴팁을 걷는다(보기만으로 바꿨는데 새로 다는 트레이가 남지 않게).
+  useEffect(() => {
+    setTray((tr) => (tr && (!show || (tr.mode !== "edit" && !creating)) ? null : tr));
+    if (!creating) setPlus(null);
+    if (!show) setTip(null);
+  }, [show, creating]);
 
   // 크기 변화(폭·글꼴 로드·이미지 로드) → 다시 잰다. 테마·줌은 문서를 새로 그리므로 loadSeq 가 맡는다.
   useEffect(() => {
@@ -216,17 +231,25 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
     // **비키기 전 폭으로** 잰다 — 비킨 카드는 그만큼 좁아져서 언제나 "들어간다"고 나온다(probe:annot).
     mdEl.style.marginRight = "";
     mdEl.style.marginLeft = "";
-    const natural = mdEl.offsetWidth;
-    const fits = f.clientWidth - 28 >= natural + RAIL_W + RAIL_GAP;
-    if (railOn && hasMarks && fits) {
+    mdEl.style.maxWidth = "";
+    const doc2 = mdEl.ownerDocument;
+    const bs = doc2.defaultView?.getComputedStyle(doc2.body);
+    const fit = railFit({
+      viewW: doc2.documentElement.clientWidth, // 스크롤바를 뺀 폭 — iframe 요소 폭으로 재면 스크롤바만큼 넘친다
+      pad: bs ? (parseFloat(bs.paddingLeft) || 0) + (parseFloat(bs.paddingRight) || 0) : 28,
+      natural: mdEl.offsetWidth,
+      railW: RAIL_W,
+      gap: RAIL_GAP,
+      minCard: RAIL_MIN_CARD,
+    });
+    if (railOn && show && hasMarks && fit.fits) {
+      // 리딩 폭 [넓게]·배율 높은 화면·분할에서는 카드를 좁혀서라도 레일 자리를 만든다.
+      if (fit.maxWidth != null) mdEl.style.maxWidth = `${fit.maxWidth}px`;
       mdEl.style.marginRight = `${RAIL_W + RAIL_GAP}px`;
       mdEl.style.marginLeft = "auto";
-    } else {
-      mdEl.style.marginRight = "";
-      mdEl.style.marginLeft = "";
     }
     measure();
-  }, [railOn, loadSeq, frame?.width, set.annotations.length, measure]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [railOn, show, loadSeq, frame?.width, set.annotations.length, measure]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── iframe 안 이벤트 ──
   const hitTest = useCallback((x: number, y: number): string | null => {
@@ -264,7 +287,7 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
       return { x: fr.left + x, y: fr.top + y };
     };
     const onUp = (e: MouseEvent) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || !live.current.creating) return;
       const sel = doc.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
@@ -285,6 +308,7 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
       if (typeof el?.closest === "function" && el.closest("a")) return; // 링크가 이긴다
       const sel = doc.getSelection();
       if (sel && !sel.isCollapsed) return;
+      if (!live.current.show) return;
       const id = hitTest(e.clientX, e.clientY);
       if (!id) {
         setTray(null);
@@ -301,7 +325,7 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
       // 여백 ＋ — 머무른 블록의 첫 줄 왼쪽
       const target = e.target as Node | null;
       const b = indexRef.current?.blockOf(target);
-      if (b && !(e.buttons & 1)) {
+      if (b && !(e.buttons & 1) && live.current.creating) {
         const mdEl = doc.querySelector<HTMLElement>(".md");
         const r = b.el.getBoundingClientRect();
         if (mdEl) {
@@ -314,6 +338,7 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
       }
       // 툴팁 — 메모가 있거나 바뀐 표시에 머무르면
       window.clearTimeout(hoverTimer.current);
+      if (!live.current.show) return;
       const id = hitTest(e.clientX, e.clientY);
       if (!id) {
         leaveTimer.current = window.setTimeout(() => setTip(null), 250);
@@ -444,7 +469,7 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
   const sum = summarize(resolved);
   // md 는 iframe 안 좌표 — 오른쪽 남는 폭이 레일 + 여유보다 넓어야 펼친다.
   const railFits = !!frame && !!md && frame.width - md.right >= RAIL_W + RAIL_GAP;
-  const showRail = railOn && railFits;
+  const showRail = show && railOn && railFits;
 
   const sample = (style: AnnotStyle, c: AnnotColor, w = 40, h = 22) => {
     const line = style === "bar" ? { x: 0, y: 2, w: 0, h: h - 4 } : { x: 7, y: 4, w: w - 14, h: h - 9 };
@@ -556,7 +581,7 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
 
   return (
     <div className="annot-root" style={paletteVars}>
-      {sum.total > 0 && frame && (
+      {show && sum.total > 0 && frame && (
         <div className="annot-pillbar" style={{ left: frame.left + frame.width - 16, top: frame.top + 10 }}>
           <button type="button" className="annot-pill" aria-expanded={showRail} onClick={() => setRail(!railOn)} title={railOn ? t("annot.collapse") : t("annot.expand")}>
             {pillText(sum, t)} ›
@@ -571,7 +596,7 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
         </div>
       )}
 
-      {legend && frame && (
+      {show && legend && frame && (
         <section className="annot-legend" style={{ left: frame.left + frame.width - 16, top: frame.top + 44 }}>
           <h3>{t("annot.legend")}</h3>
           <p>{t("annot.legendHint")}</p>
@@ -592,7 +617,7 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
         </section>
       )}
 
-      {plus && !tray && (
+      {creating && plus && !tray && (
         <button
           type="button"
           className="annot-plus"
@@ -687,7 +712,7 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
         </div>
       )}
 
-      {tip && tipR && !tray && (
+      {show && tip && tipR && !tray && (
         <div
           className="annot-card annot-tip"
           role="tooltip"
