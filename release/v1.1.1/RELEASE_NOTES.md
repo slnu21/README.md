@@ -8,7 +8,7 @@
 
 ## 한국어
 
-1.1 에서 나온 **표시 펜**의 실사용 후속판입니다. 두 가지 피드백을 반영했습니다.
+1.1 에서 나온 **표시 펜**의 실사용 후속판입니다. 세 가지 피드백을 반영했습니다.
 
 ### 표시 펜 사용 모드 — 켜기 · 보기만 · 끄기
 
@@ -28,9 +28,14 @@
 - 그래서 리딩 폭 **[넓게]** 는 본문이 화면 전체라 **어떤 창에서도** 안 펼쳐졌고, **[보통]** 도 약 1,210px 가 필요해 배율이 높은 화면 · 사이드바 · 나란히 보기에서는 툴팁으로 돌아갔습니다.
 - 이제 **본문을 조금 좁혀서** 레일 자리를 만듭니다. 본문이 480px 보다 좁아져야 할 만큼 창이 작을 때만 툴팁으로 보여 줍니다.
 
+### 메모 툴팁이 잘 안 뜨던 것
+
+- 메모가 달린 표시에 마우스를 올리고 잠깐(0.45초) 머무르면 툴팁이 뜨는데, **마우스가 1px 만 움직여도 기다림이 처음부터 다시 시작**됐습니다. 사람 손은 완전히 멈추지 않으니 사실상 잘 안 떴습니다.
+- 이제 **같은 표시 위에서는 움직여도 그대로 뜹니다.** 툴팁 쪽으로 마우스를 옮기는 동안(0.4초)에는 닫히지 않고, 표시를 알아보는 범위도 줄 위아래로 조금 넓혔습니다(밑줄·물결은 글자 아래에 그려지므로).
+
 ## English
 
-A follow-up to the **marking pens** introduced in 1.1, based on two pieces of feedback.
+A follow-up to the **marking pens** introduced in 1.1, based on three pieces of feedback.
 
 ### Pen modes — On · View only · Off
 
@@ -48,6 +53,11 @@ Selecting text always popped up the pen tray, even when you just wanted to copy.
 
 - The rail only opened when it fit beside the text column **at its current width**. With the **Wide** reading width the column filled the whole window, so it never opened; with **Normal** it needed about 1,210 px, so high display scaling, the sidebar or side-by-side reading pushed it back to tooltips.
 - The text column now **narrows to make room**. Notes fall back to tooltips only when the column would have to go below 480 px.
+
+### Note tooltips were hard to open
+
+- Hovering a mark shows its note after a short pause (0.45 s), but **every 1 px of mouse movement restarted the wait** — and hands are never perfectly still.
+- Movement over the same mark no longer restarts it, the tooltip stays open for 0.4 s while you move onto it, and the hover area around each line is a little taller (underlines and waves sit below the text).
 
 ## 배포 산출물 / Artifacts
 - `README_1.1.1_x64.msix` — **Microsoft Store 업로드용**(미서명, Microsoft 재서명). 실신원(Name=`SlnU.README.md` · Publisher=`CN=1398342C-A2D7-4B4A-BFE2-34D8CCFD7FBA`).

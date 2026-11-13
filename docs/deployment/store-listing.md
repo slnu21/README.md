@@ -109,10 +109,12 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 ### v1.1.1 — ko-KR
 - **표시 펜을 설정에서 고를 수 있습니다** — [켜기 · 보기만 · 끄기]. 보기만이면 단 표시와 메모는 그대로 보이고 고칠 수 있지만, 글을 드래그해도 펜이 뜨지 않습니다. 끄기는 표시와 메모를 숨깁니다(지우지는 않습니다).
 - **메모 레일이 넓은 화면에서도 "창이 좁다"며 펼쳐지지 않던 것을 고쳤습니다** — 이제 본문을 조금 좁혀 메모 자리를 만듭니다. 리딩 폭 [넓게]·배율 높은 화면·나란히 보기에서도 펼쳐집니다.
+- **표시에 마우스를 올리면 메모가 잘 뜹니다** — 손이 조금만 움직여도 툴팁이 안 뜨던 것을 고쳤고, 툴팁으로 옮겨 가는 동안 닫히지 않습니다.
 
 ### v1.1.1 — en-US
 - **Choose how marking pens behave in Settings** — On, View only, or Off. View only keeps your marks and notes visible and editable, but selecting text no longer pops up the pens. Off hides marks and notes (nothing is deleted).
 - **Fixed the notes rail refusing to open on wide screens** ("the window is narrow") — the text column now narrows a little to make room, including with the Wide reading width, high display scaling, and side-by-side reading.
+- **Note tooltips are easier to open** — hovering a mark now shows its note even if your hand moves slightly, and the tooltip stays open while you move onto it.
 
 ### v1.1.0 — ko-KR
 - **표시 펜** — 읽다가 형광펜·밑줄·물결·취소선·동그라미, 여백에 별표·물음표, 메모. 창 폭·테마가 바뀌어도, 에이전트가 문서를 고쳐 써도 그 글자를 따라가고, 칠한 문장이 고쳐지면 "바뀜"으로 알려 줍니다.
