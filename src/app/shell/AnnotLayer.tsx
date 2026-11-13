@@ -34,9 +34,12 @@ import { resolveAll, summarize, type Resolved } from "../lib/annot/resolve";
 import { reviewSummary } from "../lib/annot/summary";
 import { canCreate, parseAnnotMode, showsMarks } from "../lib/annot/mode";
 import { railFit } from "../lib/annot/railFit";
+import { hoverStep, type HoverState } from "../lib/annot/hoverIntent";
 
 /** 툴팁이 뜨기까지 머무르는 시간(ADR 7절). */
 const HOVER_MS = 450;
+/** 표시를 벗어난 뒤 툴팁을 닫기까지 — 툴팁으로 손을 뻗는 동안(표시 → 틈 → 툴팁) 안 닫히게. */
+const LEAVE_MS = 400;
 /** 레일 폭 + 여유. 이보다 좁으면 펼쳐도 툴팁으로(폭을 재서 정한다). */
 const RAIL_W = 300;
 const RAIL_GAP = 20;
@@ -128,6 +131,8 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
   live.current = { resolved, canon, dirty, tray, show, creating };
   const hoverTimer = useRef(0);
   const leaveTimer = useRef(0);
+  // 머무름 판정 상태(lib/annot/hoverIntent.ts) — 리스너 안에서 읽고 쓰므로 ref.
+  const hover = useRef<HoverState>({ pending: null, shown: null });
 
   const palette = useMemo(() => markPalette(themes[themeId] ?? themes[defaultThemeId]), [themeId]);
   const paletteVars = useMemo(() => {
@@ -273,7 +278,8 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
         if (Math.abs(px - g.mx - 3) <= 8 && py >= l.y && py <= l.y + l.h) hit = id;
         continue;
       }
-      for (const l of g.lines) if (px >= l.x - 3 && px <= l.x + l.w + 3 && py >= l.y - 2 && py <= l.y + l.h + 4) hit = id;
+      // 줄 상자는 글자 상자라 줄 사이 틈이 비어 있다 — 위아래로 조금 넉넉히(밑줄·물결은 글자 아래에 그려진다).
+      for (const l of g.lines) if (px >= l.x - 4 && px <= l.x + l.w + 4 && py >= l.y - 4 && py <= l.y + l.h + 6) hit = id;
     }
     return hit;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -336,19 +342,26 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
           setPlus({ x: at.x, y: at.y, start: b.start, end: b.end });
         }
       }
-      // 툴팁 — 메모가 있거나 바뀐 표시에 머무르면
-      window.clearTimeout(hoverTimer.current);
-      if (!live.current.show) return;
-      const id = hitTest(e.clientX, e.clientY);
-      if (!id) {
-        leaveTimer.current = window.setTimeout(() => setTip(null), 250);
-        return;
+      // 툴팁 — 메모가 있거나 바뀐 표시에 머무르면. 같은 표시 위의 움직임은 타이머를 다시 걸지 않는다
+      // (mousemove 마다 다시 걸면 손이 1px 만 흔들려도 영영 안 뜬다 — 실사용 신고).
+      const id = live.current.show ? hitTest(e.clientX, e.clientY) : null;
+      const r = id ? live.current.resolved.find((q) => q.ann.id === id) : undefined;
+      const step = hoverStep(hover.current, id, !!r && (!!r.ann.note || r.state === "changed"));
+      hover.current = step.next;
+      if (step.keep) window.clearTimeout(leaveTimer.current);
+      if (step.disarm || step.arm) window.clearTimeout(hoverTimer.current);
+      if (step.leave) {
+        window.clearTimeout(leaveTimer.current);
+        leaveTimer.current = window.setTimeout(() => setTip(null), LEAVE_MS);
       }
-      window.clearTimeout(leaveTimer.current);
-      const r = live.current.resolved.find((q) => q.ann.id === id);
-      if (!r || (!r.ann.note && r.state !== "changed")) return;
-      const at = toView(e.clientX, e.clientY + 16);
-      hoverTimer.current = window.setTimeout(() => setTip({ id, x: at.x, y: at.y }), HOVER_MS);
+      if (step.arm) {
+        const armed = step.arm;
+        const at = toView(e.clientX, e.clientY + 14);
+        hoverTimer.current = window.setTimeout(() => {
+          hover.current = { pending: null, shown: armed };
+          setTip({ id: armed, x: at.x, y: at.y });
+        }, HOVER_MS);
+      }
     };
     const onScroll = () => {
       setTray(null);
@@ -578,6 +591,9 @@ export function AnnotLayer({ iframeRef, path, content, loadSeq, themeId }: Props
   });
 
   const tipR = tip ? byId.get(tip.id) : undefined;
+  useEffect(() => {
+    hover.current = { pending: hover.current.pending, shown: tip?.id ?? null };
+  }, [tip]);
 
   return (
     <div className="annot-root" style={paletteVars}>

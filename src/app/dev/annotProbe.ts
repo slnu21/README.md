@@ -320,6 +320,42 @@ async function run(): Promise<ProbeResult> {
       const tip = q(".annot-tip")?.textContent ?? "";
       if (!tip.includes("부족하다") || !tip.includes("충분하다")) fail(`[툴팁] 바뀐 표시의 툴팁에 이전/지금이 없다: "${tip.slice(0, 80)}"`);
       else lines.push(`  ${"[툴팁]".padEnd(22)} 450ms 뒤 이전 → 지금`);
+
+      // 사람 손은 멈춰 있지 않다 — 1~2px 씩 흔들리며 머물러도 떠야 한다(실사용 신고: "마우스 올려도 메모 보기가 힘들다").
+      // 위의 한 번짜리 mousemove 는 이 경우를 못 잰다.
+      const away = () => doc()!.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: 2, clientY: 2 }));
+      away();
+      await sleep(500);
+      if (q(".annot-tip")) fail("[툴팁 흔들림] 표시 밖으로 나갔는데 툴팁이 남아 있다.");
+      const b2 = g.getBoundingClientRect();
+      let shownAt = -1;
+      for (let i = 0; i < 14 && shownAt < 0; i++) {
+        const dx = (i % 3) - 1;
+        const dy = ((i >> 1) % 3) - 1;
+        doc()!.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: b2.left + 6 + dx, clientY: b2.top + b2.height / 2 + dy }));
+        await sleep(60);
+        if (q(".annot-tip")) shownAt = (i + 1) * 60;
+      }
+      if (shownAt < 0) fail("[툴팁 흔들림] 1px 씩 흔들며 840ms 머물렀는데 툴팁이 안 떴다(움직일 때마다 타이머가 다시 걸린다).");
+      // 뜬 툴팁으로 마우스를 옮기는 동안(표시 → 틈 → 툴팁) 닫히면 안 된다.
+      const tipEl = q<HTMLElement>(".annot-tip");
+      if (tipEl) {
+        const f = document.querySelector<HTMLIFrameElement>(".preview-frame")!.getBoundingClientRect();
+        const tr = tipEl.getBoundingClientRect();
+        const fromY = b2.top + b2.height / 2;
+        const toY = tr.top - f.top + 6; // iframe 좌표
+        for (let k = 1; k <= 4; k++) {
+          doc()!.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: b2.left + 6, clientY: fromY + ((toY - fromY) * k) / 5 }));
+          await sleep(70);
+        }
+        if (!q(".annot-tip")) fail("[툴팁 흔들림] 툴팁 쪽으로 옮기는 사이에 닫혔다(손을 뻗을 시간이 없다).");
+        else {
+          q<HTMLElement>(".annot-tip")!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+          lines.push(`  ${"[툴팁 흔들림]".padEnd(22)} 흔들며 ${shownAt}ms 에 뜸 · 툴팁으로 옮기는 동안 유지`);
+        }
+      }
+      away();
+      await sleep(600);
     }
 
     // 같은 문단의 두 표시에 긴 메모 — 레일에서 세 카드가 한 자리를 노린다(겹침 검사가 공허하지 않게).
