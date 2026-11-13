@@ -36,7 +36,7 @@ README.md는 **AI 에이전트가 쓴 문서를 사람이 읽는 자리**입니�
 - 에이전트 브리지(MCP) — Claude Code 등 AI 에이전트가 내 워크스페이스를 검색·목차·절 단위로 읽음(읽기 전용 · 넣어 둔 폴더만 · 설정에서 연결 명령 복사)
 - 받은 문서함 — 밖에서 바뀌거나 새로 생긴 문서를 알림 종에 모아 표시(앱이 꺼져 있던 동안의 변경도)
 - 문서 기록 · 되돌리기 — 덮어쓰이기 직전 판을 남겨 언제든 되돌림(되돌린 것도 다시 되돌림)
-- 표시 펜 — 형광펜·밑줄·물결·취소선·동그라미·별표와 메모 · 문서가 바뀌어도 글자를 따라감 · 바뀐 자리 알림 · 에이전트가 뜻과 함께 읽음
+- 표시 펜 — 형광펜·밑줄·물결·취소선·동그라미·별표와 메모 · 문서가 바뀌어도 글자를 따라감 · 바뀐 자리 알림 · 에이전트가 뜻과 함께 읽음 · 설정에서 보기만/끄기
 - 가상 폴더 — 파일은 옮기지 않고 배치만 내 구조로(드래그) · 가져온 폴더 자동 동기화
 - 캔버스 — 문서 카드를 판에 늘어놓고 잇는 문서 지도(옵시디언 JSON Canvas 호환) · 색연필·형광펜 드로잉
 - 워크스페이스 전역 전문검색 · 전역 찾기·바꾸기(정규식) · 문서 아웃라인 · 즐겨찾기 · 최근
@@ -82,7 +82,7 @@ It starts fast and stays light. You keep all rights to what you write, for perso
 - Agent bridge (MCP) — AI agents such as Claude Code can search, outline and read sections of your workspace (read-only · only what you added · copy the connect command from Settings)
 - Inbox — documents changed or created outside the App collect under the toolbar bell, including changes made while it was closed
 - Document history · restore — the version from just before an overwrite is kept so you can go back (a restore can be undone too)
-- Marking pens — highlighter, underline, wavy, strike, circle, star and notes · marks follow the text through edits · tells you when marked text changed · agents read them with their meaning
+- Marking pens — highlighter, underline, wavy, strike, circle, star and notes · marks follow the text through edits · tells you when marked text changed · agents read them with their meaning · view-only or off in Settings
 - Virtual folders — arrange documents your way without moving files (drag) · imported folders stay in sync
 - Canvas — lay out and connect document cards into a map (Obsidian JSON Canvas compatible) · draw with pencil and marker
 - Workspace-wide full-text search · find & replace across files (regex) · outline · favorites · recent files
@@ -105,6 +105,14 @@ It starts fast and stays light. You keep all rights to what you write, for perso
 ## 업데이트 내용 (What's new)
 
 Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 문구를 복사.
+
+### v1.1.1 — ko-KR
+- **표시 펜을 설정에서 고를 수 있습니다** — [켜기 · 보기만 · 끄기]. 보기만이면 단 표시와 메모는 그대로 보이고 고칠 수 있지만, 글을 드래그해도 펜이 뜨지 않습니다. 끄기는 표시와 메모를 숨깁니다(지우지는 않습니다).
+- **메모 레일이 넓은 화면에서도 "창이 좁다"며 펼쳐지지 않던 것을 고쳤습니다** — 이제 본문을 조금 좁혀 메모 자리를 만듭니다. 리딩 폭 [넓게]·배율 높은 화면·나란히 보기에서도 펼쳐집니다.
+
+### v1.1.1 — en-US
+- **Choose how marking pens behave in Settings** — On, View only, or Off. View only keeps your marks and notes visible and editable, but selecting text no longer pops up the pens. Off hides marks and notes (nothing is deleted).
+- **Fixed the notes rail refusing to open on wide screens** ("the window is narrow") — the text column now narrows a little to make room, including with the Wide reading width, high display scaling, and side-by-side reading.
 
 ### v1.1.0 — ko-KR
 - **표시 펜** — 읽다가 형광펜·밑줄·물결·취소선·동그라미, 여백에 별표·물음표, 메모. 창 폭·테마가 바뀌어도, 에이전트가 문서를 고쳐 써도 그 글자를 따라가고, 칠한 문장이 고쳐지면 "바뀜"으로 알려 줍니다.
@@ -355,5 +363,6 @@ Store 제출 시 "이 업데이트의 새로운 기능" 필드에 해당 버전 
 - [x] **v0.8.0 업데이트 제출** — `release/v0.8.0/README_0.8.0_x64.msix`(동일 실신원 · `0.8.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.8.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.8.0** 문구 — **제출 완료(2026-08-30) · 게시 완료**(2026-09-02 확인: `Get-AppxPackage SlnU.README.md` → `0.8.0.0` · `SignatureKind=Store`). 제출 직전 직전 판(v0.7.1)이 게시 완료임을 확인해 동시 제출 충돌 없음. **GitHub 릴리스·태그 `v0.8.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.8.0>. **제출은 Partner Center 웹 — 사용자 직접.**
 - [x] **v0.9.0 업데이트 제출** — `release/v0.9.0/README_0.9.0_x64.msix`(동일 실신원 · `0.9.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.9.0 을 `.msix` 안에서 꺼내 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.9.0** 문구 — **제출 완료(2026-09-06, 사용자 직접) · 인증·게시 대기**. 직전 v0.8.0 이 게시 완료(2026-09-02 확인)라 동시 제출 충돌 없음. **GitHub 릴리스·태그 `v0.9.0` 완료** — <https://github.com/slnu21/README.md/releases/tag/v0.9.0> · 자산 4종(NSIS·MSIX·zip·NOTICES).
 - [x] **v0.10.0 업데이트 제출 → 게시 완료(2026-09-27 확인: `Get-AppxPackage SlnU.README.md` → `0.10.0.0` · `SignatureKind=Store`)** · **GitHub 릴리스 완료(2026-09-19)** <https://github.com/slnu21/README.md/releases/tag/v0.10.0>(`main` push + 애노테이트 태그 `v0.10.0` + 자산 4종 `state=uploaded`) · **Store 제출은 사용자 직접 — 대기.** `release/v0.10.0/README_0.10.0_x64.msix`(동일 실신원 · `0.10.0.0` · runFullTrust · `.md`/`.markdown` 연결 · 내장 exe FileVersion 0.10.0 실물 확인) Partner Center 업로드 → 인증 → 재서명. "새로운 기능" 필드 = 위 **업데이트 내용 v0.10.0** 문구 — **산출물 준비 완료(2026-09-09) → RTL 수록으로 재빌드(2026-09-19)** — NSIS 5.56MB / MSIX 6.61MB / zip 6.49MB · 재빌드 MSIX 매니페스트 재확인(동일 실신원 · `0.10.0.0` · alias `readme-md.exe` · `<Application>` 1개 · 꺼낸 exe 0.10.0) · **릴리스 exe 실구동 통과**(CDP, 사용자 DB·프로필 비켜 놓고 원복: **RTL 픽스처를 argv 로 열어 설정 창 버튼으로 자동→오→왼→왼→오→자동 — 문서 루트 dir·문단 정렬·목록 여백·표 열 순서·편집기 줄 방향·거터 위치·영속 전부 프로브와 동일** · 툴바 3단계 1684 full / 1184 icons / 934 menu — 어느 폭에서도 겹침 0·넘침 0 · [⋯] 메뉴 9항목 · 테마 창 6카드에서 한지 적용 · 1380px 에서 한국어 full / 영어 icons · 탭 우클릭에 [문서 기록] · 미리보기 렌더·에이전트 연결 패널 정상). 직전 v0.9.0 이 **게시 완료**(2026-09-09 확인: `Get-AppxPackage SlnU.README.md` → `0.9.0.0` · `SignatureKind=Store`)라 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
-- [ ] **v1.1.0 업데이트 제출** — 0.10.0 → 1.1.0(1.0.0 은 Store 에 안 낸다). 리스팅 문구(이 파일 머리 · 기능 18줄) · 스크린샷 새 세트 8장(`screenshots/v110-*` ko/en) · "새로운 기능" = 위 **업데이트 내용 v1.1.0** · `release/v1.1.0/README_1.1.0_x64.msix`(실신원). 소개 영상은 이번 제출에 안 바꿈(0.6.8 영상 그대로 — 별도 갱신). **제출은 Partner Center 웹 — 사용자 직접.**
+- [ ] **v1.1.1 업데이트 제출** — `release/v1.1.1/README_1.1.1_x64.msix`(실신원). "새로운 기능" = 위 **업데이트 내용 v1.1.1**. 리스팅 문구·스크린샷은 1.1.0 그대로(기능 목록 표시 펜 줄에 "보기만/끄기" 한 구절만 추가). 직전 v1.1.0 게시 완료라 동시 제출 충돌 없음. **제출은 Partner Center 웹 — 사용자 직접.**
+- [x] **v1.1.0 업데이트 제출 → 게시 완료(2026-11-13 확인: `Get-AppxPackage SlnU.README.md` → `1.1.0.0` · `SignatureKind=Store`)** — 0.10.0 → 1.1.0(1.0.0 은 Store 에 안 낸다). 리스팅 문구(이 파일 머리 · 기능 18줄) · 스크린샷 새 세트 8장(`screenshots/v110-*` ko/en) · "새로운 기능" = 위 **업데이트 내용 v1.1.0** · `release/v1.1.0/README_1.1.0_x64.msix`(실신원). 소개 영상은 이번 제출에 안 바꿈(0.6.8 영상 그대로 — 별도 갱신). **제출은 Partner Center 웹 — 사용자 직접.**
 - [x] ~~**v1.0.0 업데이트 제출**~~ — Store 제출은 건너뜀(1.1.0 으로 한 번에) — 리스팅 문구(이 파일 머리) · 스크린샷 새 세트 8장 · 소개 영상을 **같은 제출에서 교체**. "새로운 기능" 필드 = 위 **업데이트 내용 v1.0.0**. **GitHub 릴리스 완료(2026-10-12)** <https://github.com/slnu21/README.md/releases/tag/v1.0.0> · `release/v1.0.0/README_1.0.0_x64.msix`(실신원 · `1.0.0.0` · `<Application>` 1 · alias `readme-md.exe` · runFullTrust · 꺼낸 exe 1.0.0). **제출은 스크린샷·영상 촬영(10-18 이후) 뒤 — 사용자 직접**(roadmap-1.0.md 7절).
