@@ -22,7 +22,7 @@ import {
   themeDirPath,
   themeFilePath,
   writeFile,
-} from "../lib/tauri";
+} from "@platform";
 
 /** 카드의 작은 견본. 테마가 실제로 쓰는 5토큰을 그대로 칠한다 — 견본용 색을 따로 두면
  *  파일을 고쳤을 때 견본만 옛 색으로 남는다. */
@@ -62,7 +62,7 @@ export function ThemePicker({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", onKey);
     // 버튼 툴팁에 **해석된 실제 경로**를 보여 준다 — MSIX 패키지본에서는 앱이 쓰는 경로가
     // %APPDATA% 가 아닐 수 있다(app_paths.rs).
-    void Promise.all([themeFilePath(), themeDirPath()])
+    if (!__WEB__) void Promise.all([themeFilePath(), themeDirPath()]) // 웹엔 사용자 테마 폴더가 없다
       .then(([file, dir]) => setPaths({ file, dir }))
       .catch(() => setPaths(null)); // Tauri 밖 — 툴팁만 없어진다
     return () => window.removeEventListener("keydown", onKey);
@@ -156,8 +156,10 @@ export function ThemePicker({ onClose }: { onClose: () => void }) {
           })}
         </ul>
 
-        <p className="tp-hint">{t("theme.pickerHint")}</p>
+        {/* 사용자 테마 파일·폴더는 데스크톱 기능 — 웹은 번들 내장 테마(기본 팩 포함)만 고른다. */}
+        <p className="tp-hint">{t(__WEB__ ? "web.themeHint" : "theme.pickerHint")}</p>
 
+        {!__WEB__ && (
         <div className="tp-tools">
           <button type="button" className="modal-btn" title={paths?.file} onClick={() => void openThemeFile()}>
             {t("settings.themeFile")}
@@ -172,6 +174,7 @@ export function ThemePicker({ onClose }: { onClose: () => void }) {
             {t("settings.themeExport")}
           </button>
         </div>
+        )}
 
         <div className="modal-actions">
           <button type="button" className="modal-btn primary" onClick={onClose}>

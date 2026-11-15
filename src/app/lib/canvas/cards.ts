@@ -1,7 +1,7 @@
 /**
  * file 노드 카드 정보(Rust `canvas_cards`) — Tauri 밖(프로브)에서는 **열린 탭의 내용**으로 같은 모양을 만든다.
  */
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@platform"; // 데스크톱 = Tauri invoke 그대로 · 웹 = 거절 대역
 import { loadMarkdown } from "../markdownLazy";
 
 export interface CardOutline {

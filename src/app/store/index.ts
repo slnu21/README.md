@@ -27,7 +27,7 @@ import {
   type DirEntryNode,
   type InboxItem,
   type WorkspaceNode,
-} from "../lib/tauri";
+} from "@platform";
 
 /** 렌더 트리 노드. 그래프 노드(uuid)와 디스크 파생 노드(path)를 통합. */
 export type TreeKind =

@@ -30,6 +30,9 @@ npm run probe:canvas   # 캔버스 — 진짜 앱 셸에서 연결·끝점 옮�
 npm run probe:annot    # 표시 펜 — 진짜 앱 셸에서 골라 달고, 폭·줌·테마·RTL·문서 수정 뒤에도 그 글자에 붙는지 기하로
 node tools/perf-app.mjs  # 릴리스 exe 기동·메모리(릴리스 때 손으로 · 실사용 데이터 비켜 놓고 원복)
 # Rust 성능(5천 문서 색인·검색·브리지): cd src-tauri; cargo test --release --lib perf::perf_ -- --ignored --nocapture
+npm run dev:web        # 웹 에디션 개발 서버(http://localhost:1430 · @platform → app/platform/web)
+npm run build:web      # 웹 에디션 빌드 → src/web-dist/ (base 기본 "/", WEB_BASE 로 변경 · 배포는 Cloudflare Pages — docs/TASKS.md W2)
+npm run probe:web      # 웹 빌드를 Edge 헤드리스+CDP 로 — 드롭·렌더·사이드바 목차·편집·광고 자리 300×250·접기·좁은 폭·최근(IndexedDB)
 npm run tauri dev      # 데스크톱 실행 (Rust 필요)
 npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 ```
@@ -45,7 +48,8 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 > 단계·버튼 겹침·넘침도 함께 잰다(툴바 접기는 @media 가 아니라 측정이라 창을 안 띄우고도 잡힌다).
 
 ## 규약 / 결정사항
-- **파일 I/O**: JS의 fs 플러그인이 아니라 **Rust 커맨드(`src-tauri/src/commands/fs_ops.rs`, `std::fs`)** 로 임의 경로 풀 접근. 프론트는 `src/app/lib/tauri.ts` 래퍼 사용.
+- **파일 I/O**: JS의 fs 플러그인이 아니라 **Rust 커맨드(`src-tauri/src/commands/fs_ops.rs`, `std::fs`)** 로 임의 경로 풀 접근. 프론트는 **`@platform`** 으로만 닿는다(데스크톱 = `src/app/platform/tauri.ts` · 웹 = `src/app/platform/web/` · vite alias 로 선택 · 타입 계약은 `platform/conformance.ts`). **Tauri 패키지 import 는 `platform/tauri.ts` 한 곳**(표시 펜·캔버스는 거기서 다시 내보내는 `invoke`).
+- **웹 에디션은 데스크톱 번들을 바꾸면 안 된다**(사용자 요구 — 데스크톱 산출물이 main 과 바이트 동일해야 함). 웹 전용 UI 는 `__WEB__`(vite `define`, 데스크톱·vitest·프로브 = false) 뒤에, **삼항의 앞가지**로 둔다(`__WEB__ && <X/>` 는 데스크톱 JSX 에 `false` 자식을 남겨 번들이 바뀐다). 웹 전용 컴포넌트(`shell/WebSidebar.tsx`)는 모듈 최상위 부작용 금지, 웹 문구·스타일은 `platform/web/{locales,web.css,ui.ts}`(데스크톱 로케일·App.css 무접촉). 확인 = main 임시 worktree 와 데스크톱 빌드 파일 해시 비교(데브로그 11-15 (03)).
 - **미리보기 보안**: markdown-it 렌더 결과는 **반드시 DOMPurify 정화 후 샌드박스 iframe** 주입.
 - **오프라인**: 원격/CDN 금지, 모든 자산 번들. **하드닝 CSP 적용됨**(`tauri.conf.json` `app.security.csp` — 원격 `http(s)` 차단, `img-src`에 `data:`/`asset:`, 인라인 스타일 허용). `script-src 'self'`(인라인 스크립트 불가).
 - **라이선스**: permissive(MIT/Apache/BSD/ISC 등)만 허용. GPL/AGPL/LGPL/SSPL 금지.
@@ -53,6 +57,7 @@ npm run tauri build    # 빌드 → src/src-tauri/target/release/bundle/
 - **소개 영상**: `video/`(Remotion, **gitignore 대상 = 로컬 전용** — Atlas·Clowder 영상과 같은 방침). 스토리보드·카피·촬영 재현 절차는 커밋되는 [docs/video/copy.md](docs/video/copy.md)에 있다. 촬영 전 `video/capture/userdata.ps1`로 실사용 DB·WebView2 프로필을 반드시 비켜 놓는다(전역 검색이 머신 전체 인덱스를 조회한다).
 
 ## 현재 상태 (2026-11-15 기준)
+- **[웹 에디션 W1] 같은 저장소 웹 빌드 타깃 — 검토 대기**(`develop-web-edition` · [docs/TASKS.md](docs/TASKS.md) · 데브로그 11-15 (02)). `@platform` 인터페이스 + 구현 둘 · 웹 = File System Access(폴백 `<input>`+다운로드) · 설정 localStorage · 최근 IndexedDB(핸들) · 테마 번들 · 웹 사이드바(`shell/WebSidebar.tsx`: 목차·최근·사용법·300×250 안내 자리·앱 링크). vitest 876 → **919** · `probe:web` 28/28 · **데스크톱 빌드 산출물 main 과 바이트 동일**(11-15 (03) — 웹 전용 코드를 `__WEB__` 상수 접기로 분리). W2(랜딩·URL 열기·PWA·Cloudflare Pages 배포)는 TASKS 메모.
 - **v1.1.1 출하 — GitHub 릴리스 + Store 제출 완료(인증·게시 대기)**(`develop-release-v111`) — 1.1 표시 펜 실사용 후속: 설정 **[표시 펜] 켜기·보기만·끄기**(`lib/annot/mode.ts` · 보기만 = 드래그 트레이·여백 ＋ 닫음 · 끄기 = 숨김만, 삭제 안 함) + **메모 툴팁이 손이 흔들리면 안 뜨던 것**(mousemove 마다 타이머 재시작 → `lib/annot/hoverIntent.ts`) + **메모 레일이 넓은 화면에서도 "좁다"던 것**(카드를 그대로 두고 쟀다 — 리딩 폭 [넓게]는 언제나 실패 → `lib/annot/railFit.ts` 가 카드를 좁혀 자리, 하한 480px). 1.1.0 은 **Store 게시 완료**(11-13 확인). `release/v1.1.1/` NSIS 5.93 / MSIX 7.04 / zip 6.92MB(툴팁 수정 뒤 재빌드) · 실신원 매니페스트 `1.1.1.0` · MCP `readme-md 1.1.1`. vitest **876** · `probe:annot` PASS. **GitHub 출하 완료(11-13 · <https://github.com/slnu21/README.md/releases/tag/v1.1.1> · 자산 4종 uploaded)**. **Store 제출 완료(11-15 · 사용자 직접) — 인증·게시 대기**. GUI 실구동은 안 함 — 설정 세 버튼 폭 손으로 확인.
 - **v1.1.0 배포 준비 완료**(`develop-release-v110`) — 1.1.0 = **표시 펜**(ADR 0003 · 무료) + **캔버스**(ADR 0004 · C1~C4) + 브리지 소품(`list_annotations` · 검색 줄 번호). Store 는 **0.10.0 → 1.1.0**(1.0.0 은 GitHub 만). `release/v1.1.0/` NSIS 5.93 / MSIX 7.05 / zip 6.92MB · 실신원 매니페스트(`SlnU.README.md` · `1.1.0.0` · Application 1 · alias `readme-md.exe` · runFullTrust) · 꺼낸 exe FileVersion 1.1.0 · MCP 핸드셰이크 `readme-md 1.1.0` 도구 7. 스크린샷 16장 `docs/deployment/screenshots/v110-*`(ko/en). **촬영이 결함 다섯을 찾았다**: 폴더 여럿 동시 색인 시 한 폴더 통째 유실(**1.0.0 회귀** — DEFERRED 트랜잭션이 WAL 에서 곧장 BUSY_SNAPSHOT → `BEGIN IMMEDIATE`) · 부팅 재색인 변경이 종에 안 뜸 · 리딩 분할 오른쪽 iframe 150px(0.7 부터 · `probe:layout` 이 바닥 닿음 검사) · 레일 카드 겹침(높이 실측 · 카드 `top` 전이 0.2초 뒤에 재야 한다) · 알약 z-index/0 항목/인용 마크다운. vitest **859** · cargo **112** · 프로브 5종 PASS. **GitHub 출하 완료(10-13 · <https://github.com/slnu21/README.md/releases/tag/v1.1.0> · 자산 4종 uploaded)**. **Store 제출 완료(10-13 · 사용자 직접) — 인증·게시 대기**. `.canvas` MSIX 파일 연결은 **안 하기로**(사용자 결정 10-13). 그 뒤 브리지 실사용 변경 마이너.
 - **[v1.1] 표시 펜 V1~V4 + 브리지 소품 B1 — 기능 완료(10-12, 자율 진행 지시)**. [features/annotations.md](docs/design/features/annotations.md) · 데브로그 (06)~(10).

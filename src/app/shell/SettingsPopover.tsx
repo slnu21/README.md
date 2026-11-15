@@ -11,6 +11,8 @@ import { ANNOT_MODES } from "../lib/annot/mode";
 import { readFonts, monoFonts, uiFonts } from "../lib/fonts";
 import { Icon } from "./Icon";
 import { AgentBridgePanel } from "./AgentBridgePanel";
+// 웹 전용(`__WEB__` 뒤에서만 — 데스크톱 번들에서 빠진다)
+import { WebDesktopNote } from "./WebSidebar";
 
 export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) {
   const { t } = useTranslation();
@@ -186,6 +188,8 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
             </div>
           </div>
 
+          {/* 표시 펜 설정 둘은 데스크톱 기능(웹 빌드에서는 빠진다) */}
+          {!__WEB__ && (
           <div className="set-row">
             <span>{t("annot.mode")}</span>
             <div className="seg width" role="group" aria-label={t("annot.mode")}>
@@ -196,7 +200,9 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
               ))}
             </div>
           </div>
+          )}
 
+          {!__WEB__ && (
           <div className="set-row">
             <span>{t("annot.texture")}</span>
             <div className="seg width" role="group" aria-label={t("annot.texture")}>
@@ -207,6 +213,7 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
               ))}
             </div>
           </div>
+          )}
 
           <div className="set-row">
             <span>{t("settings.diagramWidth")}</span>
@@ -260,7 +267,7 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
             {t("settings.themes")}
           </button>
 
-          <AgentBridgePanel />
+          {__WEB__ ? <WebDesktopNote /> : <AgentBridgePanel />}
         </div>
       )}
     </div>

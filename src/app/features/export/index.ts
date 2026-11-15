@@ -1,6 +1,6 @@
 // Export: HTML(자기완결: CSS·이미지·폰트 인라인) / PDF(OS 인쇄 대화상자 경유).
 // 참고: docs/design/features/export.md
-import { saveFile, writeFile } from "../../lib/tauri";
+import { saveFile, writeFile } from "@platform";
 import { buildExportHtml, type ExportParams } from "./html";
 import { printHtmlToPdf } from "./pdf";
 

@@ -1,0 +1,222 @@
+/* 웹 에디션(W1) 전용 스타일 — platform/web/ui.ts 가 웹 빌드에서만 싣는다(데스크톱 App.css 는 손대지 않는다).
+   이 파일은 App.css 보다 먼저 들어갈 수 있으므로 **모든 규칙을 `.app.edition-web` 아래에** 둬서 순서가 아니라
+   특이성으로 이긴다. 클래스는 `wsb-` 접두어 — mermaid 클래스(.node·.label·.cluster…)와 겹치면 측정이 오염된다(App.css 주석). */
+
+/* 사이드바 폭 = 안내 자리 300px + 좌우 여백 12px×2 + 테두리 1px. */
+.app.edition-web {
+  grid-template-columns: 326px 1fr;
+}
+.app.edition-web.sb-collapsed {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "titlebar"
+    "content"
+    "statusbar";
+}
+/* 접기 버튼 — 사이드바 슬롯에서 렌더되지만(데스크톱 타이틀바 DOM 을 건드리지 않으려고) 타이틀바 왼쪽 위에 고정한다. */
+.app.edition-web .wsb-toggle {
+  position: fixed;
+  top: 7px;
+  left: 8px;
+  z-index: 5;
+}
+.app.edition-web .titlebar {
+  padding-left: 48px;
+}
+.app.edition-web .wsb {
+  gap: 12px;
+  padding: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.app.edition-web .wsb-sec {
+  min-height: 0;
+  overflow: auto;
+}
+.app.edition-web .wsb-toc {
+  flex: 1 1 auto;
+  min-height: 96px;
+}
+.app.edition-web .wsb-recent {
+  flex: 0 1 auto;
+  max-height: 36%;
+}
+.app.edition-web .wsb-h {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.app.edition-web .wsb-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+.app.edition-web .wsb-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 26px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: start;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background-color 0.14s ease;
+}
+.app.edition-web .wsb-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app.edition-web .wsb-item:hover {
+  background: var(--hover);
+}
+.app.edition-web .wsb-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+.app.edition-web .wsb-item .ic {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+.app.edition-web .wsb-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.app.edition-web .wsb-how {
+  margin: 0;
+  padding-inline-start: 16px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+/* 고정 크기 자리 — 크기를 미리 잡아 두어(contain:strict) 안의 내용이 바뀌어도(나중에 광고가 늦게 떠도)
+   주변이 밀리지 않는다. 사이드바가 짧아져도 줄지 않는다(flex:none). */
+.app.edition-web .wsb-slot {
+  flex: none;
+  box-sizing: border-box;
+  width: 300px;
+  height: 250px;
+  contain: strict;
+  overflow: hidden;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  color: var(--fg);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.app.edition-web .wsb-slot p {
+  margin: 0;
+}
+.app.edition-web .wsb-slot-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.app.edition-web .wsb-slot .wsb-slot-lead {
+  margin-top: 4px;
+  color: var(--muted);
+}
+.app.edition-web .wsb-slot-list {
+  margin: 8px 0 0;
+  padding-inline-start: 16px;
+}
+.app.edition-web .wsb-slot .wsb-slot-sub {
+  margin-top: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.app.edition-web .wsb-keys {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  margin: 4px 0 0;
+}
+.app.edition-web .wsb-keys dt,
+.app.edition-web .wsb-keys dd {
+  margin: 0;
+  white-space: nowrap;
+}
+.app.edition-web .wsb-slot kbd {
+  display: inline-block;
+  min-width: 16px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  font-family: var(--mono-font);
+  font-size: 10.5px;
+  line-height: 16px;
+  text-align: center;
+}
+.app.edition-web .wsb-app {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.app.edition-web .wsb-app:hover {
+  background: var(--hover);
+}
+.app.edition-web .wsb-app .ic {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.app.edition-web .empty-app-link {
+  font-size: 12.5px;
+  color: var(--accent);
+}
+.app.edition-web .set-desktop-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.app.edition-web .set-desktop-note a {
+  color: var(--accent);
+}
+/* 좁은 폭: 사이드바는 App.css 공통 규칙(≤900px)이 숨긴다 — 웹 그리드도 한 칸으로, 접기 버튼도 뜻이 없다. */
+@media (max-width: 900px) {
+  .app.edition-web,
+  .app.edition-web.sb-collapsed {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "titlebar"
+      "content"
+      "statusbar";
+  }
+  .app.edition-web .sidebar {
+    display: none;
+  }
+  .app.edition-web .wsb-toggle {
+    display: none;
+  }
+  .app.edition-web .titlebar {
+    padding-left: 14px;
+  }
+}

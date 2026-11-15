@@ -13,7 +13,7 @@ import {
   revealInExplorer,
   themeDirPath,
   themeFilePath,
-} from "../lib/tauri";
+} from "@platform";
 import { useAppStore } from "../store";
 import { applyTheme } from "./apply";
 import { parseThemeBundle, type ThemeBundle, type ThemeWarning } from "./custom";
@@ -124,6 +124,8 @@ function seedThemes(): Record<string, Theme> {
 export async function seedThemeFiles(): Promise<void> {
   const st = useAppStore.getState();
   if (st.themeSeedVersion >= SEED_VERSION) return;
+  // 웹: 사용자 테마 폴더가 없다 — 기본 팩은 platform readThemeBundle 이 번들 원문으로 내준다.
+  if (__WEB__) return;
   try {
     const dir = await themeDirPath();
     for (const f of SEED_FILES) {

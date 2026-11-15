@@ -3,7 +3,7 @@
  * 저장소**로 같은 계약을 흉내 낸다 — 프로브가 진짜 앱 셸을 띄우되 IPC 는 없기 때문이다. 메모리 쪽도
  * Rust 와 같은 검사(범위의 글 = quote)를 해서 프런트의 오프셋 계산이 틀리면 프로브에서 드러나게 한다.
  */
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@platform"; // 데스크톱 = Tauri invoke 그대로 · 웹 = 거절 대역
 import { canonicalText } from "./relocate";
 import type { AnnotColor, AnnotKind, AnnotStyle } from "./pens";
 

@@ -5,7 +5,7 @@
 // MCP 서버는 별도 프로세스라 localStorage 를 못 읽는다 — 진실원이 DB 여야 토글이 실제로 먹는다.
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { agentInfo, settingsGetAll, settingsSet, type AgentInfo } from "../lib/tauri";
+import { agentInfo, settingsGetAll, settingsSet, type AgentInfo } from "@platform";
 import { useAppStore } from "../store";
 
 const CONTROL_KEY = "agentControlEnabled";

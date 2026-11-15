@@ -4,7 +4,7 @@
 // 쓰지 않는 이유: 이 앱의 탭은 경로가 곧 식별자라(store OpenTab.path) 세션 복원·파일 감시·
 // 자동저장·닫기 가드·최근 목록이 전부 실경로를 전제로 돌아간다. 그 전제를 뒤집는 것보다
 // 파일을 먼저 만드는 편이 안전하고, 만든 즉시 워크스페이스와 전역 검색에도 잡힌다.
-import { createFile, searchReindexPath } from "../../lib/tauri";
+import { createFile, searchReindexPath } from "@platform";
 import { normalizeDocName, type NameError } from "../../lib/paths";
 import { useAppStore } from "../../store";
 

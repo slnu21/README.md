@@ -24,6 +24,7 @@ import type { OpenHow } from "../lib/links";
 import { annotateLinkTitles, handleLinkClick } from "../lib/previewLinks";
 import { AnnotLayer } from "./AnnotLayer";
 import { ANNOT_DOC_CSS } from "../lib/annot/paint";
+import { attachFrameDrop } from "@platform";
 
 /** 표시 펜 층 자리(lib/annot/paint.ts). 미리보기 전용 — 내보내기는 따로 정한다. */
 const ANNOT_CSS = ANNOT_DOC_CSS;
@@ -329,6 +330,9 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
       restoreLineRef.current = null;
     }
     doc.addEventListener("contextmenu", (e) => e.preventDefault());
+    // 웹: 미리보기 위에 떨어뜨린 파일도 앱이 받는다(안 받으면 브라우저가 그 파일로 이동해 편집 중인 글이 날아간다).
+    // 데스크톱은 OS 드롭을 Tauri 가 창 단위로 받는다 — 이 줄은 데스크톱 번들에서 빠진다.
+    if (__WEB__ && win) attachFrameDrop(win);
     // 링크에 목적지를 title 로 달아 둔다 — 누르기 전에 어디로 가는지 보인다.
     annotateLinkTitles(doc, pathRef.current);
     doc.addEventListener("click", (e) => {
@@ -371,7 +375,10 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
         title="preview"
         onLoad={onIframeLoad}
       />
-      <AnnotLayer iframeRef={iframeRef} path={path} content={loadedContent} loadSeq={loadSeq} themeId={themeId} />
+      {/* 표시 펜은 데스크톱 기능(웹 빌드에서는 빠진다) */}
+      {!__WEB__ && (
+        <AnnotLayer iframeRef={iframeRef} path={path} content={loadedContent} loadSeq={loadSeq} themeId={themeId} />
+      )}
       {lightbox && (
         <div className="lightbox" role="dialog" aria-label="image" onClick={() => setLightbox(null)}>
           <img src={lightbox} alt="" />

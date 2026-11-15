@@ -2,7 +2,7 @@
 // 실제 앱(Tauri) 로드에는 이 파라미터가 없으므로 동작하지 않는다(무해).
 // 파라미터: ?demo=1&theme=light|dark|paper&lang=ko|en
 import { useAppStore } from "../store";
-import type { DirEntryNode } from "../lib/tauri";
+import type { DirEntryNode } from "@platform";
 
 const SAMPLE = [
   "# README.md",
