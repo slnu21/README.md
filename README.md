@@ -20,6 +20,13 @@
 ### 설치
 [Microsoft Store](https://apps.microsoft.com/detail/9N9QMXQPND3H) 에서 받거나(검색어 **README.md**), [GitHub 릴리스](https://github.com/slnu21/README.md/releases)에서 설치 파일을 받는다.
 
+### 웹 에디션 — <https://md.ondolworks.com>
+설치 없이 브라우저에서 **파일 하나**를 열고·읽고·고치는 무료판이다(업로드 없음 · 문서는 브라우저 안에서만).
+- 랜딩: [마크다운 에디터](https://md.ondolworks.com/ko/) · [마크다운 뷰어](https://md.ondolworks.com/ko/markdown-viewer/) · [Mermaid 미리보기](https://md.ondolworks.com/ko/mermaid-preview/) · [README 미리보기](https://md.ondolworks.com/ko/readme-preview/) — 같은 앱, 들어올 때의 보기와 견본이 다르다.
+- **링크로 열기** — 주소 뒤에 `?url=https://github.com/owner/repo/blob/main/README.md`. GitHub·Gist·GitLab 주소는 원문(raw)으로 바뀌고, 상대경로 이미지는 같은 저장소에서 불러온다(원본이 CORS 를 허용해야 한다).
+- **공유 링크** — 문서를 압축해 주소의 `#` 뒤에 담는다. 서버에 저장되지 않는다(해시는 서버로 가지 않는다). 압축 후 32,000자까지.
+- **앱으로 설치(PWA)** — Chrome·Edge 주소창에서 설치하면 오프라인에서도 동작하고, 탐색기에서 `.md` 를 이 앱으로 열 수 있다.
+- 폴더·검색·기록·받은 문서함·에이전트 브리지는 데스크톱 앱 기능이다.
 ### AI 에이전트 연결 (선택)
 Claude Code 같은 MCP 지원 에이전트가 **이 앱의 워크스페이스를 검색하고 읽게** 할 수 있다. 따로 설치할 것은 없다 — 앱 자신이 서버를 겸한다.
 
@@ -58,6 +65,13 @@ claude mcp add --scope user readme-md -- readme-md mcp
 ### Install
 Get it from the [Microsoft Store](https://apps.microsoft.com/detail/9N9QMXQPND3H) (search for **README.md**), or download an installer from [GitHub Releases](https://github.com/slnu21/README.md/releases).
 
+### Web edition — <https://md.ondolworks.com>
+A free, install-free edition that opens, reads and edits **one file at a time** in the browser (no upload — documents stay in your browser).
+- Landing pages: [Markdown editor](https://md.ondolworks.com/en/) · [Markdown viewer](https://md.ondolworks.com/en/markdown-viewer/) · [Mermaid preview](https://md.ondolworks.com/en/mermaid-preview/) · [README preview](https://md.ondolworks.com/en/readme-preview/) — the same app, each opening with its own view and sample.
+- **Open from a link** — add `?url=https://github.com/owner/repo/blob/main/README.md`. GitHub, Gist and GitLab addresses become raw files and relative images load from the same repository (the source must allow CORS).
+- **Share link** — the document is compressed into the part after `#`, which never reaches a server. Up to 32,000 characters after compression.
+- **Install as an app (PWA)** — install from the Chrome/Edge address bar to work offline and open `.md` files from Explorer.
+- Folders, search, history, Inbox and the agent bridge are desktop-app features.
 ### Connecting an AI agent (optional)
 An MCP-capable agent such as Claude Code can **search and read this App's workspace**. Nothing extra to install — the App itself is the server.
 
@@ -110,6 +124,7 @@ cd src
 npm install
 # 3) 개발 실행 (데스크톱 창)
 npm run tauri dev
+# 웹 에디션: npm run dev:web (http://localhost:1430) · 빌드 npm run build:web → src/web-dist/ (Cloudflare Pages)
 ```
 > Rust 설치 완료 → `tauri dev/build` 동작. 프론트 타입체크는 Rust 없이도 `npx tsc --noEmit`로 가능.
 

@@ -15,7 +15,8 @@
 }
 /* 접기 버튼 — 사이드바 슬롯에서 렌더되지만(데스크톱 타이틀바 DOM 을 건드리지 않으려고) 타이틀바 왼쪽 위에 고정한다. */
 .app.edition-web .wsb-toggle {
-  position: fixed;
+  /* absolute(페이지 기준) — 앱이 페이지 맨 위라 자리는 같고, 아래 설명으로 스크롤하면 앱과 함께 올라간다. */
+  position: absolute;
   top: 7px;
   left: 8px;
   z-index: 5;
@@ -204,7 +205,8 @@
 @media (max-width: 900px) {
   .app.edition-web,
   .app.edition-web.sb-collapsed {
-    grid-template-columns: 1fr;
+    /* minmax(0, …) — 툴바의 최소폭이 열을 화면보다 넓히지 않게(모바일 390 에서 레이아웃 뷰포트가 430 으로 벌어졌다) */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "titlebar"
       "content"
@@ -218,5 +220,224 @@
   }
   .app.edition-web .titlebar {
     padding-left: 14px;
+  }
+}
+
+/* ── W2: 첫 화면 = 앱, 그 아래 = 보이는 설명 본문(사용자 결정 2026-11-15) ──
+   앱은 첫 뷰포트를 정확히 채운다(100svh — 모바일 주소창이 보일 때의 높이라 첫 화면에서 잘리지 않는다. dvh 는 스크롤 중
+   주소창이 접히며 앱 높이가 출렁인다). 폭은 100vw 대신 100% — 페이지 세로 스크롤바가 생기면 100vw 는 가로 넘침을 만든다.
+   스크롤 충돌: 편집기·사이드바(그리고 미리보기 iframe — platform/web/index.ts attachFrameDrop)는 overscroll-behavior:contain
+   으로 **끝에 닿아도 페이지로 사슬을 넘기지 않는다** — 읽던 문서 끝에서 휠을 더 굴려도 앱이 화면 밖으로 밀리지 않는다.
+   페이지 스크롤은 앱 크롬(타이틀바·탭·상태바·빈 화면) 위의 휠/터치와 아래 힌트가 맡는다. */
+.app.edition-web {
+  width: 100%;
+  height: 100vh;
+  height: 100svh;
+}
+.app.edition-web .cm-scroller,
+.app.edition-web .wsb,
+.app.edition-web .wsb-sec,
+.app.edition-web .outline-overlay {
+  overscroll-behavior: contain;
+}
+/* CodeMirror 는 커서·동기 스크롤 위치를 보이게 할 때 조상 스크롤러를 window 까지 굴린다(scrollRectIntoView) — 미리보기를
+   목차로 옮기면 동기 스크롤이 편집기를 따라 움직이며 페이지가 80~170px 내려갔다(프로브가 잡았다). CM 은 position 이
+   sticky/fixed 인 조상에서 걷기를 멈춘다 — 오프셋 없는 sticky 는 relative 와 같은 배치라 모양은 그대로다.
+   CM 기본 테마가 position: relative !important 라 같은 !important 로(특이성으로 이긴다). */
+.app.edition-web .cm-editor {
+  position: sticky !important;
+}
+.app.edition-web .wsb-brand {
+  flex: none;
+  align-self: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-decoration: none;
+}
+.app.edition-web .wsb-brand:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.app.edition-web .empty-url {
+  margin: 10px 0 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.app.edition-web .empty-url:hover {
+  background: var(--hover);
+}
+.app.edition-web .empty-brand {
+  display: inline-block;
+  margin-left: 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* 첫 화면 하단의 조용한 힌트 — 상태바 가운데 줄에 겹쳐 둔다(앱 높이를 줄이지 않는다). */
+.wi-hint {
+  position: absolute;
+  top: calc(100vh - 25px);
+  top: calc(100svh - 25px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  padding: 1px 10px;
+  border-radius: 999px;
+  font: 11px/21px var(--ui-font, system-ui, sans-serif);
+  color: var(--muted, #888);
+  background: var(--surface, transparent);
+  text-decoration: none;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+.wi-hint:hover,
+.wi-hint:focus-visible {
+  opacity: 1;
+  color: var(--accent, #2563eb);
+}
+@media (max-width: 900px) {
+  .wi-hint {
+    top: calc(100vh - 27px - 28px);
+    top: calc(100svh - 27px - 28px);
+    border: 1px solid var(--border, #ddd);
+  }
+}
+
+/* 설명 본문 — 앱 아래(#root 뒤). 테마 토큰을 그대로 써서 라이트·다크·종이 테마를 따른다. */
+.web-intro {
+  background: var(--bg, #fff);
+  color: var(--fg, #1f2328);
+  border-top: 1px solid var(--border, #ddd);
+  font-family: var(--ui-font, system-ui, sans-serif);
+  font-size: 15.5px;
+  line-height: 1.7;
+  /* 본문 속 긴 주소(?url=https://github.com/…)가 폰 폭을 넘기지 않게 */
+  overflow-wrap: anywhere;
+}
+.web-intro .wi-body {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 56px 20px 32px;
+}
+.web-intro h1 {
+  margin: 4px 0 10px;
+  font-size: 30px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.web-intro h2 {
+  margin: 40px 0 10px;
+  font-size: 20px;
+  line-height: 1.35;
+}
+.web-intro h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+.web-intro p,
+.web-intro ol,
+.web-intro ul {
+  margin: 0 0 12px;
+}
+.web-intro ol,
+.web-intro ul {
+  padding-inline-start: 22px;
+}
+.web-intro li {
+  margin: 4px 0;
+}
+.web-intro a {
+  color: var(--accent, #2563eb);
+}
+.web-intro .wi-kicker {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #777);
+}
+.web-intro .wi-desc {
+  font-size: 17px;
+  color: var(--muted, #555);
+}
+.web-intro .wi-lead {
+  margin-top: 20px;
+}
+.web-intro .wi-syntax {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.web-intro .wi-syn {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: var(--r-md, 8px);
+  background: var(--surface, transparent);
+}
+.web-intro .wi-syn p {
+  font-size: 13.5px;
+  color: var(--muted, #555);
+}
+.web-intro pre {
+  margin: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  border-radius: var(--r-sm, 6px);
+  background: var(--bg, #f6f8fa);
+  /* ui-monospace 는 lang="ko" 에서 한국어 고정폭 글꼴로 풀려 역슬래시가 ₩ 로 보인다(스크린샷에서 봄) — 라틴 고정폭을 앞에 */
+  font: 12px/1.5 "Cascadia Code", "Cascadia Mono", Consolas, "JetBrains Mono", "SF Mono", Menlo, monospace;
+  white-space: pre;
+}
+.web-intro .wi-desktop {
+  margin-top: 40px;
+  padding: 4px 20px 8px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: var(--r-md, 8px);
+  background: color-mix(in srgb, var(--accent, #2563eb) 6%, var(--surface, #fff));
+}
+.web-intro .wi-desktop h2 {
+  margin-top: 16px;
+}
+.web-intro .wi-cta {
+  font-weight: 600;
+}
+.web-intro .wi-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding: 0;
+  list-style: none;
+}
+.web-intro .wi-langs {
+  margin-top: 18px;
+  font-size: 14px;
+  color: var(--muted, #777);
+}
+.web-intro .wi-foot {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 20px 40px;
+  border-top: 1px solid var(--border, #ddd);
+  font-size: 12.5px;
+  color: var(--muted, #777);
+}
+/* 폰 폭 — 툴바·상태바가 화면보다 넓어지지 않게 여백을 줄이고 넘치는 상태바 칸은 자른다. */
+@media (max-width: 480px) {
+  .app.edition-web .titlebar {
+    gap: 4px;
+    padding-left: 8px;
+    padding-right: 6px;
+  }
+  .app.edition-web .statusbar {
+    overflow: hidden;
   }
 }
