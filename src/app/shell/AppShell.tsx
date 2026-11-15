@@ -9,7 +9,8 @@ import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, p
 import { Icon, IconSprite, type IconName } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
 // 웹 에디션 전용(`__WEB__` 뒤에서만 쓴다 → 데스크톱 번들에서는 상수 접기로 import 째 빠진다).
-import { WebSidebar, WebSidebarToggle, WebEmptyAppLink, desktopOnlySpec, useWebSidebarCollapsed } from "./WebSidebar";
+import { WebSidebar, WebSidebarToggle, WebEmptyAppLink, desktopOnlySpec } from "./WebSidebar";
+import { useWebEdition } from "./WebEdition";
 import { Preview, type PreviewHandle } from "./Preview";
 import { OutlineOverlay } from "./OutlineOverlay";
 import { SearchResults } from "./SearchResults";
@@ -110,8 +111,8 @@ export function AppShell() {
   const recent = useAppStore((s) => s.recent);
   const activeSidebarTab = useAppStore((s) => s.activeSidebarTab);
   const setSidebarTab = useAppStore((s) => s.setSidebarTab);
-  // 웹 사이드바 접힘 — 판이 빌드 상수라 훅 호출 여부가 렌더마다 바뀌지 않는다(훅 규칙 위반 아님).
-  const webSb = __WEB__ ? useWebSidebarCollapsed() : null;
+  // 웹 사이드바 접힘 + 웹 W2 동작(언어 URL·URL 로 열기·공유 링크·견본) — 판이 빌드 상수라 훅 호출 여부가 렌더마다 바뀌지 않는다(훅 규칙 위반 아님).
+  const webSb = __WEB__ ? useWebEdition() : null;
   const [historyPath, setHistoryPath] = useState<string | null>(null);
   const [historyInitial, setHistoryInitial] = useState<number | undefined>(undefined);
   // 표시 펜의 [그 판 보기] 같은, 창 밖에서 오는 기록 열기 요청.
@@ -578,6 +579,8 @@ export function AppShell() {
     if (!__WEB__) add("resync", t("ws.resyncAll"), () => void useAppStore.getState().resyncWorkspace());
     if (!__WEB__) add("find-replace", t("find.title"), () => setFindOpen(true));
     if (__WEB__ && webSb) add("toggle-sidebar", t("web.sidebarToggle"), webSb[1]);
+    if (__WEB__ && webSb) add("open-url", t("web.openUrl"), webSb[2].openUrl);
+    if (__WEB__ && webSb && active) add("share-link", t("web.share"), webSb[2].share);
     add("save", t("menu.save"), () => void saveActive(), !!active);
     add("export-html", t("menu.exportHtml"), () => active && void exportHtml(exportParamsOf(active), active.title).catch(() => {}), !!active);
     add("export-pdf", t("menu.exportPdf"), () => active && void exportToPdf(exportParamsOf(active)).catch(() => {}), !!active);
@@ -1387,6 +1390,7 @@ export function AppShell() {
               { label: t("menu.exportHtml"), onClick: () => void exportHtml(exportParamsOf(active), active.title).catch((e) => console.error("HTML 내보내기 실패:", e)) },
               { label: t("menu.exportPdf"), onClick: () => void exportToPdf(exportParamsOf(active)).catch((e) => console.error("PDF 내보내기 실패:", e)) },
               { label: t("menu.copyHtml"), onClick: () => void copyHtml(exportParamsOf(active)).catch((e) => console.error("HTML 복사 실패:", e)) },
+              ...(webSb ? [{ label: t("web.share"), onClick: webSb[2].share }] : []),
             ]}
           />
         ) : (
@@ -1438,6 +1442,7 @@ export function AppShell() {
         {__WEB__ && webSb ? (
           <>
             <WebSidebarToggle collapsed={webSb[0]} onToggle={webSb[1]} />
+            {webSb[2].overlay}
             {!webSb[0] && (
               <WebSidebar
                 outline={active ? outline : []}
@@ -1693,6 +1698,9 @@ export function AppShell() {
                   <>
                     {t("web.emptyHint")}
                     <br />
+                    <button type="button" className="empty-url" onClick={webSb?.[2].openUrl}>
+                      {t("web.openUrl")}
+                    </button>
                     <WebEmptyAppLink />
                   </>
                 ) : ko

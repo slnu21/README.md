@@ -23,13 +23,18 @@ import type {
   WorkspaceNode,
   WorkspaceSnapshot,
 } from "../types";
-import { WebFiles, WEB_READABLE_RE, type WebEntry } from "./files";
+import { WebFiles, WEB_READABLE_RE, type FileHandleLike, type WebEntry } from "./files";
 import { downloadText, hasFsAccess, pickOpen, pickSave, suggestedNameOf } from "./pick";
 import { idbRecentStore, sanitizeEntry, touchRecent, type RecentEntry } from "./recent";
 import { browserStorage, createSettings } from "./settings";
 // 웹 전용 문구(`web.*`)·스타일 — 이 모듈이 실리는 빌드(웹)에서만 등록된다.
 import "./ui";
 import { createDropHub } from "./drop";
+import { applyPageToStorage, readPage } from "./page";
+import { STASH_FLAG, takeStash } from "./stash";
+import { impl, leave, markBootDone, restored, restoredDirty } from "./bridge";
+import { fetchBytes, fetchText, isUrlWebPath, nameOfWebPath, webPathToUrl } from "./remote";
+import { bytesToB64 } from "./bytes";
 
 export * from "../types";
 
@@ -53,6 +58,19 @@ const noop: UnlistenFn = () => {};
 const quiet = () => Promise.resolve(noop);
 
 export const isNative = (): boolean => false;
+
+// ── 페이지(언어·랜딩) — 스토어가 만들어지기 전에 영속 상태를 이 페이지 것으로(platform/web/page.ts). ──
+// 이 모듈은 store 보다 먼저 평가된다(store 가 `@platform` 을 import 하므로).
+const hasDom = typeof document !== "undefined" && typeof window !== "undefined";
+function safeStorage(kind: "localStorage" | "sessionStorage"): Storage | undefined {
+  try {
+    return hasDom ? window[kind] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+const page = readPage(hasDom ? document.documentElement : null, import.meta.env.BASE_URL || "/");
+applyPageToStorage(safeStorage("localStorage"), page);
 
 // ── 최근 파일(IndexedDB) + 파일 등록부 ──
 const recentStore = idbRecentStore();
@@ -91,18 +109,72 @@ const files = new WebFiles({
   persist: persistEntry,
 });
 
+// ── 언어 전환으로 옮겨 온 탭 되살리기(platform/web/stash.ts) ──
+// 세션 복원(hydrate)이 읽는 내용을 보관본으로 돌려준다 — 미저장 편집이 살아나고, 핸들 문서도 권한을 묻지 않는다.
+const overrides = new Map<string, string>();
+let stashApplied: Promise<void> | null = null;
+{
+  const ss = safeStorage("sessionStorage");
+  let flagged = false;
+  try {
+    flagged = ss?.getItem(STASH_FLAG) === "1";
+    ss?.removeItem(STASH_FLAG);
+  } catch {
+    /* 없음 */
+  }
+  if (flagged) {
+    stashApplied = takeStash(Date.now()).then((s) => {
+      if (!s) return;
+      restored.paths = s.tabs.map((t) => t.path);
+      restored.active = s.active;
+      for (const t of s.tabs) {
+        const handle = t.handle as FileHandleLike | undefined;
+        files.restore({ path: t.path, name: t.name, handle, text: handle ? undefined : t.content });
+        overrides.set(t.path, t.content);
+        if (t.dirty) restoredDirty().set(t.path, t.content);
+      }
+    });
+    restored.ready = stashApplied;
+  }
+}
+
+impl.put = (path, name, text) => files.put(path, name, text);
+impl.registerHandle = (h) => files.register((h as FileHandleLike).name, { handle: h as FileHandleLike });
+impl.handleOf = (path) => files.get(path)?.handle;
+
+// ── 서비스 워커(오프라인 · 빌드가 sw.js 를 만든다) — 개발 서버에는 없다 ──
+if (hasDom && !import.meta.env.DEV && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register(`${page.base}sw.js`, { scope: page.base }).catch(() => {});
+  });
+}
+
 const MD_FILTER: FileFilter[] = [{ name: "Markdown", extensions: ["md", "markdown", "mdx", "txt"] }];
 
 // ── 파일 I/O ──
 export async function readFile(path: string): Promise<string> {
   // 방금 연 파일은 이미 등록돼 있다 — 최근 목록(IndexedDB)을 기다리지 않는다. 기다리면 부팅 스냅샷(wsLoad)이
   // 같은 약속 뒤에서 먼저 풀려, 그 사이 연 문서가 늦게 도착한 옛 최근 목록에 덮인다(프로브가 잡았다).
+  if (stashApplied) await stashApplied;
+  const kept = overrides.get(path);
+  if (kept !== undefined) {
+    overrides.delete(path); // 한 번만 — 그 뒤 다시 읽기는 실물에서
+    return kept.replace(/\r\n?/g, "\n");
+  }
   if (!files.has(path)) await loadRecent();
+  // 원격 문서 옆의 문서(상대 링크) — 경로가 곧 URL 이라 처음 보는 것도 받아 올 수 있다(remote.ts).
+  const url = !files.has(path) && isUrlWebPath(path) ? webPathToUrl(path) : null;
+  if (url) files.put(path, nameOfWebPath(path), await fetchText(url));
   return (await files.read(path)).replace(/\r\n?/g, "\n");
 }
 export const writeFile = (path: string, contents: string): Promise<void> => files.write(path, contents);
-/** 상대경로 이미지 — 웹에는 문서 옆 폴더가 없다(W2: 폴더 핸들로). 실패하면 미리보기가 원본 src 를 둔다. */
-export const readFileBase64 = (_path: string): Promise<string> => Promise.reject(new Error("ENOENT"));
+/** 상대경로 이미지 — 원격(URL 로 연) 문서면 같은 출처에서 받는다. 로컬 파일 문서는 옆 폴더에 닿을 수 없다
+ *  (폴더 핸들은 TASKS 남은 일). 실패하면 미리보기가 원본 src 를 둔다. */
+export async function readFileBase64(path: string): Promise<string> {
+  const url = webPathToUrl(path);
+  if (!url) throw new Error("ENOENT");
+  return bytesToB64(await fetchBytes(url, { maxBytes: 10 * 1024 * 1024 }));
+}
 export const writeFileBase64 = (_path: string, _b64: string): Promise<void> => desktopOnly("image paste");
 export const createFile = (path: string, contents = ""): Promise<void> => files.create(path, contents);
 export const pathExists = async (path: string): Promise<boolean> => {
@@ -129,7 +201,48 @@ const drops = createDropHub(async (dropped) => {
 });
 export const onFileDrop = (cb: (state: { phase: DragDropPhase; paths: string[] }) => void): Promise<UnlistenFn> =>
   Promise.resolve(drops.subscribe(cb));
-export const attachFrameDrop = (win: Window): UnlistenFn => drops.attach(win);
+/** 미리보기 안의 scrollIntoView(목차·앵커 이동)가 **iframe 안에서만** 스크롤하게. 브라우저의 scrollIntoView 는 조상 문서까지
+ *  굴린다 — 웹 페이지는 앱 아래로 설명이 이어져 스크롤되므로, 목차를 누르면 페이지가 700px 내려가 앱이 밀려났다(프로브가 잡았다).
+ *  데스크톱에는 바깥 스크롤이 없어 이 차이가 안 생긴다 — 그래서 공용 Preview 는 그대로 두고 웹 쪽에서만 막는다. */
+export function frameScrollTop(cur: number, rect: { top: number; height: number }, viewH: number, block: ScrollLogicalPosition): number | null {
+  if (block === "center") return cur + rect.top - (viewH - rect.height) / 2;
+  if (block === "end") return cur + rect.top - (viewH - rect.height);
+  if (block === "nearest") {
+    if (rect.top >= 0 && rect.top + rect.height <= viewH) return null;
+    return rect.top < 0 || rect.height > viewH ? cur + rect.top : cur + rect.top - (viewH - rect.height);
+  }
+  return cur + rect.top;
+}
+
+function confineScrollIntoView(win: Window): void {
+  const proto = (win as unknown as { Element: typeof Element }).Element?.prototype;
+  if (!proto || (proto as unknown as { __confined?: boolean }).__confined) return;
+  (proto as unknown as { __confined?: boolean }).__confined = true;
+  proto.scrollIntoView = function (this: Element, arg?: boolean | ScrollIntoViewOptions) {
+    const se = this.ownerDocument.scrollingElement ?? this.ownerDocument.documentElement;
+    const o: ScrollIntoViewOptions = typeof arg === "object" && arg ? arg : { block: arg === false ? "end" : "start" };
+    const top = frameScrollTop(se.scrollTop, this.getBoundingClientRect(), win.innerHeight, o.block ?? "start");
+    if (top !== null) se.scrollTo({ top: Math.max(0, top), behavior: o.behavior });
+  };
+}
+
+/** 미리보기 iframe 이 새 문서를 실을 때마다 — 드롭 받기 + 스크롤 사슬 끊기. 웹 페이지는 앱 아래로 설명이 이어져
+ *  스크롤되는데, 미리보기 끝에 닿은 휠이 페이지로 넘어가면 읽던 자리에서 앱이 화면 밖으로 밀려난다. */
+export const attachFrameDrop = (win: Window): UnlistenFn => {
+  try {
+    const d = win.document;
+    if (d?.documentElement && !d.getElementById("wsb-overscroll")) {
+      const st = d.createElement("style");
+      st.id = "wsb-overscroll";
+      st.textContent = "html,body{overscroll-behavior:contain}";
+      (d.head ?? d.documentElement).appendChild(st);
+    }
+    confineScrollIntoView(win);
+  } catch {
+    /* 다른 출처 — 없다 */
+  }
+  return drops.attach(win);
+};
 
 export async function pickFile(filters: FileFilter[] = MD_FILTER): Promise<string | null> {
   const r = await pickOpen(filters);
@@ -208,6 +321,7 @@ export const winClose = (): Promise<void> => Promise.resolve();
 /** 탭 닫기·새로고침 가드 — 미저장이 있으면 브라우저의 "나가시겠습니까?"를 띄운다(문구는 브라우저가 정한다). */
 export const onWindowCloseRequested = (handler: (event: { preventDefault: () => void }) => void): Promise<UnlistenFn> => {
   const on = (e: BeforeUnloadEvent) => {
+    if (leave.now) return; // 언어 전환 이동 — 열린 탭은 보관했다(stash.ts)
     let stop = false;
     handler({ preventDefault: () => (stop = true) });
     if (stop) {
@@ -221,7 +335,12 @@ export const onWindowCloseRequested = (handler: (event: { preventDefault: () => 
 export const winDestroy = (): Promise<void> => Promise.resolve();
 
 // ── 파일 연결·브리지 이벤트 — 없음(W2: URL 로 열기) ──
-export const takePendingOpen = (): Promise<PendingFile | null> => Promise.resolve(null);
+/** 앱이 세션 복원을 끝내고 부른다 — 웹은 여기서 "부팅 끝"만 알린다. URL·공유 링크·launchQueue·견본은
+ *  shell/WebEdition.tsx 가 그 뒤에 연다(스토어·알림이 필요해서). */
+export const takePendingOpen = (): Promise<PendingFile | null> => {
+  markBootDone();
+  return Promise.resolve(null);
+};
 export const onRevealLine = (_cb: (f: { path: string; line: number }) => void): Promise<UnlistenFn> => quiet();
 export const onOpenFile = (_cb: (path: string) => void): Promise<UnlistenFn> => quiet();
 export const onOpenFileBeside = (_cb: (path: string) => void): Promise<UnlistenFn> => quiet();

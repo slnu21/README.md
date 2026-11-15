@@ -21,6 +21,8 @@ function baseName(path: string): string {
 }
 
 const COLLAPSED_KEY = "readme-md.web.sidebarCollapsed";
+/** 브랜드 허브(같은 브랜드의 다른 도구 — timer.ondolworks.com 등). */
+const BRAND_URL = "https://ondolworks.com";
 
 /** 사이드바 접힘 — 브라우저마다 기억(localStorage, 던지면 이번 세션만). 앱 스토어(데스크톱과 공유)에는 두지 않는다. */
 export function useWebSidebarCollapsed(): [boolean, () => void] {
@@ -74,9 +76,14 @@ export function desktopOnlySpec(t: (k: string) => string, message: string) {
 export function WebEmptyAppLink() {
   const { t } = useTranslation();
   return (
-    <a className="empty-app-link" href={STORE_URL} target="_blank" rel="noopener noreferrer">
-      {t("web.getApp")}
-    </a>
+    <>
+      <a className="empty-app-link" href={STORE_URL} target="_blank" rel="noopener noreferrer">
+        {t("web.getApp")}
+      </a>
+      <a className="empty-brand" href={BRAND_URL} target="_blank" rel="noopener" title={t("web.brandTitle")}>
+        {t("web.brand")}
+      </a>
+    </>
   );
 }
 
@@ -192,6 +199,9 @@ export function WebSidebar({
       <a className="wsb-app" href={STORE_URL} target="_blank" rel="noopener noreferrer">
         <Icon name="md" />
         <span>{t("web.getApp")}</span>
+      </a>
+      <a className="wsb-brand" href={BRAND_URL} target="_blank" rel="noopener" title={t("web.brandTitle")}>
+        {t("web.brand")}
       </a>
     </aside>
   );

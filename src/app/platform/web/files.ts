@@ -73,6 +73,14 @@ export class WebFiles {
     if (!this.entries.has(entry.path)) this.entries.set(entry.path, { ...entry });
   }
 
+  /** 정한 경로에 텍스트 문서를 둔다(URL·공유 링크·견본 — 같은 원본이면 같은 경로라 탭이 갈라지지 않는다).
+   *  이미 있으면 내용만 바꾼다. 핸들은 없다 — 저장하면 저장 위치를 묻는다. */
+  put(path: string, name: string, text: string): void {
+    const e = this.entries.get(path);
+    if (e && !e.handle) e.text = text;
+    else if (!e) this.entries.set(path, { path, name, text });
+  }
+
   /** 새로 연 파일을 올린다. 같은 파일(핸들 isSameEntry)을 다시 열면 **같은 경로**를 돌려준다 —
    *  그래야 같은 문서가 탭 두 개로 갈라지지 않는다. */
   async register(name: string, src: { handle?: FileHandleLike; text?: string }): Promise<string> {

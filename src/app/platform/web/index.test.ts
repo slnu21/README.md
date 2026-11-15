@@ -56,4 +56,14 @@ describe("web platform (폴백 경로)", () => {
     const un = await web.onFileChanged(() => {});
     expect(typeof un).toBe("function");
   });
+
+  it("미리보기 안 scrollIntoView 대체 — iframe 안 스크롤 위치만 계산(바깥 페이지를 굴리지 않게)", () => {
+    const r = { top: 300, height: 40 };
+    expect(web.frameScrollTop(100, r, 800, "start")).toBe(400);
+    expect(web.frameScrollTop(100, r, 800, "center")).toBe(100 + 300 - 380);
+    expect(web.frameScrollTop(100, r, 800, "end")).toBe(100 + 300 - 760);
+    expect(web.frameScrollTop(100, r, 800, "nearest")).toBeNull(); // 이미 보인다
+    expect(web.frameScrollTop(100, { top: -50, height: 40 }, 800, "nearest")).toBe(50);
+    expect(web.frameScrollTop(100, { top: 900, height: 40 }, 800, "nearest")).toBe(100 + 900 - 760);
+  });
 });
