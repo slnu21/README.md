@@ -1,7 +1,7 @@
 /**
  * file 노드 카드 정보(Rust `canvas_cards`) — Tauri 밖(프로브)에서는 **열린 탭의 내용**으로 같은 모양을 만든다.
  */
-import { canvasCards, canvasVaultRoot, isNative } from "@platform";
+import { invoke } from "@platform"; // 데스크톱 = Tauri invoke 그대로 · 웹 = 거절 대역
 import { loadMarkdown } from "../markdownLazy";
 
 export interface CardOutline {
@@ -18,7 +18,7 @@ export interface CardInfo {
   excerpt: string;
 }
 
-const inTauri = isNative;
+const inTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 /** 프로브용 — 경로 → 내용(열린 탭). */
 let fallbackSource: ((path: string) => string | undefined) | null = null;
@@ -28,7 +28,7 @@ export function setCardSource(fn: (path: string) => string | undefined): void {
 
 export async function loadCards(items: { file: string; candidates: string[] }[]): Promise<CardInfo[]> {
   if (!items.length) return [];
-  if (inTauri()) return canvasCards(items);
+  if (inTauri()) return invoke<CardInfo[]>("canvas_cards", { items });
   const { createMarkdown, extractToc } = await loadMarkdown();
   const md = createMarkdown();
   return items.map(({ file, candidates }) => {
@@ -53,7 +53,7 @@ export async function loadCards(items: { file: string; candidates: string[] }[])
 export async function vaultRoot(canvasPath: string): Promise<string | null> {
   if (!inTauri()) return null;
   try {
-    return await canvasVaultRoot(canvasPath);
+    return await invoke<string | null>("canvas_vault_root", { path: canvasPath });
   } catch {
     return null;
   }

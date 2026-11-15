@@ -8,7 +8,6 @@
 import i18n from "../lib/i18n";
 import {
   createFile,
-  features,
   pathExists,
   readThemeBundle,
   revealInExplorer,
@@ -125,8 +124,8 @@ function seedThemes(): Record<string, Theme> {
 export async function seedThemeFiles(): Promise<void> {
   const st = useAppStore.getState();
   if (st.themeSeedVersion >= SEED_VERSION) return;
-  // 사용자 테마 폴더가 없는 판(웹)은 기본 팩을 번들에서 바로 읽는다(platform readThemeBundle) — 넣을 곳이 없다.
-  if (!features.userThemes) return;
+  // 웹: 사용자 테마 폴더가 없다 — 기본 팩은 platform readThemeBundle 이 번들 원문으로 내준다.
+  if (__WEB__) return;
   try {
     const dir = await themeDirPath();
     for (const f of SEED_FILES) {

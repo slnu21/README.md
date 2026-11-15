@@ -3,7 +3,7 @@
  * 저장소**로 같은 계약을 흉내 낸다 — 프로브가 진짜 앱 셸을 띄우되 IPC 는 없기 때문이다. 메모리 쪽도
  * Rust 와 같은 검사(범위의 글 = quote)를 해서 프런트의 오프셋 계산이 틀리면 프로브에서 드러나게 한다.
  */
-import { annotAdd, annotDelete, annotList, annotUpdate, isNative } from "@platform";
+import { invoke } from "@platform"; // 데스크톱 = Tauri invoke 그대로 · 웹 = 거절 대역
 import { canonicalText } from "./relocate";
 import type { AnnotColor, AnnotKind, AnnotStyle } from "./pens";
 
@@ -65,10 +65,10 @@ export interface AnnotBackend {
 }
 
 const tauriBackend: AnnotBackend = {
-  add: annotAdd,
-  list: annotList,
-  update: annotUpdate,
-  remove: annotDelete,
+  add: (annotation) => invoke("annot_add", { annotation }),
+  list: (path) => invoke("annot_list", { path }),
+  update: (id, patch) => invoke("annot_update", { id, patch }),
+  remove: (id) => invoke("annot_delete", { id }),
 };
 
 /** 메모리 저장소. `diskText` 가 "지금 디스크의 글"을 준다(프로브는 열린 탭 내용을 넘긴다). */
@@ -117,7 +117,8 @@ let backend: AnnotBackend | null = null;
 /** Tauri 안이면 진짜 저장소, 밖이면 setAnnotBackend 로 꽂은 것(없으면 메모리 — 내용 모름). */
 export function annotBackend(): AnnotBackend {
   if (backend) return backend;
-  backend = isNative() ? tauriBackend : memoryBackend(() => undefined);
+  const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  backend = inTauri ? tauriBackend : memoryBackend(() => undefined);
   return backend;
 }
 

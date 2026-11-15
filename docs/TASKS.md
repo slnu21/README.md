@@ -5,7 +5,8 @@
 ## 진행 중
 
 ### 웹 에디션 — W1 완료(검토 대기) · W2 설계 메모
-- 브랜치 `develop-web-edition`(worktree `Workspace/.worktrees/md-reader/develop-web-edition/`) · 시작 2026-11-15 · 데브로그 [2026-11-15-02-web-edition](개발로그/2026-11-15-02-web-edition.md)
+- 브랜치 `develop-web-edition`(worktree `Workspace/.worktrees/md-reader/develop-web-edition/`) · 시작 2026-11-15 · 데브로그 [(02) web-edition](개발로그/2026-11-15-02-web-edition.md) · [(03) web-isolation](개발로그/2026-11-15-03-web-isolation.md)
+- **데스크톱 불변(사용자 요구)**: 데스크톱 빌드 산출물이 main 과 **바이트 단위로 같다**(73개 파일 해시까지 · 엔트리 JS 1,138.49KB). 규칙 — 웹 전용 코드는 `__WEB__`(vite `define`) 뒤에, 그리고 **삼항의 앞가지**로(`__WEB__ && <X/>` 는 데스크톱에 `false` 자식을 남긴다). 웹 문구·스타일은 `app/platform/web/{locales,web.css,ui.ts}` — 데스크톱 로케일·App.css 무접촉. 검사: main 임시 worktree 와 데스크톱 빌드를 비교(데브로그 (03) 의 방법).
 - **포지셔닝**: 웹 = 파일 하나를 브라우저에서 열고·읽고·고치는 무료판(업로드 없음). 데스크톱 = 워크스페이스·검색·기록·받은 문서함·에이전트 브리지. 웹에 없는 기능 자리는 "데스크톱 앱에서" + Store 링크.
 - **W1(이 브랜치)**: 같은 저장소·포크 없음 — `@platform` 하나 + 구현 둘(`app/platform/tauri.ts` · `app/platform/web/`), vite alias 로 선택. `npm run build:web` → `src/web-dist/`. 웹 사이드바(목차·최근·사용법·300×250 안내 자리·앱 링크). `npm run probe:web` 28항목.
 - **다음 단계**: ① 사용자 검토 → `main` 에 `--no-ff` 머지 · worktree 정리(머지·push 는 사용자 확인 뒤) ② 실제 Chromium 에서 손으로: 파일 열기(핸들)·제자리 저장 권한 프롬프트·Firefox 폴백(다운로드 저장) ③ W2 착수.

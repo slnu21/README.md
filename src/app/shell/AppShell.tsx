@@ -5,13 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, collectImportedPaths, type TreeNode } from "../store";
 import { BUILTIN_THEMES, listThemeIds, themes } from "../themes";
-import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onOpenFileBeside, onRevealLine, inboxList, onWindowCloseRequested, winDestroy, revealInExplorer, openWithDefault, type SearchHit, winMinimize, winToggleMaximize, winClose, features, canAutosave, STORE_URL } from "@platform";
+import { pickFile, pickFolder, saveFile, readFile, writeFile, writeFileBase64, pathExists, watchFiles, onFileChanged, onFsStructural, onIndexDone, searchQuery, onIndexUpdated, onFileDrop, pathIsDir, takePendingOpen, onOpenFile as onOpenFileEvent, onOpenFileBeside, onRevealLine, inboxList, onWindowCloseRequested, winDestroy, revealInExplorer, openWithDefault, type SearchHit, winMinimize, winToggleMaximize, winClose, canAutosave } from "@platform";
 import { Icon, IconSprite, type IconName } from "./Icon";
 import { WorkspaceTree } from "./WorkspaceTree";
-import { WebSidebar } from "./WebSidebar";
-
-/** 웹 에디션(파일 하나 열고·읽고·고치기)인가 — 빌드가 정하는 상수(platform features). */
-const WEB = features.edition === "web";
+// 웹 에디션 전용(`__WEB__` 뒤에서만 쓴다 → 데스크톱 번들에서는 상수 접기로 import 째 빠진다).
+import { WebSidebar, WebSidebarToggle, WebEmptyAppLink, desktopOnlySpec, useWebSidebarCollapsed } from "./WebSidebar";
 import { Preview, type PreviewHandle } from "./Preview";
 import { OutlineOverlay } from "./OutlineOverlay";
 import { SearchResults } from "./SearchResults";
@@ -62,8 +60,8 @@ const themeIcon = (id: string): IconName => THEME_ICON[id] ?? "swatch";
 // 개수에 상한이 없으므로(themes\ 폴더에 떨어뜨리는 것이 곧 가져오기) 44px 툴바에 계속
 // 이어 붙일 수 없다 — 여섯이 되자 실제로 다른 컨트롤을 밀어냈다. 전부는 테마 고르기 창에서.
 const QUICK_THEMES = Object.keys(BUILTIN_THEMES);
-// 드롭·파일연결에서 열 수 있는 문서 판별(공용 규칙). 캔버스는 데스크톱 기능이라 그 판에서만.
-const OPENABLE = features.canvas ? READABLE_RE : /\.(md|markdown|mdx|txt)$/i;
+// 드롭·파일연결에서 열 수 있는 문서 판별(공용 규칙). 웹은 캔버스 제외(데스크톱 기능).
+const OPENABLE = __WEB__ ? /\.(md|markdown|mdx|txt)$/i : READABLE_RE;
 
 /** 워크스페이스 트리의 파일 노드 수집(퀵오픈용) — 열 수 있는 문서만, realPath→name, 중복 경로 제거. */
 function collectFiles(nodes: TreeNode[], out: Map<string, string>): void {
@@ -112,11 +110,8 @@ export function AppShell() {
   const recent = useAppStore((s) => s.recent);
   const activeSidebarTab = useAppStore((s) => s.activeSidebarTab);
   const setSidebarTab = useAppStore((s) => s.setSidebarTab);
-  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
-  const toggleWebSidebar = () => {
-    const st = useAppStore.getState();
-    st.setSidebarCollapsed(!st.sidebarCollapsed);
-  };
+  // 웹 사이드바 접힘 — 판이 빌드 상수라 훅 호출 여부가 렌더마다 바뀌지 않는다(훅 규칙 위반 아님).
+  const webSb = __WEB__ ? useWebSidebarCollapsed() : null;
   const [historyPath, setHistoryPath] = useState<string | null>(null);
   const [historyInitial, setHistoryInitial] = useState<number | undefined>(undefined);
   // 표시 펜의 [그 판 보기] 같은, 창 밖에서 오는 기록 열기 요청.
@@ -248,8 +243,8 @@ export function AppShell() {
       }
       // F5 = 워크스페이스 재동기화. WebView2 가 브라우저 가속기로 먼저 먹으면(리로드) 여기까지
       // 안 온다 — 그때는 사이드바 버튼·우클릭·팔레트로 쓴다(기능은 그쪽이 본체다).
-      // 웹에는 워크스페이스가 없고 F5 는 브라우저 새로고침이다 — 가로채지 않는다.
-      if (features.workspace && e.key === "F5" && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+      // (웹: 워크스페이스가 없고 F5 는 브라우저 새로고침이다 — 가로채지 않는다)
+      if (!__WEB__ && e.key === "F5" && !e.ctrlKey && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         void useAppStore.getState().resyncWorkspace();
         return;
@@ -264,7 +259,7 @@ export function AppShell() {
         e.preventDefault(); // 웹뷰 인쇄 대화상자 방지
         const want = e.shiftKey ? "command" : "file";
         setPaletteMode((m) => (m === want ? null : want));
-      } else if (features.workspace && e.shiftKey && (e.key === "h" || e.key === "H")) {
+      } else if (!__WEB__ && e.shiftKey && (e.key === "h" || e.key === "H")) {
         e.preventDefault();
         setFindOpen((v) => !v);
       }
@@ -430,19 +425,10 @@ export function AppShell() {
     }
   }
 
-  /** 웹에 없는 기능 자리 — 조용히 아무 일 없게 두지 않고 "데스크톱 앱에서" 안내 + Store 링크. */
-  function showDesktopOnly(message: string) {
-    setConfirm({
-      title: t("web.desktopOnlyTitle"),
-      message,
-      saveLabel: t("web.openStore"),
-      onSave: () => window.open(STORE_URL, "_blank", "noopener,noreferrer"),
-    });
-  }
-
   async function onOpenFolder() {
-    if (!features.workspace) {
-      showDesktopOnly(t("web.desktopOnlyFolder"));
+    if (__WEB__) {
+      // 웹에 없는 기능 자리 — 조용히 아무 일 없게 두지 않고 "데스크톱 앱에서" 안내 + Store 링크.
+      setConfirm(desktopOnlySpec(t, t("web.desktopOnlyFolder")));
       return;
     }
     const path = await pickFolder();
@@ -581,17 +567,17 @@ export function AppShell() {
     const add = (id: string, label: string, run: () => void, enabled = true) => {
       if (enabled) cmds.push({ id, label, run });
     };
-    // 판에 없는 기능은 팔레트에서도 뺀다(features — 웹은 파일 하나 열고·읽고·고치기).
     add("new-doc", t("menu.newFile"), () => void onNewDoc());
-    add("new-canvas", t("canvas.new"), () => void onNewCanvas(), features.canvas);
+    // 웹에 없는 기능(캔버스·기록·표시 펜·워크스페이스)은 팔레트에서도 뺀다.
+    if (!__WEB__) add("new-canvas", t("canvas.new"), () => void onNewCanvas());
     add("open-file", t("menu.openFile"), () => void onOpenFile());
-    if (activePath) add("doc-history", t("history.title"), () => setHistoryPath(activePath), features.history);
-    if (activePath) add("annot-list", t("annot.list"), () => useAppStore.getState().setAnnotRail(!useAppStore.getState().annotRail), features.annotations);
-    if (active) add("annot-summary", t("annot.copySummary"), () => void copyReviewSummary(active.path, active.content), features.annotations);
+    if (!__WEB__ && activePath) add("doc-history", t("history.title"), () => setHistoryPath(activePath));
+    if (!__WEB__ && activePath) add("annot-list", t("annot.list"), () => useAppStore.getState().setAnnotRail(!useAppStore.getState().annotRail));
+    if (!__WEB__ && active) add("annot-summary", t("annot.copySummary"), () => void copyReviewSummary(active.path, active.content));
     add("open-folder", t("menu.openFolder"), () => void onOpenFolder());
-    add("resync", t("ws.resyncAll"), () => void useAppStore.getState().resyncWorkspace(), features.workspace);
-    add("find-replace", t("find.title"), () => setFindOpen(true), features.workspace);
-    if (WEB) add("toggle-sidebar", t("web.sidebarToggle"), () => toggleWebSidebar());
+    if (!__WEB__) add("resync", t("ws.resyncAll"), () => void useAppStore.getState().resyncWorkspace());
+    if (!__WEB__) add("find-replace", t("find.title"), () => setFindOpen(true));
+    if (__WEB__ && webSb) add("toggle-sidebar", t("web.sidebarToggle"), webSb[1]);
     add("save", t("menu.save"), () => void saveActive(), !!active);
     add("export-html", t("menu.exportHtml"), () => active && void exportHtml(exportParamsOf(active), active.title).catch(() => {}), !!active);
     add("export-pdf", t("menu.exportPdf"), () => active && void exportToPdf(exportParamsOf(active)).catch(() => {}), !!active);
@@ -651,12 +637,12 @@ export function AppShell() {
   function buildFileItems(): PaletteItem[] {
     const map = new Map<string, string>();
     // 웹에는 워크스페이스가 없다 — 퀵오픈은 최근 파일에서 고른다.
-    if (!features.workspace) for (const p of recent) map.set(p, baseName(p));
+    if (__WEB__) for (const p of recent) map.set(p, baseName(p));
     collectFiles(roots, map);
     return Array.from(map, ([path, name]) => ({
       id: path,
       label: name,
-      sub: WEB ? undefined : path, // 웹의 경로는 가상(/web/…)이라 보여 줄 값이 없다
+      sub: __WEB__ ? undefined : path, // 웹 경로는 가상(/web/…)이라 보여 줄 값이 없다
       run: () => void onOpenRecent(path),
     }));
   }
@@ -792,7 +778,7 @@ export function AppShell() {
   // 탭 우클릭 메뉴 항목. 저장 경로 있는 탭만 워크스페이스 추가·위치 열기·경로 복사 노출.
   function tabMenuItems(path: string): MenuItem[] {
     const items: MenuItem[] = [];
-    if (path && features.history) {
+    if (!__WEB__ && path) {
       items.push({ label: t("history.title"), onClick: () => setHistoryPath(path) });
     }
     // 활성 문서 자신을 옆에 두는 건 의미가 없다 — 다른 탭일 때만 노출.
@@ -806,11 +792,11 @@ export function AppShell() {
         },
       });
     }
-    if (path && features.workspace) items.push({ label: t("tab.addToWorkspace"), onClick: () => void addFileRefTo(null, path) });
+    if (!__WEB__ && path) items.push({ label: t("tab.addToWorkspace"), onClick: () => void addFileRefTo(null, path) });
     items.push({ label: t("tab.close"), onClick: () => requestCloseTab(path) });
     if (tabs.length > 1) items.push({ label: t("tab.closeOthers"), onClick: () => requestBulkClose(path) });
     items.push({ label: t("tab.closeAll"), onClick: () => requestBulkClose(null) });
-    if (path && features.revealInExplorer) {
+    if (!__WEB__ && path) {
       items.push({ label: t("tab.reveal"), onClick: () => void revealInExplorer(path).catch((e) => console.error("위치 열기 실패:", e)) });
       items.push({ label: t("tab.copyPath"), onClick: () => void navigator.clipboard.writeText(path).catch(() => {}) });
     }
@@ -851,8 +837,9 @@ export function AppShell() {
 
   // 자동저장(옵트인): 활성 탭 편집 후 유휴 1.5s면 저장.
   useEffect(() => {
+    if (!autosave || !active || !active.dirty) return;
     // 웹은 제자리에 쓸 수 있는 파일(핸들)만 — 다운로드 폴백으로 자동저장하면 저장마다 파일이 떨어진다.
-    if (!autosave || !active || !active.dirty || !canAutosave(active.path)) return;
+    if (__WEB__ && !canAutosave(active.path)) return;
     const timer = window.setTimeout(() => void saveActive(), 1500);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1071,7 +1058,7 @@ export function AppShell() {
           <div className="drop-card">
             <Icon name="file" className="drop-ic" />
             <p>
-              {WEB
+              {__WEB__
                 ? ko
                   ? "여기에 놓아 열기 · .md 파일"
                   : "Drop to open · .md files"
@@ -1083,24 +1070,12 @@ export function AppShell() {
         </div>
       )}
       <div
-        className={"app" + (WEB ? " edition-web" : "") + (WEB && sidebarCollapsed ? " sb-collapsed" : "")}
+        className={__WEB__ ? "app edition-web" + (webSb?.[0] ? " sb-collapsed" : "") : "app"}
         role="application"
         aria-label="md-reader"
       >
         {/* 상단바 */}
         <header className="titlebar" data-density={density} data-tauri-drag-region="" ref={titlebarRef}>
-          {WEB && (
-            <button
-              type="button"
-              className={"tbtn wsb-toggle" + (sidebarCollapsed ? "" : " on")}
-              aria-pressed={!sidebarCollapsed}
-              aria-label={t("web.sidebarToggle")}
-              title={t("web.sidebarToggle")}
-              onClick={toggleWebSidebar}
-            >
-              <Icon name="list" />
-            </button>
-          )}
           <div className="brand" data-tauri-drag-region="">
             <svg className="logo" viewBox="0 0 208 128" aria-hidden="true">
               <rect x="6" y="6" width="196" height="116" rx="16" fill="none" stroke="var(--accent)" strokeWidth="14" />
@@ -1225,7 +1200,8 @@ export function AppShell() {
           )}
           <span className="spacer" data-tauri-drag-region="" />
 
-          {features.search && (
+          {/* 웹: 전역 검색·받은 문서함·창 버튼은 데스크톱 기능이라 없다. */}
+          {!__WEB__ && (
           <div className="search-wrap">
             <label className="search">
               <Icon name="search" />
@@ -1293,10 +1269,10 @@ export function AppShell() {
             </button>
           </div>
 
-          {features.inbox && <InboxPopover />}
+          {!__WEB__ && <InboxPopover />}
           <SettingsPopover onOpenThemes={() => setThemesOpen(true)} />
 
-          {features.windowControls && (
+          {!__WEB__ && (
           <div className="wctl">
             <button type="button" aria-label="Minimize" onClick={() => void winMinimize()}>
               <Icon name="min" />
@@ -1400,7 +1376,20 @@ export function AppShell() {
           />
         )}
 
-        {exportMenu && active && (
+        {/* 웹: 표시 펜이 없어 담을 표시도 없다 — 내보내기 셋만(데스크톱 쪽은 아래 원래 메뉴 그대로).
+            웹 쪽을 `__WEB__ ? … : 원래` 의 앞가지에 두는 이유: `__WEB__ && …` 로 따로 두면 데스크톱에 false 자식이 남는다. */}
+        {exportMenu && active && (__WEB__ ? (
+          <ContextMenu
+            x={exportMenu.x}
+            y={exportMenu.y}
+            onClose={() => setExportMenu(null)}
+            items={[
+              { label: t("menu.exportHtml"), onClick: () => void exportHtml(exportParamsOf(active), active.title).catch((e) => console.error("HTML 내보내기 실패:", e)) },
+              { label: t("menu.exportPdf"), onClick: () => void exportToPdf(exportParamsOf(active)).catch((e) => console.error("PDF 내보내기 실패:", e)) },
+              { label: t("menu.copyHtml"), onClick: () => void copyHtml(exportParamsOf(active)).catch((e) => console.error("HTML 복사 실패:", e)) },
+            ]}
+          />
+        ) : (
           <ContextMenu
             x={exportMenu.x}
             y={exportMenu.y}
@@ -1431,37 +1420,36 @@ export function AppShell() {
                 },
               },
               // 표시·메모 담기 — 기본 꺼짐, 마지막 선택 기억(ADR 0003 9절). 누르면 켬/끔만 바꾼다.
-              // 표시 펜이 없는 판(웹)에는 담을 표시도 없다.
-              ...(features.annotations
-                ? [
-                    {
-                      label: `${useAppStore.getState().exportMarks ? "☑" : "☐"} ${t("annot.exportMarks")}`,
-                      onClick: () => useAppStore.getState().setExportMarks(!useAppStore.getState().exportMarks),
-                    },
-                    {
-                      label: `${useAppStore.getState().exportNotes ? "☑" : "☐"} ${t("annot.exportNotes")}`,
-                      onClick: () => useAppStore.getState().setExportNotes(!useAppStore.getState().exportNotes),
-                    },
-                    { label: t("annot.copySummary"), onClick: () => void copyReviewSummary(active.path, active.content) },
-                  ]
-                : []),
+              {
+                label: `${useAppStore.getState().exportMarks ? "☑" : "☐"} ${t("annot.exportMarks")}`,
+                onClick: () => useAppStore.getState().setExportMarks(!useAppStore.getState().exportMarks),
+              },
+              {
+                label: `${useAppStore.getState().exportNotes ? "☑" : "☐"} ${t("annot.exportNotes")}`,
+                onClick: () => useAppStore.getState().setExportNotes(!useAppStore.getState().exportNotes),
+              },
+              { label: t("annot.copySummary"), onClick: () => void copyReviewSummary(active.path, active.content) },
             ]}
           />
-        )}
+        ))}
 
-        {/* 사이드바 — 판(platform)마다 슬롯이 다르다. 웹 = 목차·최근·안내 자리·데스크톱 앱 링크(접으면 통째로 사라짐),
-            데스크톱 = [워크스페이스 | 최근] 탭. */}
-        {WEB ? (
-          !sidebarCollapsed && (
-            <WebSidebar
-              outline={active ? outline : []}
-              onSelectHeading={(id) => previewRef.current?.scrollToHeading(id)}
-              recent={recent}
-              activePath={activePath}
-              onOpenRecent={(p) => void onOpenRecent(p)}
-            />
-          )
+        {/* 사이드바 슬롯 — 웹 = 접기 버튼(타이틀바 왼쪽 위에 고정) + 목차·최근·안내 자리·앱 링크(접으면 통째로 사라짐),
+            데스크톱 = 아래 원래 [워크스페이스 | 최근] 사이드바. 웹 쪽이 삼항의 앞가지라 데스크톱 번들에는 흔적이 없다. */}
+        {__WEB__ && webSb ? (
+          <>
+            <WebSidebarToggle collapsed={webSb[0]} onToggle={webSb[1]} />
+            {!webSb[0] && (
+              <WebSidebar
+                outline={active ? outline : []}
+                onSelectHeading={(id) => previewRef.current?.scrollToHeading(id)}
+                recent={recent}
+                activePath={activePath}
+                onOpenRecent={(p) => void onOpenRecent(p)}
+              />
+            )}
+          </>
         ) : (
+        /* 사이드바 — [워크스페이스 | 최근] 탭 */
         <aside className="sidebar" aria-label="workspace">
           <div className="sidebar-tabs" role="tablist">
             <button
@@ -1700,9 +1688,14 @@ export function AppShell() {
               <Icon name="file" className="empty-ic" />
               <h2>{t("app.name")}</h2>
               <p>
-                {WEB
-                  ? t("web.emptyHint")
-                  : ko
+                {__WEB__ ? (
+                  // 웹: 좁은 폭에서는 사이드바(앱 링크)가 숨으므로 안내 문장 뒤에 링크 한 줄
+                  <>
+                    {t("web.emptyHint")}
+                    <br />
+                    <WebEmptyAppLink />
+                  </>
+                ) : ko
                     ? "파일이나 폴더를 열어 시작하세요."
                     : "Open a file or folder to get started."}
               </p>
@@ -1720,12 +1713,6 @@ export function AppShell() {
                   {t("menu.openFolder")}
                 </button>
               </div>
-              {/* 좁은 폭에서는 사이드바(앱 링크)가 숨으므로 빈 화면에도 한 줄 둔다. */}
-              {WEB && (
-                <a className="empty-app-link" href={STORE_URL} target="_blank" rel="noopener noreferrer">
-                  {t("web.getApp")}
-                </a>
-              )}
             </div>
           )}
         </div>

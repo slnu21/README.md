@@ -21,6 +21,9 @@ export default defineConfig(async ({ mode }) => {
   const web = mode === "web";
   return {
     plugins: [react()],
+    // 판 상수 — 빌드가 리터럴(true/false)로 바꿔 넣는다. 데스크톱 빌드에서는 `__WEB__ && …`·`__WEB__ ? 웹 : 데스크톱`
+    // 의 웹 쪽이 상수 접기로 사라지고, 웹 전용 모듈(WebSidebar·웹 문구·웹 CSS)은 import 째 빠진다 — 데스크톱 번들 불변.
+    define: { __WEB__: JSON.stringify(web) },
     resolve: {
       alias: { "@platform": platformEntry(web) },
     },

@@ -1,16 +1,16 @@
 // 플랫폼 구현 ① 데스크톱(Tauri) — Rust 커맨드 래퍼 + 다이얼로그. 실제 파일 I/O는 풀 접근 권한의
 // Rust(std::fs)에서 수행한다. 앱 코드는 이 파일을 직접 import 하지 않고 `@platform` 으로 닿는다
 // (vite.config.ts 가 데스크톱 빌드는 여기로, `--mode web` 은 platform/web/ 으로 잇는다).
-// **Tauri API 를 부르는 곳은 이 파일 하나뿐이다** — 표시 펜·캔버스 저장소도 여기 함수를 쓴다.
+// **Tauri 패키지를 import 하는 곳은 이 파일 하나뿐이다** — 표시 펜·캔버스 저장소(lib/annot/api.ts·lib/canvas/cards.ts)는
+// 여기서 다시 내보내는 `invoke` 를 쓴다(그쪽 코드는 그대로라 데스크톱 번들이 바뀌지 않는다 · 웹은 거절하는 대역).
 import { invoke } from "@tauri-apps/api/core";
+export { invoke };
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir, openUrl as openerOpenUrl } from "@tauri-apps/plugin-opener";
 import type { ThemeBundle } from "../themes/custom";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { Annotation, AnnotationPatch, AnnotationSet, NewAnnotation, SnapshotText } from "../lib/annot/api";
-import type { CardInfo } from "../lib/canvas/cards";
 import type {
   AgentInfo,
   DirEntryNode,
@@ -43,9 +43,6 @@ export const features: PlatformFeatures = {
   windowControls: true,
   revealInExplorer: true,
 };
-
-/** Tauri 안에서 도는가(헤드리스 프로브·데모는 같은 번들을 Tauri 밖에서 띄운다 → 메모리 대역). */
-export const isNative = (): boolean => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 /** 자동저장을 조용히 해도 되는 문서인가. 데스크톱은 실경로라 언제나 그렇다(웹은 파일 핸들이 있을 때만). */
 export const canAutosave = (_path: string): boolean => true;
@@ -270,17 +267,3 @@ export const openExternalUrl = (url: string): Promise<void> => openerOpenUrl(url
  *  두기 위해서다(사유는 `commands/shell_open.rs` 머리말). 실패 코드: "ENOENT" | "EUNSAFE". */
 export const openWithDefault = (path: string): Promise<void> =>
   invoke<void>("open_with_default", { path });
-
-// ── 표시 펜 저장소(commands/annot.rs) — lib/annot/api.ts 가 Tauri 안일 때 쓴다 ──
-export const annotAdd = (annotation: NewAnnotation): Promise<{ annotation: Annotation; snapshot: SnapshotText }> =>
-  invoke("annot_add", { annotation });
-export const annotList = (path: string): Promise<AnnotationSet> => invoke("annot_list", { path });
-export const annotUpdate = (id: string, patch: AnnotationPatch): Promise<Annotation> =>
-  invoke("annot_update", { id, patch });
-export const annotDelete = (id: string): Promise<void> => invoke("annot_delete", { id });
-
-// ── 캔버스 카드(commands/canvas.rs) — lib/canvas/cards.ts 가 Tauri 안일 때 쓴다 ──
-export const canvasCards = (items: { file: string; candidates: string[] }[]): Promise<CardInfo[]> =>
-  invoke<CardInfo[]>("canvas_cards", { items });
-export const canvasVaultRoot = (path: string): Promise<string | null> =>
-  invoke<string | null>("canvas_vault_root", { path });

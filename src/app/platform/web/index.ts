@@ -8,8 +8,6 @@
 //   ws_*·history_*·inbox_*·watch·agent·search·annot·canvas → 없음(UI 가 features 를 보고 숨기거나 "데스크톱 앱에서" 안내)
 import type { ThemeBundle } from "../../themes/custom";
 import { seedEntries } from "../../themes/seeds";
-import type { Annotation, AnnotationPatch, AnnotationSet, NewAnnotation, SnapshotText } from "../../lib/annot/api";
-import type { CardInfo } from "../../lib/canvas/cards";
 import type {
   AgentInfo,
   DirEntryNode,
@@ -29,6 +27,8 @@ import { WebFiles, WEB_READABLE_RE, type WebEntry } from "./files";
 import { downloadText, hasFsAccess, pickOpen, pickSave, suggestedNameOf } from "./pick";
 import { idbRecentStore, sanitizeEntry, touchRecent, type RecentEntry } from "./recent";
 import { browserStorage, createSettings } from "./settings";
+// 웹 전용 문구(`web.*`)·스타일 — 이 모듈이 실리는 빌드(웹)에서만 등록된다.
+import "./ui";
 import { createDropHub } from "./drop";
 
 export * from "../types";
@@ -243,10 +243,8 @@ export const openExternalUrl = (url: string): Promise<void> => {
 };
 export const openWithDefault = (_path: string): Promise<void> => desktopOnly("open with default app");
 
-// ── 표시 펜·캔버스 — 데스크톱(annot/api.ts·canvas/cards.ts 는 isNative()=false 로 메모리 대역을 쓴다) ──
-export const annotAdd = (_a: NewAnnotation): Promise<{ annotation: Annotation; snapshot: SnapshotText }> => desktopOnly("annotations");
-export const annotList = (_path: string): Promise<AnnotationSet> => desktopOnly("annotations");
-export const annotUpdate = (_id: string, _patch: AnnotationPatch): Promise<Annotation> => desktopOnly("annotations");
-export const annotDelete = (_id: string): Promise<void> => desktopOnly("annotations");
-export const canvasCards = (_items: { file: string; candidates: string[] }[]): Promise<CardInfo[]> => desktopOnly("canvas");
-export const canvasVaultRoot = (_path: string): Promise<string | null> => Promise.resolve(null);
+// ── 표시 펜·캔버스 저장소의 Tauri 호출(lib/annot/api.ts·lib/canvas/cards.ts 는 `@platform` 의 invoke 를 쓴다) ──
+// 웹에는 백엔드가 없다. 그 두 모듈은 Tauri 밖이면 invoke 를 부르지 않고 메모리 대역을 쓰므로, 여기까지 오면 경로가 샌 것이다.
+export function invoke<T>(cmd: string, _args?: unknown): Promise<T> {
+  return desktopOnly(`command ${cmd}`);
+}
