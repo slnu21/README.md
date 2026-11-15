@@ -3,7 +3,7 @@
 // 검색/치환 모두 프런트 JS 정규식으로 처리(미리보기와 실제 적용의 의미 일치). 대상=워크스페이스 문서 파일.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { readFile, writeFile } from "../lib/tauri";
+import { readFile, writeFile } from "@platform";
 import { useAppStore } from "../store";
 import { ConfirmDialog, type ConfirmSpec } from "./ConfirmDialog";
 

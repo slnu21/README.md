@@ -13,6 +13,9 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    /* 플랫폼 구현 — 타입은 데스크톱 쪽으로 본다(웹 구현은 platform/conformance.ts 가 같은 모양인지 잰다).
+       번들러 쪽 선택은 vite.config.ts 의 alias. */
+    "paths": { "@platform": ["./app/platform/tauri.ts"] },
 
     /* Linting */
     "strict": true,

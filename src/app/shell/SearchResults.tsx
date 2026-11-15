@@ -2,7 +2,7 @@
 // Rust snippet()이 매치를 센티넬 문자(STX=char(2), ETX=char(3))로 감싸 반환 →
 // 여기서 텍스트로 분해해 <mark>로 강조(HTML 주입이 아님).
 import { useTranslation } from "react-i18next";
-import type { SearchHit } from "../lib/tauri";
+import type { SearchHit } from "@platform";
 
 const MARK_START = String.fromCharCode(2);
 const MARK_END = String.fromCharCode(3);

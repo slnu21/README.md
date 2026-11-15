@@ -1,19 +1,57 @@
-// Rust 커맨드 래퍼 + 다이얼로그. 실제 파일 I/O는 풀 접근 권한의 Rust(std::fs)에서 수행한다.
+// 플랫폼 구현 ① 데스크톱(Tauri) — Rust 커맨드 래퍼 + 다이얼로그. 실제 파일 I/O는 풀 접근 권한의
+// Rust(std::fs)에서 수행한다. 앱 코드는 이 파일을 직접 import 하지 않고 `@platform` 으로 닿는다
+// (vite.config.ts 가 데스크톱 빌드는 여기로, `--mode web` 은 platform/web/ 으로 잇는다).
+// **Tauri API 를 부르는 곳은 이 파일 하나뿐이다** — 표시 펜·캔버스 저장소도 여기 함수를 쓴다.
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir, openUrl as openerOpenUrl } from "@tauri-apps/plugin-opener";
 import type { ThemeBundle } from "../themes/custom";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import type { Annotation, AnnotationPatch, AnnotationSet, NewAnnotation, SnapshotText } from "../lib/annot/api";
+import type { CardInfo } from "../lib/canvas/cards";
+import type {
+  AgentInfo,
+  DirEntryNode,
+  DragDropPhase,
+  FileFilter,
+  HistoryEntry,
+  IndexDone,
+  InboxSnapshot,
+  PendingFile,
+  PlatformFeatures,
+  SearchHit,
+  UnlistenFn,
+  WorkspaceNode,
+  WorkspaceSnapshot,
+} from "./types";
 
-/** 워크스페이스 트리 노드(Rust `read_dir_tree` 반환, camelCase). */
-export interface DirEntryNode {
-  name: string;
-  path: string;
-  isDir: boolean;
-  children: DirEntryNode[];
-}
+export * from "./types";
+
+/** 데스크톱은 전부 있다. */
+export const features: PlatformFeatures = {
+  edition: "desktop",
+  workspace: true,
+  search: true,
+  history: true,
+  inbox: true,
+  agentBridge: true,
+  annotations: true,
+  canvas: true,
+  userThemes: true,
+  windowControls: true,
+  revealInExplorer: true,
+};
+
+/** Tauri 안에서 도는가(헤드리스 프로브·데모는 같은 번들을 Tauri 밖에서 띄운다 → 메모리 대역). */
+export const isNative = (): boolean => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+/** 자동저장을 조용히 해도 되는 문서인가. 데스크톱은 실경로라 언제나 그렇다(웹은 파일 핸들이 있을 때만). */
+export const canAutosave = (_path: string): boolean => true;
+
+/** 미리보기 iframe 문서에도 파일 드롭을 받게 한다. 데스크톱은 OS 드롭을 Tauri 가 창 단위로 받으므로 할 일이 없다. */
+export const attachFrameDrop = (_win: Window): UnlistenFn => () => {};
 
 /** 파일 내용을 읽어 줄바꿈을 LF로 정규화. CodeMirror 문서 표현(LF)과 일치시켜
  *  열자마자 dirty로 표시되던 CRLF↔LF 불일치를 제거(에디터가 편집 시 이미 LF로 정규화). */
@@ -77,7 +115,6 @@ export function pathIsDir(path: string): Promise<boolean> {
 }
 
 /** OS 파일 드롭 이벤트 구독(기능 1a). phase: 진입/이동/드롭/이탈. drop 시 실제 경로 제공. */
-export type DragDropPhase = "enter" | "over" | "drop" | "leave";
 export function onFileDrop(
   cb: (state: { phase: DragDropPhase; paths: string[] }) => void,
 ): Promise<UnlistenFn> {
@@ -92,7 +129,7 @@ export function onFileDrop(
 
 /** 파일 열기 다이얼로그 → 선택 경로(취소 시 null). */
 export async function pickFile(
-  filters: { name: string; extensions: string[] }[] = [
+  filters: FileFilter[] = [
     { name: "Markdown", extensions: ["md", "markdown", "mdx", "txt"] },
   ],
 ): Promise<string | null> {
@@ -109,7 +146,7 @@ export async function pickFolder(): Promise<string | null> {
 /** 저장 다이얼로그(내보내기) → 선택 경로(취소 시 null). filters=[{name, extensions}]. */
 export async function saveFile(
   defaultPath: string,
-  filters: { name: string; extensions: string[] }[],
+  filters: FileFilter[],
 ): Promise<string | null> {
   const res = await save({ defaultPath, filters });
   return typeof res === "string" ? res : null;
@@ -132,20 +169,6 @@ export function onFsStructural(cb: (paths: string[]) => void): Promise<UnlistenF
 }
 
 // ── 워크스페이스(SQLite) ──
-export interface WorkspaceNode {
-  id: string;
-  parentId: string | null;
-  kind: "virtual_folder" | "file_ref" | "imported_folder";
-  name: string;
-  realPath: string | null;
-  sortOrder: number;
-}
-export interface WorkspaceSnapshot {
-  nodes: WorkspaceNode[];
-  favorites: string[];
-  recent: string[];
-}
-
 export const wsLoad = (): Promise<WorkspaceSnapshot> => invoke("ws_load");
 export const wsCreateFolder = (id: string, parentId: string | null, name: string): Promise<WorkspaceNode> =>
   invoke("ws_create_folder", { id, parentId, name });
@@ -169,23 +192,12 @@ export const settingsSet = (key: string, value: string): Promise<void> =>
   invoke("settings_set", { key, value });
 
 // ── 전역 검색(FTS5) ──
-export interface SearchHit {
-  realPath: string;
-  name: string;
-  snippet: string;
-}
 export const searchQuery = (query: string, limit?: number, pathPrefix?: string): Promise<SearchHit[]> =>
   invoke("search_query", { query, limit: limit ?? null, pathPrefix: pathPrefix ?? null });
 export const searchIndexFolder = (path: string): Promise<void> => invoke("search_index_folder", { path });
 export const searchReindexPath = (path: string): Promise<void> => invoke("search_reindex_path", { path });
 export const searchRemovePath = (path: string): Promise<void> => invoke("search_remove_path", { path });
 
-/** 폴더 인덱싱 완료 이벤트. count=새로 인덱싱한 수, removed=사라진 파일을 인덱스에서 정리한 수. */
-export interface IndexDone {
-  root: string;
-  count: number;
-  removed: number;
-}
 export const onIndexDone = (cb: (p: IndexDone) => void): Promise<UnlistenFn> =>
   listen<IndexDone>("index-done", (e) => cb(e.payload));
 /** 감시로 인한 인덱스 증분 갱신 이벤트(검색 패널 열려있으면 재질의). */
@@ -204,8 +216,6 @@ export const onWindowCloseRequested = (
 export const winDestroy = (): Promise<void> => getCurrentWindow().destroy();
 
 // ── 파일 연결(.md) 실행 인자 ──
-/** 열어야 할 파일과, 있으면 보여 줄 줄(1-based — 에이전트 브리지 `open_in_app(line)` 이 `--line=N` 으로 붙인다). */
-export type PendingFile = { path: string; line: number | null };
 /** 콜드 스타트 시 .md 연결/명령행으로 넘어온 대기 파일(없으면 null). 부팅 시 1회 호출. */
 export const takePendingOpen = (): Promise<PendingFile | null> => invoke<PendingFile | null>("take_pending_open");
 /** 웜 스타트에서 열린 파일의 줄 지정 — `open-file`/`open-file-beside` 바로 뒤에 따로 온다. */
@@ -221,7 +231,6 @@ export const onOpenFileBeside = (cb: (path: string) => void): Promise<UnlistenFn
   listen<string>("open-file-beside", (e) => cb(e.payload));
 
 // ── 문서 기록(스냅샷) ──
-export type HistoryEntry = { id: number; mtime: number; takenAt: number; bytes: number };
 /** 이 문서의 이전 판 목록(최신 순). 내용은 안 실려 온다. */
 export const historyList = (path: string): Promise<HistoryEntry[]> =>
   invoke<HistoryEntry[]>("history_list", { path });
@@ -231,8 +240,6 @@ export const historyGet = (id: number): Promise<string> => invoke<string>("histo
 export const historyRestore = (id: number): Promise<string> => invoke<string>("history_restore", { id });
 
 // ── 받은 문서함 ──
-export type InboxItem = { realPath: string; name: string; mtime: number; isNew: boolean };
-export type InboxSnapshot = { items: InboxItem[]; total: number };
 /** 내가 본 뒤로 바뀐 문서 목록(최신 순, 워크스페이스 안쪽만). */
 export const inboxList = (): Promise<InboxSnapshot> => invoke<InboxSnapshot>("inbox_list");
 /** 문서 하나를 본 것으로. 문서를 열 때 부른다. */
@@ -241,12 +248,6 @@ export const inboxMarkSeen = (path: string): Promise<void> => invoke("inbox_mark
 export const inboxMarkAllSeen = (): Promise<void> => invoke("inbox_mark_all_seen");
 
 // ── 에이전트 브리지(MCP) ──
-export type AgentInfo = {
-  exePath: string;
-  /** 별칭이 실제로 깔렸으면 그 경로. Store 설치본이 아니거나 사용자가 별칭을 꺼 두면 null. */
-  aliasPath: string | null;
-  aliasName: string;
-};
 /** 설정 [에이전트 연결] 패널이 쓰는 정보. */
 export const agentInfo = (): Promise<AgentInfo> => invoke<AgentInfo>("agent_info");
 
@@ -269,3 +270,17 @@ export const openExternalUrl = (url: string): Promise<void> => openerOpenUrl(url
  *  두기 위해서다(사유는 `commands/shell_open.rs` 머리말). 실패 코드: "ENOENT" | "EUNSAFE". */
 export const openWithDefault = (path: string): Promise<void> =>
   invoke<void>("open_with_default", { path });
+
+// ── 표시 펜 저장소(commands/annot.rs) — lib/annot/api.ts 가 Tauri 안일 때 쓴다 ──
+export const annotAdd = (annotation: NewAnnotation): Promise<{ annotation: Annotation; snapshot: SnapshotText }> =>
+  invoke("annot_add", { annotation });
+export const annotList = (path: string): Promise<AnnotationSet> => invoke("annot_list", { path });
+export const annotUpdate = (id: string, patch: AnnotationPatch): Promise<Annotation> =>
+  invoke("annot_update", { id, patch });
+export const annotDelete = (id: string): Promise<void> => invoke("annot_delete", { id });
+
+// ── 캔버스 카드(commands/canvas.rs) — lib/canvas/cards.ts 가 Tauri 안일 때 쓴다 ──
+export const canvasCards = (items: { file: string; candidates: string[] }[]): Promise<CardInfo[]> =>
+  invoke<CardInfo[]>("canvas_cards", { items });
+export const canvasVaultRoot = (path: string): Promise<string | null> =>
+  invoke<string | null>("canvas_vault_root", { path });

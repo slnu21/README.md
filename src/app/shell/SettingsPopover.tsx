@@ -11,6 +11,7 @@ import { ANNOT_MODES } from "../lib/annot/mode";
 import { readFonts, monoFonts, uiFonts } from "../lib/fonts";
 import { Icon } from "./Icon";
 import { AgentBridgePanel } from "./AgentBridgePanel";
+import { features, STORE_URL } from "@platform";
 
 export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) {
   const { t } = useTranslation();
@@ -186,6 +187,8 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
             </div>
           </div>
 
+          {features.annotations && (
+          <>
           <div className="set-row">
             <span>{t("annot.mode")}</span>
             <div className="seg width" role="group" aria-label={t("annot.mode")}>
@@ -207,6 +210,8 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
               ))}
             </div>
           </div>
+          </>
+          )}
 
           <div className="set-row">
             <span>{t("settings.diagramWidth")}</span>
@@ -260,7 +265,17 @@ export function SettingsPopover({ onOpenThemes }: { onOpenThemes: () => void }) 
             {t("settings.themes")}
           </button>
 
-          <AgentBridgePanel />
+          {features.agentBridge ? (
+            <AgentBridgePanel />
+          ) : (
+            // 웹: 데스크톱에만 있는 설정 자리 — 무엇이 어디 있는지 한 줄로.
+            <p className="set-desktop-note">
+              {t("web.desktopFeatures")}{" "}
+              <a href={STORE_URL} target="_blank" rel="noopener noreferrer">
+                {t("web.openStore")}
+              </a>
+            </p>
+          )}
         </div>
       )}
     </div>

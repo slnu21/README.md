@@ -2,7 +2,7 @@
 // 기록이 쌓이는 규칙과 상한은 Rust 쪽(commands/history.rs)에 있다. 여기는 보여 주고 고르는 일만.
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { historyList, historyGet, historyRestore, type HistoryEntry } from "../lib/tauri";
+import { historyList, historyGet, historyRestore, type HistoryEntry } from "@platform";
 import { useAppStore } from "../store";
 
 export function HistoryModal({ path, onClose, initialId }: { path: string; onClose: () => void; initialId?: number }) {

@@ -2,7 +2,7 @@
 // 즐겨찾기 그룹 최상단 고정, 툴바(새 폴더·폴더 가져오기), 우클릭 메뉴, 포인터 드래그 배치·재정렬.
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { readFile, pickFile, pickFolder, wsExport, saveFile, writeFile } from "../lib/tauri";
+import { readFile, pickFile, pickFolder, wsExport, saveFile, writeFile } from "@platform";
 import { isMarkdown, isReadable } from "../lib/fileTypes";
 import { useAppStore, FAVORITES_KEY, type TreeNode, type TreeKind } from "../store";
 import { Icon } from "./Icon";

@@ -7,7 +7,7 @@
 // 무엇이 담기는지·언제 비는지의 규칙은 Rust 쪽(commands/inbox.rs). 여기는 보여 주고 여는 일만.
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { inboxMarkAllSeen, readFile } from "../lib/tauri";
+import { inboxMarkAllSeen, readFile } from "@platform";
 import { useAppStore } from "../store";
 import { Icon } from "./Icon";
 

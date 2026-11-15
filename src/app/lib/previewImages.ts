@@ -1,7 +1,7 @@
 // 미리보기/프레젠테이션/내보내기 공용: 로컬 이미지 src를 data URI로 인라인.
 // asset 프로토콜(scope·CSP·경로 정규화) 문제를 피해 Rust(read_file_base64)로 바이트를 직접 읽는다.
 // 문서 폴더 기준 상대경로 해석. 원격/데이터/blob URL은 그대로. 절대경로 해석은 abs 경로를 캐시.
-import { readFileBase64 } from "./tauri";
+import { readFileBase64 } from "@platform";
 import { dirOf, resolvePath } from "./paths";
 
 // dirOf 는 lib/paths 로 옮겼다(문서 링크 해석과 공유). 기존 import 경로를 깨지 않도록 재수출.

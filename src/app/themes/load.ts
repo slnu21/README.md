@@ -8,12 +8,13 @@
 import i18n from "../lib/i18n";
 import {
   createFile,
+  features,
   pathExists,
   readThemeBundle,
   revealInExplorer,
   themeDirPath,
   themeFilePath,
-} from "../lib/tauri";
+} from "@platform";
 import { useAppStore } from "../store";
 import { applyTheme } from "./apply";
 import { parseThemeBundle, type ThemeBundle, type ThemeWarning } from "./custom";
@@ -124,6 +125,8 @@ function seedThemes(): Record<string, Theme> {
 export async function seedThemeFiles(): Promise<void> {
   const st = useAppStore.getState();
   if (st.themeSeedVersion >= SEED_VERSION) return;
+  // 사용자 테마 폴더가 없는 판(웹)은 기본 팩을 번들에서 바로 읽는다(platform readThemeBundle) — 넣을 곳이 없다.
+  if (!features.userThemes) return;
   try {
     const dir = await themeDirPath();
     for (const f of SEED_FILES) {

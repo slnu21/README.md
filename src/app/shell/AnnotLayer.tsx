@@ -9,7 +9,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
 import { themes, defaultThemeId } from "../themes";
-import { settingsGetAll, settingsSet } from "../lib/tauri";
+import { settingsGetAll, settingsSet } from "@platform";
 import { annotBackend, newAnnotId, type AnnotationPatch, type AnnotationSet } from "../lib/annot/api";
 import { DocIndex } from "../lib/annot/dom";
 import { drawMark } from "../lib/annot/draw";

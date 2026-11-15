@@ -27,7 +27,7 @@ import {
   type DirEntryNode,
   type InboxItem,
   type WorkspaceNode,
-} from "../lib/tauri";
+} from "@platform";
 
 /** 렌더 트리 노드. 그래프 노드(uuid)와 디스크 파생 노드(path)를 통합. */
 export type TreeKind =
@@ -208,6 +208,8 @@ interface AppState {
   outlinePinned: boolean;
   outlineOpacity: number;
   activeSidebarTab: "workspace" | "recent"; // 사이드바 상단 탭
+  /** 사이드바 접힘 — 웹 에디션 사이드바(목차·최근·안내 자리)를 접으면 그 자리째 사라진다. 데스크톱은 아직 안 쓴다. */
+  sidebarCollapsed: boolean;
   autosave: boolean; // 자동저장(옵트인) — 편집 후 유휴 시 디스크 저장
 
   // 리딩(집중) 모드 — 편집기를 숨기고 미리보기만 본다. 좌우 분할이면 두 문서를 나란히.
@@ -262,6 +264,7 @@ interface AppState {
   setOutlinePinned: (on: boolean) => void;
   setOutlineOpacity: (v: number) => void;
   setSidebarTab: (tab: "workspace" | "recent") => void;
+  setSidebarCollapsed: (on: boolean) => void;
   /** 받은 문서함 — 내가 본 뒤로 바뀐 문서. 비영속(부팅·변경 이벤트마다 다시 읽는다). */
   inbox: InboxItem[];
   inboxTotal: number;
@@ -348,6 +351,7 @@ export const useAppStore = create<AppState>()(
       outlinePinned: false,
       outlineOpacity: 0.92,
       activeSidebarTab: "workspace",
+      sidebarCollapsed: false,
       inbox: [],
       inboxTotal: 0,
       autosave: false,
@@ -395,6 +399,7 @@ export const useAppStore = create<AppState>()(
       setOutlinePinned: (on) => set({ outlinePinned: on }),
       setOutlineOpacity: (v) => set({ outlineOpacity: clamp(v, 0.3, 1) }),
       setSidebarTab: (tab) => set({ activeSidebarTab: tab }),
+      setSidebarCollapsed: (on) => set({ sidebarCollapsed: on }),
       setInbox: (items, total) => set({ inbox: items, inboxTotal: total }),
       setAutosave: (on) => set({ autosave: on }),
 
@@ -701,6 +706,7 @@ export const useAppStore = create<AppState>()(
         outlinePinned: s.outlinePinned,
         outlineOpacity: s.outlineOpacity,
         activeSidebarTab: s.activeSidebarTab,
+        sidebarCollapsed: s.sidebarCollapsed,
         autosave: s.autosave,
         readerMode: s.readerMode,
         readerSplit: s.readerSplit,

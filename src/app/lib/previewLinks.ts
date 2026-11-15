@@ -7,7 +7,7 @@
 // **전체 내비게이션**이 되고, srcdoc 내용이 사라져 미리보기가 빈 화면이 된다.
 import { classifyLink, howFromModifiers, type OpenHow } from "./links";
 import { dirOf, resolvePath } from "./paths";
-import { openExternalUrl } from "./tauri";
+import { openExternalUrl } from "@platform";
 
 /** 링크 종류별로 호스트가 할 일. 미리보기와 프레젠테이션이 각자 채운다. */
 export interface LinkSink {

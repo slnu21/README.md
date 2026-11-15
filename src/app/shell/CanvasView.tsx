@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
 import { sanitizeHtml } from "../lib/sanitize";
 import { loadMarkdown } from "../lib/markdownLazy";
-import { openExternalUrl } from "../lib/tauri";
+import { openExternalUrl } from "@platform";
 import {
   colorCss,
   drawable,
