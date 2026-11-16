@@ -46,6 +46,7 @@ function webSite(base: string): Plugin {
         out["robots.txt"] = site.robotsTxt(siteUrl, base);
         out["lang-redirect.js"] = site.langRedirectJs(base);
         for (const lang of LANGS) out[`manifest-${lang}.webmanifest`] = site.manifestJson(lang, base);
+        Object.assign(out, site.SITE_VERIFICATION_FILES);
         out[site.ICONS.svg] = ICON_SVG;
         out[site.ICONS.png32] = icon("32x32.png");
         out[site.ICONS.png256] = icon("128x128@2x.png");
