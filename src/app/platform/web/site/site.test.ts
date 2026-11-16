@@ -172,6 +172,11 @@ describe("배포 파일", () => {
     expect(h).toMatch(/^\/ko\/\*\n {2}Cache-Control: no-cache$/m);
     // 자산 경로가 no-cache 규칙에 같이 걸리면 Pages 가 값을 쉼표로 합친다 — 겹치는 패턴이 없어야 한다
     expect(h).not.toMatch(/^\/\*\n {2}Cache-Control/m);
+    // Pages 매칭: `*` 는 빈 문자열도 받는다(`/ko/*` ⊃ `/ko/`) → 실제 경로마다 Cache-Control 규칙은 정확히 하나
+    const rules = h.split("\n\n").map((b) => b.trim().split("\n").filter((l) => !l.startsWith("#"))).filter((r) => r.length > 0);
+    const hits = (path: string) =>
+      rules.filter(([p, ...lines]) => (p.endsWith("*") ? path.startsWith(p.slice(0, -1)) : path === p) && lines.some((l) => l.includes("Cache-Control"))).length;
+    for (const path of ["/", "/ko/", "/en/mermaid-preview/", "/sw.js", "/assets/a.js"]) expect(hits(path), path).toBe(1);
   });
 
   it("CSP — 인라인 스크립트 금지, 원격은 이미지·연결(https)만", () => {
