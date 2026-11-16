@@ -440,4 +440,20 @@
   .app.edition-web .statusbar {
     overflow: hidden;
   }
+  /* 칸이 좁아 글자가 세로로 접히던 것(390px 실측) — 줄바꿈 금지 + 덜 중요한 뒤쪽 셋(Markdown·테마·UTF-8) 숨김.
+     남는 것: 저장 상태 · 줄/열 · 단어/읽는 시간. (마크업은 데스크톱과 공유 — CSS 로만 고른다) */
+  .app.edition-web .statusbar .st {
+    white-space: nowrap;
+    flex: none;
+  }
+  .app.edition-web .statusbar .st:nth-last-child(-n + 3):not(:first-child) {
+    display: none;
+  }
+}
+/* 좁은 화면에서 문서가 열려 있으면 "아래에 설명 ↓" 힌트를 감춘다 — 상태바 위로 올라간 자리가 미리보기 글·그림을 덮었다.
+   (빈 화면에서는 그대로, 설명은 스크롤하면 바로 아래.) 문서가 열렸는지는 상태바의 저장 표시 점으로 안다. */
+@media (max-width: 900px) {
+  body:has(.app.edition-web .statusbar .dot-ok, .app.edition-web .statusbar .dot-dirty) .wi-hint {
+    display: none;
+  }
 }

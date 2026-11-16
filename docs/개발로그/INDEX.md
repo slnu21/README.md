@@ -4,6 +4,7 @@
 이 폴더는 2026-09-18 부터다 — 그 전 단위들의 기록은 `CLAUDE.md` "현재 상태"와 [CHANGELOG](../CHANGELOG.md)에 있다.
 
 ## 2026-11-16
+- [(03) 웹 폰 폭 — 상태바 줄바꿈 금지·뒤쪽 셋 숨김(≤480), 문서가 열리면 설명 힌트 숨김(≤900, :has). web.css 만, 데스크톱 무관 · probe:web 67/67](2026-11-16-03-web-mobile-status.md)
 - [(02) 네이버 서치어드바이저 소유 확인 파일(HTML 파일 방식) — 사이트 루트에 배포, SW 미리 받기 제외](2026-11-16-02-naver-verify.md)
 - [(01) 웹 _headers 중복 제거 — /ko/*가 /ko/도 매칭("no-cache, no-cache"), 경로당 Cache-Control 규칙 1개 테스트 · 웹 에디션 운영 중 반영(TASKS·CLAUDE.md). vitest 964 · probe:web 67/67](2026-11-16-01-headers-dedupe.md)
 
