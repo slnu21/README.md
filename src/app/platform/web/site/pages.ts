@@ -398,9 +398,17 @@ export function versionOf(parts: string[]): string {
 }
 
 /** 미리 받을 경로 — 출력 파일 목록에서 배포 설정·검색엔진용 파일을 빼고, 페이지는 디렉터리 주소로. */
+/**
+ * 검색엔진 소유 확인 파일(네이버 서치어드바이저 HTML 파일 방식) — 웹 빌드만 낸다.
+ * `src/public` 에 두면 데스크톱 산출물에도 복사되어 바이트 동일 원칙이 깨진다. 지우면 소유 확인이 풀린다.
+ */
+export const SITE_VERIFICATION_FILES: Record<string, string> = {
+  "naver18aba98bb88e395945b379e3ea50f0b9.html": "naver-site-verification: naver18aba98bb88e395945b379e3ea50f0b9.html",
+};
+
 export function precacheList(files: string[], base = "/"): string[] {
   const b = normBase(base);
-  const skip = /^(_headers|_redirects|sitemap\.xml|robots\.txt|sw\.js|vite\.svg|tauri\.svg)$/;
+  const skip = /^(_headers|_redirects|sitemap\.xml|robots\.txt|sw\.js|vite\.svg|tauri\.svg|naver[0-9a-f]+\.html)$/;
   const out = new Set<string>();
   for (const f of files) {
     const n = f.replace(/\\/g, "/").replace(/^\/+/, "");

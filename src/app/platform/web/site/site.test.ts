@@ -9,6 +9,7 @@ import {
   langRedirectJs,
   manifestJson,
   precacheList,
+  SITE_VERIFICATION_FILES,
   redirectsFile,
   render404,
   renderPage,
@@ -210,6 +211,16 @@ describe("배포 파일", () => {
   it("미리 받기 목록 — 페이지는 디렉터리 주소, 배포 설정 파일 제외", () => {
     const list = precacheList(["index.html", "en/index.html", "ko/mermaid-preview/index.html", "assets/a-1.js", "_headers", "sw.js", "sitemap.xml", "404.html", "vite.svg"]);
     expect(list).toEqual(["/", "/404.html", "/assets/a-1.js", "/en/", "/ko/mermaid-preview/"]);
+  });
+
+  it("소유 확인 파일 — 네이버 형식(파일명 = 본문의 값) · 미리 받기에서 제외", () => {
+    const names = Object.keys(SITE_VERIFICATION_FILES);
+    expect(names.length).toBeGreaterThan(0);
+    for (const n of names) {
+      expect(n).toMatch(/^naver[0-9a-f]{32}\.html$/);
+      expect(SITE_VERIFICATION_FILES[n]).toBe(`naver-site-verification: ${n}`);
+    }
+    expect(precacheList(["index.html", ...names])).toEqual(["/"]);
   });
 
   it("서비스 워커 — 판 이름·목록이 박히고 문법이 맞다", () => {
