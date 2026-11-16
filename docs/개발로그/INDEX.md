@@ -3,6 +3,9 @@
 작업 단위 하나 = 커밋 하나 = 파일 하나. 파일명 `YYYY-MM-DD-NN-<slug>.md`. 그날의 것을 위에 쌓는다.
 이 폴더는 2026-09-18 부터다 — 그 전 단위들의 기록은 `CLAUDE.md` "현재 상태"와 [CHANGELOG](../CHANGELOG.md)에 있다.
 
+## 2026-11-16
+- [(01) 웹 _headers 중복 제거 — /ko/*가 /ko/도 매칭("no-cache, no-cache"), 경로당 Cache-Control 규칙 1개 테스트 · 웹 에디션 운영 중 반영(TASKS·CLAUDE.md). vitest 964 · probe:web 67/67](2026-11-16-01-headers-dedupe.md)
+
 ## 2026-11-15
 - [(04) 웹 에디션 W2 — 배포 설정(_headers CSP·sitemap·sw)·언어별 랜딩 8장(첫 화면 = 앱, 아래 = 설명)·언어 전환 보관 이동·?url=·공유 링크·PWA · 데스크톱 산출물 76/76 동일 · 머지 전 검토 대기](2026-11-15-04-web-w2.md)
 - [(03) 데스크톱 번들에서 웹 전용 코드 제외 — __WEB__ 상수 접기 · 웹 문구·CSS 분리 · 데스크톱 산출물 main 과 바이트 동일(73/73)](2026-11-15-03-web-isolation.md)
