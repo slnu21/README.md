@@ -28,10 +28,13 @@ export const absUrl = (siteUrl: string, path: string): string => `${trimSlash(si
 //   connect-src https: — ?url= 로 여는 원본이 사용자가 고른 임의 HTTPS(CORS 허용) 주소라서. 스크립트는 'self' 뿐이라
 //     이 통로로 코드를 들여올 수 없다.
 // 'unsafe-inline' 스타일은 데스크톱과 같은 이유(에디터·mermaid·KaTeX 가 인라인 스타일을 쓴다). 스크립트는 인라인 금지.
+// 바깥 스크립트는 Cloudflare Web Analytics 비콘 하나뿐(Pages 가 끼워 넣는 쿠키 없는 방문 통계, 2026-11-17 사용자 결정).
+// 비콘의 전송(cloudflareinsights.com)은 connect-src https: 에 이미 들어 있다.
+export const CF_ANALYTICS_SCRIPT = "https://static.cloudflareinsights.com";
 export function buildCsp(extraConnect: string[] = []): string {
   return [
     "default-src 'self'",
-    "script-src 'self'",
+    `script-src 'self' ${CF_ANALYTICS_SCRIPT}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",

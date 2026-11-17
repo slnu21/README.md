@@ -127,7 +127,7 @@ export const COPY: Record<Lang, LangCopy> = {
     privacyTitle: "Offline and private",
     privacy: [
       "Files are read and written by your browser. There is no upload and no account; settings and recent files stay in this browser's storage.",
-      "Install it from the address bar (Chrome, Edge) and it works offline, opening .md files from Explorer like a desktop app. The page sends no analytics.",
+      "Install it from the address bar (Chrome, Edge) and it works offline, opening .md files from Explorer like a desktop app. Your documents are never sent anywhere; visits are counted only with cookie-free Cloudflare Web Analytics.",
     ],
     desktopTitle: "Need folders, search and history?",
     desktop: [
@@ -216,7 +216,7 @@ export const COPY: Record<Lang, LangCopy> = {
     privacyTitle: "오프라인·개인정보",
     privacy: [
       "파일은 브라우저가 읽고 씁니다. 업로드도 계정도 없고, 설정과 최근 파일은 이 브라우저 저장소에만 남습니다.",
-      "주소창에서 앱으로 설치하면(Chrome·Edge) 오프라인에서도 동작하고, 탐색기에서 .md 파일을 데스크톱 앱처럼 엽니다. 이 페이지는 분석 정보를 보내지 않습니다.",
+      "주소창에서 앱으로 설치하면(Chrome·Edge) 오프라인에서도 동작하고, 탐색기에서 .md 파일을 데스크톱 앱처럼 엽니다. 문서 내용은 어디에도 보내지 않고, 방문 수만 쿠키 없는 Cloudflare Web Analytics 로 셉니다.",
     ],
     desktopTitle: "폴더·검색·기록이 필요하다면",
     desktop: [
