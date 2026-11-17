@@ -3,6 +3,10 @@
 작업 단위 하나 = 커밋 하나 = 파일 하나. 파일명 `YYYY-MM-DD-NN-<slug>.md`. 그날의 것을 위에 쌓는다.
 이 폴더는 2026-09-18 부터다 — 그 전 단위들의 기록은 `CLAUDE.md` "현재 상태"와 [CHANGELOG](../CHANGELOG.md)에 있다.
 
+## 2026-11-17
+
+- [(01) web-analytics — 웹 에디션 CSP 에 Cloudflare Web Analytics 비콘 허용 + 개인정보 문구](2026-11-17-01-web-analytics.md)
+
 ## 2026-11-16
 - [(03) 웹 폰 폭 — 상태바 줄바꿈 금지·뒤쪽 셋 숨김(≤480), 문서가 열리면 설명 힌트 숨김(≤900, :has). web.css 만, 데스크톱 무관 · probe:web 67/67](2026-11-16-03-web-mobile-status.md)
 - [(02) 네이버 서치어드바이저 소유 확인 파일(HTML 파일 방식) — 사이트 루트에 배포, SW 미리 받기 제외](2026-11-16-02-naver-verify.md)

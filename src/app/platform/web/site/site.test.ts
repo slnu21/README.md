@@ -180,9 +180,9 @@ describe("배포 파일", () => {
     for (const path of ["/", "/ko/", "/en/mermaid-preview/", "/sw.js", "/assets/a.js"]) expect(hits(path), path).toBe(1);
   });
 
-  it("CSP — 인라인 스크립트 금지, 원격은 이미지·연결(https)만", () => {
+  it("CSP — 인라인 스크립트 금지, 바깥 스크립트는 Cloudflare 분석 비콘만, 원격은 이미지·연결(https)만", () => {
     const c = buildCsp();
-    expect(c).toContain("script-src 'self';");
+    expect(c).toContain("script-src 'self' https://static.cloudflareinsights.com;");
     expect(c).not.toContain("unsafe-eval");
     expect(c).toContain("img-src 'self' data: blob: https:");
     expect(c).toContain("connect-src 'self' https:");
